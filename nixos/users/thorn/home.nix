@@ -98,7 +98,7 @@
           SilentTyping.enabled = true;
           USRGB.enabled = true;
           ValidUser.enabled = true;
-          YoutubeAdBlock.enabled = true;
+          YutubeAdBlock.enabled = true;
           ShowHiddenChannels.enabled = true;
           PlatformIndicators.enabled = true;
           Translate.enabled = true;
@@ -271,6 +271,7 @@
           bg_col = "rgb(30,30,30)";
           workspace_method = "center current";
           gesture_distance = 300;
+          skip_empty = true;
         };
       };
 
