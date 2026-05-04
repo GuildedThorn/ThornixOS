@@ -7,4 +7,4 @@ printf '%s\n' "$PRIMARY_USER" | sudo tee /etc/nixos/current-user.lock >/dev/null
 printf '%s\n' "$HOST" | sudo tee /etc/nixos/current-host.lock >/dev/null
 
 cd /etc/nixos/
-sudo nixos-rebuild switch --flake /etc/nixos --upgrade
+sudo nixos-rebuild switch --flake /etc/nixos/".#${HOST}" --upgrade
