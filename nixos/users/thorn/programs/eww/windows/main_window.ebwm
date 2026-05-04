@@ -1,0 +1,9 @@
+(box
+ :orientation "vertical"
+ :spacing 10
+ (include "widgets/button.ebwm"
+          :vars {:label "Say Hello"
+                 :action (lambda [] (notify-send "Hello!"))})
+ (include "widgets/button.ebwm"
+          :vars {:label "Say Bye"
+                 :action (lambda [] (notify-send "Bye!"))}))
