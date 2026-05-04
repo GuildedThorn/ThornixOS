@@ -69,7 +69,7 @@
           in
           lib.strings.trim (builtins.elemAt (builtins.split "\n" content) 0)
         else
-          throw "User lock file not found";
+          "thorn";
 
       hosts =
         if builtins.pathExists ./current-host.lock then

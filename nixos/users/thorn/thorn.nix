@@ -92,6 +92,7 @@
   services.comin = {
     enable = true;
     repositorySubdir = "./nixos";
+    desktop.enable = true;
     remotes = [
       {
         name = "origin";
