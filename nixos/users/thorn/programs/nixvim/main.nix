@@ -10,6 +10,7 @@
     alejandra
     stylua
     black
+    intelephense
   ];
 
   plugins = {
