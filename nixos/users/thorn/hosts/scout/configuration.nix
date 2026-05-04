@@ -7,6 +7,7 @@
 {
 
   imports = [
+    ./hardware-configuration.nix
     ./networking.nix
 
     "${inputs.self}/processor/intel.nix"
