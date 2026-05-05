@@ -36,6 +36,8 @@
 
     openrgb
 
+    ani-cli
+
     nwg-displays
     nwg-look
 
