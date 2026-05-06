@@ -86,7 +86,6 @@
     android-studio
     android-tools
 
-    easyeffects
     mixxx
     musescore
     hydrogen
