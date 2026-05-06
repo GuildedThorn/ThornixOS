@@ -212,7 +212,7 @@
 
     plugins = [
       #inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system}.hyprbars
-      inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system}.hyprexpo
+      #inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system}.hyprexpo
     ];
 
     settings = {
@@ -264,16 +264,18 @@
         smart_resizing = true;
       };
 
-      plugin = {
-        hyprexpo = {
-          columns = 3;
-          gap_size = 8;
-          bg_col = "rgb(30,30,30)";
-          workspace_method = "center current";
-          gesture_distance = 300;
-          skip_empty = true;
+      /*
+        plugin = {
+          hyprexpo = {
+            columns = 3;
+            gap_size = 8;
+            bg_col = "rgb(30,30,30)";
+            workspace_method = "center current";
+            gesture_distance = 300;
+            skip_empty = true;
+          };
         };
-      };
+      */
 
       #################################
       # Decoration
@@ -397,7 +399,7 @@
         "$mod, D, exec, rofi -show drun"
         "$mod, O, exec, rofi -modi 'obsidian:rofi-obsidian' -show obsidian"
 
-        "$mod, G, hyprexpo:expo, toggle"
+        #"$mod, G, hyprexpo:expo, toggle"
 
         "$mod SHIFT, F1, layoutmsg, setlayout monocle"
         "$mod SHIFT, F4, layoutmsg, setlayout scrolling"

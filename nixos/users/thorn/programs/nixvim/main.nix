@@ -19,6 +19,7 @@
     barbar.enable = true;
     lualine.enable = true;
     neo-tree.enable = true;
+    toggleterm.enable = true;
 
     # Notification Daemon
     fidget.enable = true;

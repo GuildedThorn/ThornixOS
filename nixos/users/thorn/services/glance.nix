@@ -55,6 +55,44 @@
             {
               size = "full";
               widgets = [
+                {
+                  type = "search";
+                  search-engine = "duckduckgo";
+                  new-tab = true;
+                  autofocus = true;
+                  bangs = [
+                    {
+                      title = "Youtube";
+                      shortcut = "!yt";
+                      url = "https://www.youtube.com/results?search_query={QUERY}";
+                    }
+                  ];
+                }
+              ];
+            }
+
+            {
+              size = "small";
+              widgets = [
+
+                {
+                  type = "reddit";
+                  subreddit = "selfhosted";
+                  show-thumbnails = true;
+                }
+
+              ];
+            }
+
+          ];
+        }
+
+        {
+          name = "Feeds";
+          columns = [
+            {
+              size = "full";
+              widgets = [
 
                 {
                   type = "rss";
@@ -71,19 +109,6 @@
                       title = "The Verge";
                     }
                   ];
-                }
-
-              ];
-            }
-
-            {
-              size = "small";
-              widgets = [
-
-                {
-                  type = "reddit";
-                  subreddit = "selfhosted";
-                  show-thumbnails = true;
                 }
 
               ];
@@ -117,7 +142,70 @@
 
               ];
             }
+          ];
+        }
 
+        {
+          name = "Gaming";
+          columns = [
+            {
+              size = "small";
+              widgets = [
+                {
+                  type = "twitch-top-games";
+                  limit = 20;
+                  collapse-after = 13;
+                  exclude = [
+                    "just-chatting"
+                    "pools-hot-tubs-and-beaches"
+                    "music"
+                    "art"
+                    "asmr"
+                  ];
+                }
+              ];
+            }
+            {
+              size = "full";
+              widgets = [
+                {
+                  type = "group";
+                  widgets = [
+                    {
+                      type = "reddit";
+                      show-thumbnails = true;
+                      subreddit = "pcgaming";
+                    }
+                    {
+                      type = "reddit";
+                      subreddit = "games";
+                    }
+                  ];
+                }
+                {
+                  type = "videos";
+                  style = "grid-cards";
+                  collapse-after-rows = 3;
+                  channels = [
+                    "UCNvzD7Z-g64bPXxGzaQaa4g" # gameranx
+                    "UCZ7AeeVbyslLM_8-nVy2B8Q" # Skill Up
+                    "UCHDxYLv8iovIbhrfl16CNyg" # GameLinked
+                    "UC9PBzalIcEQCsiIkq36PyUA" # Digi
+                  ];
+                }
+              ];
+            }
+            {
+              size = "small";
+              widgets = [
+                {
+                  type = "reddit";
+                  subreddit = "gamingnews";
+                  limit = 7;
+                  style = "vertical-cards";
+                }
+              ];
+            }
           ];
         }
 
@@ -128,7 +216,6 @@
             {
               size = "full";
               widgets = [
-
                 {
                   type = "monitor";
                   cache = "1m";
@@ -157,6 +244,14 @@
                     }
                   ];
 
+                }
+
+                {
+                  type = "repository";
+                  repository = "GuildedThorn/ThornixOS";
+                  pull-requests-limit = 5;
+                  issues-limit = 3;
+                  commits-limit = 3;
                 }
 
               ];

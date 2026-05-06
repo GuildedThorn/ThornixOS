@@ -6,6 +6,7 @@
 {
 
   imports = [
+    ./hardware-configuration.nix
     ./networking.nix
 
     "${inputs.self}/desktop/hyprland.nix"
@@ -80,7 +81,6 @@
     oversteer
     piper
 
-    lutris
     heroic
 
     osu-lazer-bin
