@@ -1,0 +1,6 @@
+nixos/hardware-configuration.nix
+nixos/flake.lock
+
+nixos/secrets/*
+
+/.idea/
