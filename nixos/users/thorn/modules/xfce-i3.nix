@@ -24,9 +24,9 @@ in
       playerctl
       brightnessctl
       rofi-obsidian
-      xfce.xfce4-clipman-plugin
-      xfce.xfce4-power-manager
-      xfce.xfce4-screenshooter
+      xfce4-clipman-plugin
+      xfce4-power-manager
+      xfce4-screenshooter
     ];
 
     home.file."Pictures/screenshots/.keep".text = "";
