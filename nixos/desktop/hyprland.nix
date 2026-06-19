@@ -63,6 +63,7 @@
     waypaper
     hyprsysteminfo
     swayosd
+    libnotify
     inputs.awww.packages.${pkgs.stdenv.hostPlatform.system}.awww
   ];
 }

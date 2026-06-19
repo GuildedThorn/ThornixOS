@@ -7,7 +7,7 @@
 {
   config = lib.mkMerge [
     {
-      home.stateVersion = "26.05";
+      home.stateVersion = "26.11";
       thorn.desktop.hyprland.enable = true;
       thorn.desktop.rice.enable = true;
       thorn.programs.vesktop.enable = true;
