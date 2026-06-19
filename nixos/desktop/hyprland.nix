@@ -21,6 +21,22 @@
     xwayland.enable = true;
   };
 
+  xdg.portal = {
+    enable = true;
+    xdgOpenUsePortal = true;
+
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    config = {
+      hyprland = {
+        default = [
+          "hyprland"
+          "gtk"
+        ];
+        "org.freedesktop.impl.portal.Secret" = [ "gnome-keyring" ];
+      };
+    };
+  };
+
   #################################
   # Login Manager (Disabled)
   #################################
@@ -46,5 +62,7 @@
     hyprsunset
     waypaper
     hyprsysteminfo
+    swayosd
+    inputs.awww.packages.${pkgs.stdenv.hostPlatform.system}.awww
   ];
 }

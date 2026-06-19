@@ -36,17 +36,12 @@
 
     openrgb
 
-    ani-cli
-
     nwg-displays
     nwg-look
 
     glance
 
-    wev
     brightnessctl
-
-    grisbi
 
     komikku
     jellyfin-desktop
@@ -89,10 +84,21 @@
     mixxx
     musescore
     hydrogen
+
+    gphoto2
   ];
 
-  boot.loader.systemd-boot.enable = true;
+  # -------------------------
+  # Bootloader (UEFI systems)
+  # -------------------------
+  boot.loader.systemd-boot.enable = false;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.initrd.systemd.enable = true;
+
+  boot.lanzaboote = {
+    enable = true;
+    pkiBundle = "/var/lib/sbctl";
+  };
 
   networking.networkmanager.enable = true;
 
@@ -106,12 +112,19 @@
     ];
   };
 
-  boot.kernelParams = [ "acpi_backlight=native" ];
+  boot.kernelParams = [
+    "acpi_backlight=native"
+    #"snd_intel_dspcfg.dsp_driver=3"
+    #"snd_intel_dspcfg.dsp_driver=1"
+    #"snd_hda_intel.dmic_detect=0"
+  ];
 
   services.hardware.openrgb = {
     enable = true;
     package = pkgs.openrgb-with-all-plugins;
   };
+
+  programs.gphoto2.enable = true;
 
   programs.npm.enable = true;
 
@@ -157,6 +170,7 @@
   programs.dconf.enable = true;
 
   hardware.gpgSmartcards.enable = true;
+  hardware.firmware = [ pkgs.sof-firmware ];
 
   services.ananicy.enable = true;
 

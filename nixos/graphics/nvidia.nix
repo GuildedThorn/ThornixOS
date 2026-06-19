@@ -1,9 +1,4 @@
-{
-  config,
-  lib,
-  ...
-}:
-
+{ config, lib, ... }:
 {
 
   hardware.graphics = {

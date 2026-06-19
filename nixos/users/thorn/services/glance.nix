@@ -36,6 +36,7 @@
                     {
                       symbol = "SPY";
                       name = "S&P 500";
+                      chart-link = "https://www.tradingview.com/chart/?symbol=AMEX%3AVOO";
                     }
                     {
                       symbol = "PTLO";
@@ -45,6 +46,7 @@
                     {
                       symbol = "NVDA";
                       name = "NVIDIA";
+                      chart-link = "https://www.tradingview.com/chart/?symbol=NVDA";
                     }
                   ];
                 }
@@ -65,6 +67,26 @@
                       title = "Youtube";
                       shortcut = "!yt";
                       url = "https://www.youtube.com/results?search_query={QUERY}";
+                    }
+                    {
+                      title = "Steam";
+                      shortcut = "!steam";
+                      url = "https://store.steampowered.com/search/?term={QUERY}";
+                    }
+                    {
+                      title = "Amazon";
+                      shortcut = "!amazon";
+                      url = "https://www.amazon.com/s?k={QUERY}";
+                    }
+                    {
+                      title = "Reddit";
+                      shortcut = "!rd";
+                      url = "https://www.reddit.com/search?q={QUERY}";
+                    }
+                    {
+                      title = "FlightAware";
+                      shortcut = "!fa";
+                      url = "https://www.flightaware.com/live/flight/{QUERY}";
                     }
                   ];
                 }
@@ -237,10 +259,6 @@
                     {
                       title = "SearXNG";
                       url = "https://mitm.guildedthorn.arpa/searxng/stats";
-                    }
-                    {
-                      title = "Pihole";
-                      url = "https://mitm.guildedthorn.arpa/admin/login";
                     }
                   ];
 

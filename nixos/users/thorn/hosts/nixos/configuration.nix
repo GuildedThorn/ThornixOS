@@ -7,6 +7,7 @@
 
   imports = [
     ./hardware-configuration.nix
+    ./disko.nix
     ./networking.nix
 
     "${inputs.self}/desktop/hyprland.nix"
@@ -37,8 +38,6 @@
   home-manager.users.thorn = import ./home.nix;
 
   environment.systemPackages = with pkgs; [
-    kitty
-
     corectrl
 
     openrgb
@@ -59,6 +58,7 @@
     teamspeak6-client
     element-desktop
     telegram-desktop
+    slack
 
     blender
 
@@ -98,11 +98,8 @@
     arduino-ide
 
     codex
-    claude-code
 
     distrobox
-
-    jetbrains.rider
 
     postman
     mongodb-compass
@@ -126,14 +123,29 @@
     openxr-loader
     xrizer
     wayvr
+
+    opencode
+
+    gparted
+    wakatime-cli
+
+    linux-wallpaperengine
+    swaybg
+    mpvpaper
+    cage
+    grim
+    ffmpeg
+    steamcmd
   ];
 
-  virtualisation.waydroid.enable = true;
+  # -------------------------
+  # Bootloader (UEFI systems)
+  # -------------------------
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+  boot.initrd.systemd.enable = true;
 
-  virtualisation.podman = {
-    enable = true;
-    dockerCompat = true;
-  };
+  virtualisation.docker.enable = true;
 
   services.printing = {
     enable = true;
@@ -149,6 +161,21 @@
     enable = true;
     package = pkgs.openrgb-with-all-plugins;
   };
+
+  services.flatpak.packages = [
+    {
+      appId = "org.vinegarhq.Sober";
+      origin = "flathub";
+    }
+    {
+      appId = "org.vinegarhq.Vinegar";
+      origin = "flathub";
+    }
+    {
+      appId = "io.github.glaumar.QRookie";
+      origin = "flathub";
+    }
+  ];
 
   programs.npm.enable = true;
 
@@ -194,6 +221,7 @@
   programs.dconf.enable = true;
 
   programs.steam.remotePlay.openFirewall = true;
+  programs.nix-ld.enable = true;
 
   hardware.gpgSmartcards.enable = true;
 
