@@ -17,7 +17,7 @@
     inputs.nixvim.homeModules.nixvim
   ];
 
-  home.stateVersion = "26.05";
+  home.stateVersion = "26.11";
 
   # Add required packages to the user's environment
   home.packages = with pkgs; [

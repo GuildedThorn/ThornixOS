@@ -91,6 +91,16 @@
 
     {
       mode = "n";
+      key = "<leader>lg";
+      action = "<cmd>Neogit<CR>";
+      options = {
+        desc = "Neogit UI";
+        silent = true;
+      };
+    }
+
+    {
+      mode = "n";
       key = "<leader>fb";
       action = "<cmd>Telescope buffers<CR>";
       options = {
@@ -226,12 +236,6 @@
     };
 
     lsp.servers = {
-      "*" = {
-        config = {
-          root_markers = [ ".git" ];
-        };
-      };
-
       lua_ls.enable = true;
       pyright.enable = true;
       clangd.enable = true;
