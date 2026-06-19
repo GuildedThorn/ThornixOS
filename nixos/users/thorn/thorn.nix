@@ -38,9 +38,7 @@
   security.pam.services.login.enableGnomeKeyring = true;
 
   environment.systemPackages = with pkgs; [
-    opensc
-    zoxide
-    swayosd
+    tree-sitter
 
     wget
     gvfs
@@ -59,11 +57,14 @@
     bind
 
     coreutils
+    ripdrag
     findutils
     diffutils
     gnumake
     pcsc-tools
     glibc
+
+    wev
   ];
 
   users.users.thorn.shell = pkgs.zsh;
@@ -84,10 +85,40 @@
     mpv
   ];
 
-  fonts.packages = with pkgs; [
-    nerd-fonts.jetbrains-mono
-    nerd-fonts.fira-mono
-  ];
+  fonts = {
+    enableDefaultPackages = true;
+
+    packages = with pkgs; [
+      geist-font
+      noto-fonts-color-emoji
+
+      nerd-fonts.geist-mono
+    ];
+
+    fontconfig = {
+      enable = true;
+
+      defaultFonts = {
+        sansSerif = [ "Geist" ];
+        serif = [ "Geist" ];
+        monospace = [ "GeistMono Nerd Font" ];
+        emoji = [ "Noto Color Emoji" ];
+      };
+
+      # Optional but usually nice
+      hinting = {
+        enable = true;
+        style = "slight";
+      };
+
+      subpixel = {
+        rgba = "rgb";
+        lcdfilter = "default";
+      };
+    };
+  };
+
+  #services.kmscon.enable = true;
 
   services.comin = {
     enable = true;
@@ -104,8 +135,45 @@
 
   programs.zsh.enable = true;
 
-  stylix.enable = true;
-  stylix.base16Scheme = "${pkgs.base16-schemes}/share/themes/kanagawa.yaml";
+  stylix = {
+    enable = true;
+    base16Scheme = "${pkgs.base16-schemes}/share/themes/kanagawa.yaml";
+    fonts = {
+      sansSerif = {
+        package = pkgs.geist-font;
+        name = "Geist";
+      };
+      serif = {
+        package = pkgs.geist-font;
+        name = "Geist";
+      };
+      monospace = {
+        package = pkgs.nerd-fonts.geist-mono;
+        name = "GeistMono Nerd Font";
+      };
+      emoji = {
+        package = pkgs.noto-fonts-color-emoji;
+        name = "Noto Color Emoji";
+      };
+    };
+  };
 
-  boot.kernelPackages = pkgs.linuxPackages;
+  boot = {
+    plymouth = {
+      enable = true;
+    };
+
+    # Enable "Silent boot"
+    consoleLogLevel = 3;
+    initrd.verbose = false;
+    kernelParams = [
+      "quiet"
+      "udev.log_level=3"
+      "systemd.show_status=auto"
+    ];
+    # Hide the OS choice for bootloaders.
+    # It's still possible to open the bootloader list by pressing any key
+    # It will just not appear on screen unless a key is pressed
+    loader.timeout = 0;
+  };
 }
