@@ -1,5 +1,4 @@
 { config, pkgs, ... }:
-
 {
 
   # Enable if using wayland

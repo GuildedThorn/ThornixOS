@@ -1,5 +1,4 @@
-{ config, pkgs, ... }:
-
+{ pkgs, ... }:
 {
 
   environment.systemPackages = with pkgs; [
@@ -18,11 +17,15 @@
     ];
   };
 
+  hardware.amdgpu.overdrive = {
+    enable = true;
+    # Note: Requires ppfeaturemask to be set in kernelParams as shown above
+  };
+
   services.xserver.videoDrivers = [ "amdgpu" ];
 
   hardware.amdgpu.opencl.enable = true;
 
   hardware.amdgpu.initrd.enable = true;
   services.lact.enable = true;
-  hardware.amdgpu.overdrive.enable = true;
 }

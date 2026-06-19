@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    hyprland.url = "github:hyprwm/Hyprland/v0.54.3";
+    hyprland.url = "github:hyprwm/Hyprland";
 
     hyprland-plugins = {
       url = "github:hyprwm/hyprland-plugins";
@@ -34,8 +34,6 @@
 
     nixvim = {
       url = "github:nix-community/nixvim";
-
-      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     sops-nix = {
@@ -43,7 +41,29 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    lanzaboote = {
+      url = "github:nix-community/lanzaboote/v1.0.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    sc0710.url = "github:Nakildias/sc0710";
+
+    yazi.url = "github:sxyazi/yazi";
+
     proxmox-nixos.url = "github:SaumonNet/proxmox-nixos";
+
+    scroll-flake = {
+      url = "github:Diax170/scroll-flake";
+      inputs.nixpkgs.follows = "nixpkgs"; # this assumes nixos unstable
+    };
+    awww.url = "git+https://codeberg.org/LGFae/awww";
+
+    nix-flatpak.url = "github:gmodena/nix-flatpak/";
   };
 
   outputs =
@@ -56,31 +76,22 @@
       stylix,
       nixvim,
       sops-nix,
+      lanzaboote,
+      disko,
+      yazi,
       spicetify-nix,
+      scroll-flake,
+      awww,
+      sc0710,
+      nix-flatpak,
       ...
     }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
-      username =
-        if builtins.pathExists ./current-user.lock then
-          let
-            content = builtins.readFile ./current-user.lock;
-          in
-          lib.strings.trim (builtins.elemAt (builtins.split "\n" content) 0)
-        else
-          "thorn";
 
-      hosts =
-        if builtins.pathExists ./current-host.lock then
-          let
-            content = builtins.readFile ./current-host.lock;
-          in
-          [ (lib.strings.trim (builtins.elemAt (builtins.split "\n" content) 0)) ]
-        else if builtins.pathExists (./users + "/${username}/hosts") then
-          builtins.attrNames (builtins.readDir (./users + "/${username}/hosts"))
-        else
-          throw "Host directory not found";
+      username = "thorn";
+      hosts = builtins.attrNames (builtins.readDir (./users + "/${username}/hosts"));
     in
     {
       nixosConfigurations = lib.genAttrs hosts (
@@ -97,16 +108,28 @@
               spicetify-nix
               nixvim
               sops-nix
+              lanzaboote
+              disko
+              yazi
+              nix-flatpak
+              scroll-flake
+              awww
+              sc0710
               proxmox-nixos
               ;
             host = host;
           };
           modules = [
+            lanzaboote.nixosModules.lanzaboote
+            disko.nixosModules.disko
             hyprland.nixosModules.default
             stylix.nixosModules.stylix
             proxmox-nixos.nixosModules.proxmox-ve
             comin.nixosModules.comin
             sops-nix.nixosModules.sops
+            scroll-flake.nixosModules.default
+            sc0710.nixosModules.default
+            nix-flatpak.nixosModules.nix-flatpak
 
             ./configuration.nix
 
