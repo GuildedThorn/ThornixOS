@@ -175,6 +175,10 @@
       appId = "io.github.glaumar.QRookie";
       origin = "flathub";
     }
+    {
+      appId = "org.gnome.gitlab.cheywood.Pulp";
+      origin = "flathub";
+    }
   ];
 
   programs.npm.enable = true;
