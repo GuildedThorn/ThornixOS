@@ -1,7 +1,7 @@
 { ... }:
 {
   config = {
-    home.stateVersion = "26.05";
+    home.stateVersion = "26.11";
     thorn.desktop.xfceI3.enable = true;
     thorn.desktop.rice.enable = true;
     thorn.programs.firefox.enable = true;
