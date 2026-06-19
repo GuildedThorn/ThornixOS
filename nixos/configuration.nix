@@ -22,9 +22,9 @@
   # -------------------------
   # Bootloader (UEFI systems)
   # -------------------------
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.initrd.systemd.enable = true;
+  # boot.loader.systemd-boot.enable = true;
+  # boot.loader.efi.canTouchEfiVariables = true;
+  # boot.initrd.systemd.enable = true;
 
   # If you're on legacy BIOS instead, use this instead:
   # boot.loader.grub.enable = true;
@@ -36,6 +36,7 @@
   nix.settings.experimental-features = [
     "nix-command"
     "flakes"
+    "pipe-operators"
   ];
 
   # -------------------------
@@ -57,6 +58,8 @@
   # $ nix search <package>
   environment.systemPackages = with pkgs; [
     git
+    gh
+    glab
     gnumake
 
     bmon
@@ -65,10 +68,13 @@
 
     nixfmt
     nixfmt-tree
+
+    sbctl
   ];
 
   # Allow unfree packages
-
+  hardware.enableAllFirmware = true;
+  hardware.enableRedistributableFirmware = true;
   nixpkgs.config.allowUnfree = true;
 
   # This value determines the NixOS release from which the default
@@ -77,5 +83,6 @@
   # this value at the release version of the first install of this system.
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
+  boot.kernelPackages = pkgs.linuxPackages_latest;
   system.stateVersion = "25.05"; # Did you read the comment?
 }

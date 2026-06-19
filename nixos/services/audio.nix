@@ -1,8 +1,4 @@
-{
-  pkgs,
-  ...
-}:
-
+{ pkgs, ... }:
 {
 
   services.pipewire = {
