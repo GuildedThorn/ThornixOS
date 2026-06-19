@@ -1,26 +1,32 @@
 {
-  config,
-  lib,
   inputs,
+  config,
+  modulesPath,
+  lib,
   ...
 }:
 {
 
   imports = [
+    ./hardware-configuration.nix
     ./networking.nix
+    (modulesPath + "/profiles/qemu-guest.nix")
 
-    "${inputs.self}/services/bluetooth.nix"
     "${inputs.self}/services/clamav.nix"
     "${inputs.self}/services/ssh.nix"
   ];
 
+  boot.loader.grub.devices = [ "nodev" ];
+  services.qemuGuest.enable = true;
+
+  boot.growPartition = true;
+
   services.nginx = {
-    enable = true;
+    enable = false;
     recommendedProxySettings = true;
     recommendedTlsSettings = true;
     recommendedGzipSettings = true;
     recommendedOptimisation = true;
-    recommendedProxySettings = true;
     virtualHosts = {
       "guildedthorn.com" = {
         serverName = "guildedthorn.com";
@@ -235,7 +241,7 @@
   };
 
   services.grafana = {
-    enable = true;
+    enable = false;
     settings = {
       server = {
         http_addr = "127.0.0.1";
@@ -255,23 +261,27 @@
     };
   };
 
-  users.users.nginx.extraGroups = [ "acme" ];
-  users.groups.searx.members = [ "nginx" ];
+  /*
+    users.users.nginx.extraGroups = [ "acme" ];
+    users.groups.searx.members = [ "nginx" ];
 
-  systemd.services.nginx.serviceConfig.ProtectHome = false;
+    systemd.services.nginx.serviceConfig.ProtectHome = false;
+  */
 
-  security.acme = {
-    acceptTerms = true;
-    defaults.email = "admin@guildedthorn.com";
-    certs = {
-      "guildedthorn.com" = {
-        webroot = "/var/lib/acme/challenges-guildedthorn";
-        email = "admin@guildedthorn.com";
-        group = "nginx";
-        extraDomainNames = [
-          "radio.guildedthorn.com"
-        ];
+  /*
+    security.acme = {
+      acceptTerms = true;
+      defaults.email = "admin@guildedthorn.com";
+      certs = {
+        "guildedthorn.com" = {
+          webroot = "/var/lib/acme/challenges-guildedthorn";
+          email = "admin@guildedthorn.com";
+          group = "nginx";
+          extraDomainNames = [
+            "radio.guildedthorn.com"
+          ];
+        };
       };
     };
-  };
+  */
 }
