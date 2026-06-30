@@ -82,7 +82,6 @@ in
           shadow = "floating";
         };
         general = {
-          font-mono = "Geist Mono";
           font-sans = "Geist";
         };
         inset-edge = 0.5;
