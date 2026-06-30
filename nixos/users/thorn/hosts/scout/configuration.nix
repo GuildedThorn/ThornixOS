@@ -152,17 +152,6 @@
     enable = true;
   };
 
-  programs.thunderbird = {
-    enable = true;
-    package = pkgs.thunderbird;
-
-    # Enterprise-style policies
-    policies = {
-      DisableAppUpdate = true;
-      DisableTelemetry = true;
-    };
-  };
-
   programs.appimage.enable = true;
   programs.appimage.binfmt = true;
 

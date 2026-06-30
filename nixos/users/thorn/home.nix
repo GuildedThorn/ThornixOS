@@ -13,6 +13,7 @@
     ./modules/obsidian.nix
     ./modules/xfce-i3.nix
     ./modules/vesktop.nix
+    ./modules/thunderbird.nix
     inputs.ags.homeManagerModules.default
     inputs.nixvim.homeModules.nixvim
   ];
