@@ -73,6 +73,7 @@
 
     postman
     mongodb-compass
+    claude-code
 
     keepassxc
 
