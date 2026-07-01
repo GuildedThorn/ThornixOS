@@ -105,7 +105,6 @@
     mongodb-compass
 
     virt-viewer
-    realvnc-vnc-viewer
 
     vmware-workstation
 
