@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-audio" =
+  nixos.modules.services-audio =
     { pkgs, ... }:
     {
 

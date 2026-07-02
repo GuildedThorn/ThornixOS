@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-vr" =
+  nixos.modules.services-vr =
     { pkgs, ... }:
 
     {

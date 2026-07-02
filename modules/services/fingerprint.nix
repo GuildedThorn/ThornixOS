@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-fingerprint" =
+  nixos.modules.services-fingerprint =
     {
       pkgs,
       ...

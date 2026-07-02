@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-bluetooth" =
+  nixos.modules.services-bluetooth =
     { pkgs, ... }:
     {
 

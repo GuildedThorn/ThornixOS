@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-steam" =
+  nixos.modules.services-steam =
     {
       config,
       lib,

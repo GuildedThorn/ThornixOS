@@ -8,21 +8,21 @@
       config.nixos.modules.home-manager-base
       config.nixos.modules.thorn-user
 
-      config.nixos.modules."processor-intel"
-      config.nixos.modules."graphics-intel"
-      config.nixos.modules."desktop-hyprland"
+      config.nixos.modules.processor-intel
+      config.nixos.modules.graphics-intel
+      config.nixos.modules.desktop-hyprland
 
-      config.nixos.modules."services-audio"
-      config.nixos.modules."services-bluetooth"
-      config.nixos.modules."services-clamav"
-      config.nixos.modules."services-fingerprint"
-      config.nixos.modules."services-keybase"
-      config.nixos.modules."services-obs"
-      config.nixos.modules."services-spicetify"
-      config.nixos.modules."services-sdr"
-      config.nixos.modules."services-ssh"
+      config.nixos.modules.services-audio
+      config.nixos.modules.services-bluetooth
+      config.nixos.modules.services-clamav
+      config.nixos.modules.services-fingerprint
+      config.nixos.modules.services-keybase
+      config.nixos.modules.services-obs
+      config.nixos.modules.services-spicetify
+      config.nixos.modules.services-sdr
+      config.nixos.modules.services-ssh
 
-      config.nixos.modules."thorn-glance"
+      config.nixos.modules.thorn-glance
 
       ../../hosts/scout/hardware-configuration.nix
       ../../hosts/scout/networking.nix

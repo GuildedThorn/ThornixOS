@@ -1,5 +1,5 @@
 {
-  nixos.modules."processor-intel" =
+  nixos.modules.processor-intel =
     { ... }:
     {
       hardware.cpu.intel.updateMicrocode = true;

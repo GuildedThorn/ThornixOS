@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-ollama" =
+  nixos.modules.services-ollama =
     { ... }:
 
     {

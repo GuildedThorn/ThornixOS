@@ -1,5 +1,5 @@
 {
-  nixos.modules."desktop-xfce-i3" =
+  nixos.modules.desktop-xfce-i3 =
     { config, pkgs, ... }:
 
     {

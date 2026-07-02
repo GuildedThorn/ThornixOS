@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-obs" =
+  nixos.modules.services-obs =
     { config, pkgs, ... }:
 
     {

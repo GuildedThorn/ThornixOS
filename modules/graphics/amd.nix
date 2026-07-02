@@ -1,5 +1,5 @@
 {
-  nixos.modules."graphics-amd" =
+  nixos.modules.graphics-amd =
     { pkgs, ... }:
     {
 

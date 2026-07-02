@@ -8,13 +8,13 @@
       config.nixos.modules.home-manager-base
       config.nixos.modules.thorn-user
 
-      config.nixos.modules."desktop-xfce-i3"
+      config.nixos.modules.desktop-xfce-i3
 
-      config.nixos.modules."services-audio"
-      config.nixos.modules."services-clamav"
-      # config.nixos.modules."services-ssh"
+      config.nixos.modules.services-audio
+      config.nixos.modules.services-clamav
+      # config.nixos.modules.services-ssh
 
-      config.nixos.modules."thorn-glance"
+      config.nixos.modules.thorn-glance
 
       ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
 

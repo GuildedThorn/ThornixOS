@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-keybase" =
+  nixos.modules.services-keybase =
     # After running `nixos-rebuild switch`, `systemctl --user start keybase-gui.service`
     # can be used to start the Keybase GUI.
 

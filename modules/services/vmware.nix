@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-vmware" =
+  nixos.modules.services-vmware =
     { pkgs, ... }:
 
     {

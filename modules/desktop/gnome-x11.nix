@@ -1,5 +1,5 @@
 {
-  nixos.modules."desktop-gnome-x11" =
+  nixos.modules.desktop-gnome-x11 =
     { config, pkgs, ... }:
 
     {

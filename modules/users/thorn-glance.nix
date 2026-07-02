@@ -1,5 +1,5 @@
 {
-  nixos.modules."thorn-glance" =
+  nixos.modules.thorn-glance =
     { ... }:
     {
       services.glance = {

@@ -8,9 +8,9 @@
       config.nixos.modules.home-manager-base
       config.nixos.modules.thorn-user
 
-      config.nixos.modules."services-bluetooth"
-      config.nixos.modules."services-clamav"
-      config.nixos.modules."services-ssh"
+      config.nixos.modules.services-bluetooth
+      config.nixos.modules.services-clamav
+      config.nixos.modules.services-ssh
 
       ../../hosts/mitm/networking.nix
 

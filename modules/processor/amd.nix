@@ -1,5 +1,5 @@
 {
-  nixos.modules."processor-amd" =
+  nixos.modules.processor-amd =
     { ... }:
     {
       hardware.cpu.amd.updateMicrocode = true;

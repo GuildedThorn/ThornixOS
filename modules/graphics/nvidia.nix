@@ -1,5 +1,5 @@
 {
-  nixos.modules."graphics-nvidia" =
+  nixos.modules.graphics-nvidia =
     { config, lib, ... }:
     {
 

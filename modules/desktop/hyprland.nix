@@ -1,5 +1,5 @@
 {
-  nixos.modules."desktop-hyprland" =
+  nixos.modules.desktop-hyprland =
     {
       pkgs,
       inputs,

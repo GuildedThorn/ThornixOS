@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-proxmox" =
+  nixos.modules.services-proxmox =
     {
       lib,
       config,

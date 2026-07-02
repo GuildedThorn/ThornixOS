@@ -1,5 +1,5 @@
 {
-  nixos.modules."graphics-intel" =
+  nixos.modules.graphics-intel =
     { pkgs, ... }:
     {
 
