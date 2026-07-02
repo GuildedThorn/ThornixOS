@@ -10,7 +10,9 @@
       config.nixos.modules.services-audio
       config.nixos.modules.services-clamav
       config.nixos.modules.services-ssh
+      config.nixos.modules.services-vmware-guest
 
+      "${inputs.self}/hosts/vmware-test/hardware-configuration.nix"
       "${inputs.self}/hosts/vmware-test/networking.nix"
     ];
   };
