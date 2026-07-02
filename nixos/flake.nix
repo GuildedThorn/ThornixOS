@@ -4,6 +4,13 @@
   inputs = {
     nixpkgs.url = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz";
 
+    flake-parts = {
+      url = "github:hercules-ci/flake-parts";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
+    };
+
+    import-tree.url = "github:vic/import-tree";
+
     hyprland.url = "github:hyprwm/Hyprland";
 
     hyprland-plugins = {
@@ -66,83 +73,5 @@
     nix-flatpak.url = "github:gmodena/nix-flatpak/";
   };
 
-  outputs =
-    inputs@{
-      nixpkgs,
-      home-manager,
-      hyprland,
-      comin,
-      proxmox-nixos,
-      stylix,
-      nixvim,
-      sops-nix,
-      lanzaboote,
-      disko,
-      yazi,
-      spicetify-nix,
-      scroll-flake,
-      awww,
-      sc0710,
-      nix-flatpak,
-      ...
-    }:
-    let
-      system = "x86_64-linux";
-      lib = nixpkgs.lib;
-
-      username = "thorn";
-      hosts = builtins.attrNames (builtins.readDir (./users + "/${username}/hosts"));
-    in
-    {
-      nixosConfigurations = lib.genAttrs hosts (
-        host:
-        lib.nixosSystem {
-          inherit system;
-          specialArgs = {
-            inherit
-              inputs
-              system
-              username
-              hyprland
-              comin
-              spicetify-nix
-              nixvim
-              sops-nix
-              lanzaboote
-              disko
-              yazi
-              nix-flatpak
-              scroll-flake
-              awww
-              sc0710
-              proxmox-nixos
-              ;
-            host = host;
-          };
-          modules = [
-            lanzaboote.nixosModules.lanzaboote
-            disko.nixosModules.disko
-            hyprland.nixosModules.default
-            stylix.nixosModules.stylix
-            proxmox-nixos.nixosModules.proxmox-ve
-            comin.nixosModules.comin
-            sops-nix.nixosModules.sops
-            scroll-flake.nixosModules.default
-            sc0710.nixosModules.default
-            nix-flatpak.nixosModules.nix-flatpak
-
-            ./configuration.nix
-
-            home-manager.nixosModules.home-manager
-            {
-              home-manager = {
-                useUserPackages = true;
-                backupFileExtension = "backup";
-                extraSpecialArgs = { inherit inputs; };
-              };
-            }
-          ];
-        }
-      );
-    };
+  outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
 }
