@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-clamav" =
+  nixos.modules.services-clamav =
     {
       pkgs,
       ...

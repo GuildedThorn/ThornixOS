@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-displaylink" =
+  nixos.modules.services-displaylink =
     { config, pkgs, ... }:
     {
 

@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-tablets" =
+  nixos.modules.services-tablets =
     { ... }:
 
     {

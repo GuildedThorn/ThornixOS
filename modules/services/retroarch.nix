@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-retroarch" =
+  nixos.modules.services-retroarch =
     { pkgs, ... }:
 
     {

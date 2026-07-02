@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-sdr" =
+  nixos.modules.services-sdr =
     {
       pkgs,
       ...

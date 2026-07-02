@@ -8,8 +8,8 @@
       config.nixos.modules.home-manager-base
       config.nixos.modules.thorn-user
 
-      config.nixos.modules."services-clamav"
-      config.nixos.modules."services-ssh"
+      config.nixos.modules.services-clamav
+      config.nixos.modules.services-ssh
 
       ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
 

@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-ssh" =
+  nixos.modules.services-ssh =
     { ... }:
 
     {

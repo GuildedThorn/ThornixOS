@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-vmware-guest" =
+  nixos.modules.services-vmware-guest =
     { ... }:
 
     {

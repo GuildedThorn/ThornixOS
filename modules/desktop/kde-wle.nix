@@ -1,5 +1,5 @@
 {
-  nixos.modules."desktop-kde-wle" =
+  nixos.modules.desktop-kde-wle =
     { config, pkgs, ... }:
 
     {

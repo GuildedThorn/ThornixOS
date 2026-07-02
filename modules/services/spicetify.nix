@@ -1,5 +1,5 @@
 {
-  nixos.modules."services-spicetify" =
+  nixos.modules.services-spicetify =
     {
       inputs,
       pkgs,

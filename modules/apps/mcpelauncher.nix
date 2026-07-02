@@ -1,5 +1,5 @@
 {
-  nixos.modules."apps-mcpelauncher" =
+  nixos.modules.apps-mcpelauncher =
     { pkgs, ... }:
     let
       pname = "mcpelauncher-ui-qt";
