@@ -1,4 +1,4 @@
-nixos/hardware-configuration.nix
-nixos/secrets/*
+/hardware-configuration.nix
+secrets/*
 
 /.idea/

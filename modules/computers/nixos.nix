@@ -1,0 +1,289 @@
+{ config, inputs, ... }:
+{
+  flake.nixosConfigurations.nixos = inputs.nixpkgs.lib.nixosSystem {
+    system = "x86_64-linux";
+    modules = [
+      config.nixos.modules.thorn-core
+
+      config.nixos.modules.desktop-hyprland
+      config.nixos.modules.processor-amd
+      config.nixos.modules.graphics-amd
+
+      config.nixos.modules.services-audio
+      config.nixos.modules.services-bluetooth
+      config.nixos.modules.services-clamav
+      config.nixos.modules.services-displaylink
+      config.nixos.modules.services-fingerprint
+      config.nixos.modules.services-keybase
+      config.nixos.modules.services-obs
+      config.nixos.modules.services-ollama
+      config.nixos.modules.services-retroarch
+      config.nixos.modules.services-spicetify
+      config.nixos.modules.services-sdr
+      config.nixos.modules.services-ssh
+      config.nixos.modules.services-steam
+      config.nixos.modules.services-tablets
+      config.nixos.modules.services-vmware
+      config.nixos.modules.services-vr
+
+      config.nixos.modules.thorn-glance
+
+      "${inputs.self}/hosts/nixos/hardware-configuration.nix"
+      "${inputs.self}/hosts/nixos/disko.nix"
+      "${inputs.self}/hosts/nixos/networking.nix"
+
+      { home-manager.users.thorn = import "${inputs.self}/hosts/nixos/home.nix"; }
+
+      (
+        { pkgs, ... }:
+        {
+          environment.systemPackages = with pkgs; [
+            corectrl
+
+            openrgb
+
+            displaylink
+
+            nwg-displays
+            nwg-look
+
+            glance
+
+            tradingview
+            grisbi
+
+            komikku
+            jellyfin-desktop
+
+            teamspeak6-client
+            element-desktop
+            telegram-desktop
+            slack
+
+            blender
+
+            krita
+
+            kdePackages.kdenlive
+
+            orca-slicer
+
+            fritzing
+
+            plasticity
+
+            ethtool
+
+            steam
+            steam-run
+            steamcmd
+
+            oversteer
+            piper
+
+            heroic
+
+            osu-lazer-bin
+            clonehero
+
+            retroarch
+            libretro.pcsx-rearmed
+            libretro.pcsx2
+
+            rofi-obsidian
+
+            chirp
+
+            arduino
+            arduino-ide
+
+            codex
+
+            distrobox
+
+            postman
+            mongodb-compass
+
+            virt-viewer
+
+            vmware-workstation
+
+            keepassxc
+
+            system-config-printer
+
+            android-studio
+            android-tools
+
+            mixxx
+            musescore
+            hydrogen
+
+            openxr-loader
+            xrizer
+            wayvr
+
+            opencode
+
+            gparted
+            wakatime-cli
+
+            linux-wallpaperengine
+            swaybg
+            mpvpaper
+            cage
+            grim
+            ffmpeg
+            steamcmd
+          ];
+
+          # -------------------------
+          # Bootloader (UEFI systems)
+          # -------------------------
+          boot.loader.systemd-boot.enable = true;
+          boot.loader.efi.canTouchEfiVariables = true;
+          boot.initrd.systemd.enable = true;
+
+          virtualisation.docker.enable = true;
+
+          services.printing = {
+            enable = true;
+            drivers = with pkgs; [
+              cups-filters
+              cups-browsed
+              gutenprint
+              canon-cups-ufr2
+            ];
+          };
+
+          services.hardware.openrgb = {
+            enable = true;
+            package = pkgs.openrgb-with-all-plugins;
+          };
+
+          services.flatpak.packages = [
+            {
+              appId = "org.vinegarhq.Sober";
+              origin = "flathub";
+            }
+            {
+              appId = "org.vinegarhq.Vinegar";
+              origin = "flathub";
+            }
+            {
+              appId = "io.github.glaumar.QRookie";
+              origin = "flathub";
+            }
+            {
+              appId = "org.gnome.gitlab.cheywood.Pulp";
+              origin = "flathub";
+            }
+          ];
+
+          programs.npm.enable = true;
+
+          programs.corectrl = {
+            enable = true;
+          };
+
+          programs.thunar.enable = true;
+          programs.thunar.plugins = with pkgs; [
+            thunar-archive-plugin
+            thunar-volman
+          ];
+
+          programs.gnupg.agent = {
+            enable = true;
+            enableSSHSupport = false;
+          };
+
+          programs.direnv = {
+            enable = true;
+            nix-direnv.enable = true;
+          };
+
+          programs.starship = {
+            enable = true;
+          };
+
+          programs.appimage.enable = true;
+          programs.appimage.binfmt = true;
+
+          programs.seahorse.enable = true;
+          programs.dconf.enable = true;
+
+          programs.steam.remotePlay.openFirewall = true;
+          programs.nix-ld.enable = true;
+
+          hardware.gpgSmartcards.enable = true;
+
+          services.ananicy.enable = true;
+
+          services.earlyoom.enable = true;
+
+          services.fwupd.enable = true;
+
+          services.ratbagd.enable = true;
+
+          services.pcscd.enable = true;
+          services.pcscd.plugins = [ pkgs.ccid ];
+
+          services.flatpak.enable = true;
+
+          systemd.oomd.enable = true;
+
+          services.dbus.enable = true;
+
+          services.udev.packages = with pkgs; [
+            yubikey-personalization
+          ];
+
+          services.technitium-dns-server = {
+            enable = true;
+            openFirewall = true;
+          };
+
+          services.avahi = {
+            enable = true;
+            nssmdns4 = true;
+            openFirewall = true;
+          };
+
+          services.gvfs.enable = true;
+          services.udisks2.enable = true;
+
+          zramSwap = {
+            enable = true;
+            memoryPercent = 25;
+          };
+
+          system.autoUpgrade = {
+            enable = true;
+            allowReboot = false;
+          };
+
+          security.polkit.enable = true;
+          security.rtkit.enable = true;
+
+          services.ollama.package = pkgs.ollama-vulkan;
+
+          security.pam.u2f = {
+            enable = true;
+            control = "sufficient";
+
+            settings = {
+              cue = true;
+              interactive = true;
+            };
+          };
+
+          boot.tmp.useTmpfs = true;
+          boot.tmp.tmpfsSize = "8G";
+
+          security.pam.services.sddm.u2fAuth = true;
+          security.pam.services.sudo.u2fAuth = true;
+        }
+      )
+    ];
+  };
+}
