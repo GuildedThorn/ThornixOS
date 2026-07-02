@@ -1,4 +1,4 @@
-hosts/*/hardware-configuration.nix
+/hardware-configuration.nix
 secrets/*
 
 /.idea/
