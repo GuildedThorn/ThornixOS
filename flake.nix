@@ -76,7 +76,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    files.url = "github:mightyiam/files";
+    files = {
+      url = "github:mightyiam/files";
+      # The pinned commit's flakeModules.default deliberately throws,
+      # directing consumers to flake = false + a direct file import instead.
+      flake = false;
+    };
 
     disko = {
       url = "github:nix-community/disko";
