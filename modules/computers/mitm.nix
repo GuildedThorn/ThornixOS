@@ -9,6 +9,7 @@
       config.nixos.modules.services-clamav
       config.nixos.modules.services-ssh
 
+      "${inputs.self}/hosts/mitm/hardware-configuration.nix"
       "${inputs.self}/hosts/mitm/networking.nix"
 
       (
@@ -32,7 +33,7 @@
               };
               "radio.guildedthorn.com" = {
                 serverName = "radio.guildedthorn.com";
-                useACMEHost = "radio.guildedthorn.com";
+                useACMEHost = "guildedthorn.com";
                 acmeRoot = "/var/lib/acme/challenges-guildedthorn";
                 forceSSL = true;
                 locations."/" = {
@@ -47,14 +48,6 @@
                   extraConfig = ''
                     uwsgi_pass unix:${config.services.searx.uwsgiConfig.socket};
                   '';
-                };
-              };
-              "grafana.guildedthorn.arpa" = {
-                serverName = "grafana.guildedthorn.arpa";
-                locations."/" = {
-                  proxyPass = "http://${toString config.services.grafana.settings.server.http_addr}:${toString config.services.grafana.settings.server.http_port}";
-                  proxyWebsockets = true;
-                  recommendedProxySettings = true;
                 };
               };
             };
@@ -230,27 +223,6 @@
                 "Unit converter plugin"
                 "Tracker URL remover"
               ];
-            };
-          };
-
-          services.grafana = {
-            enable = true;
-            settings = {
-              server = {
-                http_addr = "127.0.0.1";
-                http_port = 3000;
-                enforce_domain = true;
-                enable_gzip = true;
-                domain = "grafana.guildedthorn.arpa";
-
-                # Alternatively, if you want to serve Grafana from a subpath:
-                # domain = "your.domain";
-                # root_url = "https://your.domain/grafana/";
-                # serve_from_sub_path = true;
-              };
-
-              # Prevents Grafana from phoning home
-              #analytics.reporting_enabled = false;
             };
           };
 
