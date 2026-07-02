@@ -2,11 +2,8 @@
 {
   flake.nixosConfigurations.nixos = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
-    specialArgs = { inherit inputs; };
     modules = [
-      config.nixos.modules.base
-      config.nixos.modules.home-manager-base
-      config.nixos.modules.thorn-user
+      config.nixos.modules.thorn-core
 
       config.nixos.modules.desktop-hyprland
       config.nixos.modules.processor-amd
@@ -18,9 +15,8 @@
       config.nixos.modules.services-displaylink
       config.nixos.modules.services-fingerprint
       config.nixos.modules.services-keybase
-      # config.nixos.modules.services-proxmox
       config.nixos.modules.services-obs
-      # config.nixos.modules.services-ollama
+      config.nixos.modules.services-ollama
       config.nixos.modules.services-retroarch
       config.nixos.modules.services-spicetify
       config.nixos.modules.services-sdr
@@ -32,11 +28,11 @@
 
       config.nixos.modules.thorn-glance
 
-      ../../hosts/nixos/hardware-configuration.nix
-      ../../hosts/nixos/disko.nix
-      ../../hosts/nixos/networking.nix
+      "${inputs.self}/hosts/nixos/hardware-configuration.nix"
+      "${inputs.self}/hosts/nixos/disko.nix"
+      "${inputs.self}/hosts/nixos/networking.nix"
 
-      { home-manager.users.thorn = import ../../hosts/nixos/home.nix; }
+      { home-manager.users.thorn = import "${inputs.self}/hosts/nixos/home.nix"; }
 
       (
         { pkgs, ... }:

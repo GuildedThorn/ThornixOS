@@ -1,8 +1,8 @@
+{ inputs, ... }:
 {
   homeManager.modules.thorn =
     {
       pkgs,
-      inputs,
       ...
     }:
     {
@@ -33,9 +33,6 @@
           nix-rebuild = "sudo nixos-rebuild switch --flake /etc/nixos --upgrade";
         };
       };
-
-      programs.nixvim.nixpkgs.config.allowUnfree = true;
-      programs.nixvim.imports = [ ../../programs/nixvim/main.nix ];
 
       nixpkgs.config.allowUnfree = true;
 

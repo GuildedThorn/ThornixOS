@@ -2,11 +2,8 @@
 {
   flake.nixosConfigurations.scout = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
-    specialArgs = { inherit inputs; };
     modules = [
-      config.nixos.modules.base
-      config.nixos.modules.home-manager-base
-      config.nixos.modules.thorn-user
+      config.nixos.modules.thorn-core
 
       config.nixos.modules.processor-intel
       config.nixos.modules.graphics-intel
@@ -24,10 +21,10 @@
 
       config.nixos.modules.thorn-glance
 
-      ../../hosts/scout/hardware-configuration.nix
-      ../../hosts/scout/networking.nix
+      "${inputs.self}/hosts/scout/hardware-configuration.nix"
+      "${inputs.self}/hosts/scout/networking.nix"
 
-      { home-manager.users.thorn = import ../../hosts/scout/home.nix; }
+      { home-manager.users.thorn = import "${inputs.self}/hosts/scout/home.nix"; }
 
       (
         {

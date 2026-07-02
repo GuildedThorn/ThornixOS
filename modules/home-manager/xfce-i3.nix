@@ -1,16 +1,16 @@
+{ inputs, ... }:
 {
   homeManager.modules.thorn =
     {
       config,
       lib,
       pkgs,
-      inputs,
       ...
     }:
     let
       cfg = config.thorn.desktop.xfceI3;
       screenshotDir = "/home/thorn/Pictures/screenshots";
-      wallpaper = "${inputs.self}/users/thorn/pictures/FullLogo.png";
+      wallpaper = "${inputs.self}/pictures/FullLogo.png";
     in
     {
       options.thorn.desktop.xfceI3.enable = lib.mkEnableOption "XFCE + i3 Home Manager configuration";

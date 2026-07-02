@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, inputs, ... }:
 let
   homeManagerThorn = config.homeManager.modules.thorn;
 in
@@ -28,7 +28,7 @@ in
       };
 
       security.pki.certificates = [
-        (builtins.readFile ../../certs/ThornCloud_CA.crt)
+        (builtins.readFile "${inputs.self}/certs/ThornCloud_CA.crt")
       ];
 
       security.pam.services.login.enableGnomeKeyring = true;

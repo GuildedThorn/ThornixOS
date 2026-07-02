@@ -1,9 +1,9 @@
+{ inputs, ... }:
 {
   nixos.modules.services-proxmox =
     {
       lib,
       config,
-      inputs,
       ...
     }:
 
