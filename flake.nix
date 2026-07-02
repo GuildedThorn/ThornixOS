@@ -11,11 +11,34 @@
 
     import-tree.url = "github:vic/import-tree";
 
-    hyprland.url = "github:hyprwm/Hyprland";
+    flake-compat = {
+      url = "github:NixOS/flake-compat";
+      flake = false;
+    };
+
+    # Pinned just before the src/helpers/Monitor.hpp -> src/output/Monitor.hpp
+    # split (2026-06-08) that hyprland-scroll-overview isn't built for yet;
+    # bump back to "github:hyprwm/Hyprland" once upstream catches up.
+    hyprland = {
+      url = "github:hyprwm/Hyprland/a11a718a45c6436abf3d6116618ebb6ae3735148";
+      # Without this, Hyprland (and xdg-desktop-portal-hyprland) build against
+      # their own pinned nixpkgs' qtbase, which drifts from the qtbase used to
+      # build the system's Qt style plugins (e.g. Kvantum). Loading a plugin
+      # built against a different qtbase point release into a process linked
+      # against another crashes on launch - this is what broke the
+      # hyprland-share-picker screenshare dialog.
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     hyprland-plugins = {
       url = "github:hyprwm/hyprland-plugins";
       inputs.hyprland.follows = "hyprland";
+    };
+
+    hyprland-scroll-overview = {
+      url = "github:yayuuu/hyprland-scroll-overview";
+      inputs.hyprland.follows = "hyprland";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     spicetify-nix.url = "github:Gerg-L/spicetify-nix";
@@ -52,6 +75,8 @@
       url = "github:nix-community/lanzaboote";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    files.url = "github:mightyiam/files";
 
     disko = {
       url = "github:nix-community/disko";
