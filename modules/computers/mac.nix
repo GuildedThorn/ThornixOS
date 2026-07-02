@@ -15,6 +15,17 @@
 
       "${inputs.self}/hosts/mac/disko.nix"
       "${inputs.self}/hosts/mac/networking.nix"
+
+      (
+        { ... }:
+        {
+          boot.loader.systemd-boot.enable = true;
+          boot.loader.efi.canTouchEfiVariables = true;
+
+          # TODO: set this to mac's real LAN IP before deploying.
+          services.proxmox-ve.ipAddress = "192.168.1.2";
+        }
+      )
     ];
   };
 }
