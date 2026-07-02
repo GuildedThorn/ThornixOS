@@ -30,6 +30,10 @@
 
       services.displayManager.defaultSession = "xfce+i3";
 
+      # xfce enables gnome-keyring by default, which defaults gcr-ssh-agent
+      # to enabled too — conflicts with programs.ssh.startAgent (services-ssh module)
+      services.gnome.gcr-ssh-agent.enable = false;
+
       programs.dconf.enable = true;
       programs.i3lock.enable = true;
 
