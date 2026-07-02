@@ -30,6 +30,8 @@
         layout =
           name:
           lua ''function() hl.exec_cmd("hyprctl eval 'hl.config({ general = { layout = \"${name}\" } })'") end'';
+
+        scrollOverview = lua ''hl.plugin.scrolloverview.overview("toggle")'';
       };
 
       bind = keys: dispatcher: {
@@ -141,6 +143,10 @@
           plugins = [
             # inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system}.hyprbars
             # inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system}.hyprexpo
+            # Passed as an explicit path (not the bare package) because home-manager
+            # derives the .so name from the package's `pname` ("hyprland-scroll-overview"),
+            # but this plugin's build output is actually named libscrolloverview.so.
+            "${inputs.hyprland-scroll-overview.packages.${pkgs.stdenv.hostPlatform.system}.default}/lib/libscrolloverview.so"
           ];
 
           settings = {
@@ -400,6 +406,7 @@
 
               # Window actions
               (bind "SUPER + Q" hypr.kill)
+              (bind "SUPER + G" hypr.scrollOverview)
               (bind "SUPER + F" hypr.fullscreen)
               (bind "SUPER + CTRL + F" hypr.fakeFullscreen)
 
