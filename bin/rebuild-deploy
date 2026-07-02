@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-HOST="$1"
-
-cd /etc/nixos
-sudo nixos-rebuild switch --flake ./".#${HOST}"
