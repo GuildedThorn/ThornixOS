@@ -1,10 +1,10 @@
+{ inputs, ... }:
 {
   homeManager.modules.thorn =
     {
       config,
       lib,
       pkgs,
-      inputs,
       ...
     }:
     let

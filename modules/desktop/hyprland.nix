@@ -1,8 +1,8 @@
+{ inputs, ... }:
 {
   nixos.modules.desktop-hyprland =
     {
       pkgs,
-      inputs,
       ...
     }:
     {
