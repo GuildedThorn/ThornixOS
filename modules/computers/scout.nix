@@ -74,6 +74,7 @@
             chirp
 
             codex
+            claude-code
 
             postman
             mongodb-compass
