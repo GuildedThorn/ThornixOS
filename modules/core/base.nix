@@ -58,6 +58,9 @@
         nixfmt-tree
 
         sbctl
+
+        sops
+        ssh-to-age
       ];
 
       # Allow unfree packages

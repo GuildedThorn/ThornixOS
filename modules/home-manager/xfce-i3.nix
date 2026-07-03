@@ -65,7 +65,6 @@
 
           assign [class="^Firefox$"] workspace number 1
           assign [class="^qutebrowser$"] workspace number 1
-          assign [class="^Thunderbird$"] workspace number 3
           assign [class="^Code$"] workspace number 4
           assign [class="^obsidian$"] workspace number 4
           assign [class="^Obsidian$"] workspace number 4
@@ -78,7 +77,6 @@
 
           bindsym $mod+Return exec $terminal
           bindsym $mod+c exec gnome-calculator
-          bindsym $mod+v exec thunderbird
           bindsym $mod+b exec firefox
           bindsym $mod+q kill
           bindsym $mod+Shift+Tab workspace prev

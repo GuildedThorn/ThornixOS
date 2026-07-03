@@ -36,7 +36,7 @@
           {
             mode = "n";
             key = "<leader>ya";
-            action = "ggVG\"+y";
+            action = "\"+ggyG";
             options.desc = "Copy entire file";
           }
 
