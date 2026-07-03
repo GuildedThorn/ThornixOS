@@ -31,6 +31,7 @@
       "${inputs.self}/hosts/nixos/hardware-configuration.nix"
       "${inputs.self}/hosts/nixos/disko.nix"
       "${inputs.self}/hosts/nixos/networking.nix"
+      "${inputs.self}/hosts/nixos/secrets.nix"
 
       { home-manager.users.thorn = import "${inputs.self}/hosts/nixos/home.nix"; }
 

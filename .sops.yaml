@@ -1,0 +1,13 @@
+keys:
+  # Jamie's personal GPG key (YubiKey-backed). Required to edit any secrets
+  # file below - decryption prompts for the YubiKey PIN.
+  - &admin_jamie 3E2AD2D2A175671C2924D74ECDDB953CD893FC5C
+  # Per-host age keys, derived from each host's SSH host ed25519 key via
+  # `ssh-to-age`. These let sops-nix decrypt unattended at activation using
+  # /etc/ssh/ssh_host_ed25519_key - no YubiKey needed on the host itself.
+  - &host_nixos age1sgl6wmc0uxew0hvfsdzpcy5fpftxlny4zssvfv84hwj75j65q9asd84nf2
+
+creation_rules:
+  - path_regex: hosts/nixos/secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_nixos

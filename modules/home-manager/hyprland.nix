@@ -423,7 +423,7 @@
 
               {
                 workspace = "4";
-                match.class = "^(thunderbird|Thunderbird|org\\.mozilla\\.Thunderbird|irssi|signal|Signal|org\\.telegram\\.desktop|TelegramDesktop)$";
+                match.class = "^(irssi|signal|Signal|org\\.telegram\\.desktop|TelegramDesktop)$";
               }
 
               {
@@ -441,7 +441,6 @@
               # Apps
               (bind "SUPER + RETURN" (hypr.exec "ghostty +new-window"))
               (bind "SUPER + C" (hypr.exec "gnome-calculator"))
-              (bind "SUPER + V" (hypr.exec "thunderbird"))
               (bind "SUPER + B" (hypr.exec "firefox"))
 
               # Window actions
