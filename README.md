@@ -1,5 +1,78 @@
 # ThornixOS
+
 my nix config, dont mind the name, a friend thought it was funny
+
+## Layout
+
+The flake is [flake-parts](https://github.com/hercules-ci/flake-parts) +
+[import-tree](https://github.com/vic/import-tree) (the "dendritic" pattern):
+`flake.nix` holds only inputs, and every `.nix` file under `modules/` is
+auto-imported as a flake-parts module. Nothing is wired up by path — each file
+contributes named pieces (`nixos.modules.<name>`) or whole hosts
+(`flake.nixosConfigurations.<name>`), and hosts compose from those names.
+
+```
+flake.nix                  inputs only; outputs = import-tree ./modules
+modules/
+  computers/<host>.nix     one file per host: composes named modules + hosts/<host>/ files
+  core/                    base config, thorn-core bundle, module plumbing
+  desktop/  graphics/  processor/  services/  home-manager/  users/
+hosts/<host>/              per-host data: hardware-configuration, disko,
+                           networking, secrets.nix + secrets.yaml (sops)
+```
+
+## Hosts
+
+| Host | What it is |
+|---|---|
+| `nixos` | Main workstation — AMD, Hyprland, home-manager, the works |
+| `websites` | Proxmox VM serving [guildedthorn.com](https://guildedthorn.com) — see below |
+| `mac` | Intel/AMD-graphics machine, Hyprland desktop |
+| `scout` | Intel laptop, Hyprland desktop |
+| `firewall` | Firewall box |
+| `mitm` / `proxmox-mitm` | MITM lab machines (bare metal / Proxmox VM) |
+| `proxmox-guest` | General Proxmox VM, XFCE+i3 |
+| `vmware-guest` / `vmware-test` | VMware VMs, XFCE+i3 |
+
+Bootstrap a host once by hand; after that comin owns it (next section):
+
+```sh
+nixos-rebuild switch --flake github:GuildedThorn/ThornixOS#<host>
+```
+
+## Deployment (GitOps via comin)
+
+Every host runs [comin](https://github.com/nlewo/comin) watching this repo's
+`main` branch. Push to `main` and each machine pulls, builds its own
+`nixosConfigurations.<hostname>`, and switches — no push-based deploys, no SSH
+from CI. Activation is diff-based: a commit that doesn't change a host's
+closure is a no-op for it, and a failed build leaves the old generation
+running.
+
+## guildedthorn.com
+
+The website (ASP.NET Core + React) lives in its own repo,
+[GuildedThorn.com](https://github.com/GuildedThorn/GuildedThorn.com), and
+enters this flake as the `guildedthorn-com` input, which also provides the
+NixOS module (`services.guildedthorn`). The `websites` VM fronts the app with
+a Cloudflare Tunnel (outbound-only; nothing but SSH is exposed), plus Owncast
+for the live stream and RabbitMQ for the guestbook publisher.
+
+Deploying a new site version is a lock bump:
+
+```sh
+nix flake update guildedthorn-com
+git commit flake.lock -m "chore: bump guildedthorn-com"
+git push   # comin on the VM picks it up within ~a minute
+```
+
+Only `guildedthorn.service` restarts (a few seconds); other services on the
+VM are untouched.
+
+## CI
+
+GitHub Actions runs `nix flake check` and dry-run-builds every host's
+toplevel on each push/PR (`.github/workflows/ci.yml`).
 
 ## Secrets (sops)
 
@@ -41,8 +114,8 @@ recipients configured for that path in `.sops.yaml`.
 ### Setting up secrets on a new host
 
 1. Get the host's SSH host public key (from `/etc/ssh/ssh_host_ed25519_key.pub`
-   after first boot, or from `hosts/<host>/hardware-configuration.nix`
-   provisioning if generated ahead of time), then convert it:
+   after first boot, or `ssh-keyscan -t ed25519 <host>` over the network),
+   then convert it:
    ```sh
    ssh-to-age -i ssh_host_ed25519_key.pub
    ```
@@ -55,7 +128,7 @@ recipients configured for that path in `.sops.yaml`.
    ```
 4. Create `hosts/<host>/secrets.nix` with `sops.defaultSopsFile = ./secrets.yaml;`
    and `sops.secrets.<name> = { };` entries, then add it to that host's module
-   list (see `modules/computers/nixos.nix` for the pattern).
+   list (see `modules/computers/websites.nix` for the pattern).
 
 ### Rotating recipients
 
