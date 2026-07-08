@@ -44,6 +44,12 @@
             settings.PermitRootLogin = "prohibit-password";
             settings.PasswordAuthentication = false;
           };
+          # Workstation key — without at least one authorized key this
+          # headless host has no login path at all (no console passwords,
+          # password auth off).
+          users.users.root.openssh.authorizedKeys.keys = [
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO+iFLtqnhkscz2qLK45nJVmGZIbQvIeIuW8tenAjX2p thorn@workstation"
+          ];
           services.qemuGuest.enable = true;
 
           services.guildedthorn = {
