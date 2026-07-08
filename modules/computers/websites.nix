@@ -19,9 +19,10 @@
       "${inputs.self}/hosts/websites/hardware-configuration.nix"
       "${inputs.self}/hosts/websites/disko.nix"
       "${inputs.self}/hosts/websites/networking.nix"
+      "${inputs.self}/hosts/websites/secrets.nix"
 
       (
-        { lib, pkgs, ... }:
+        { config, lib, pkgs, ... }:
         {
           boot = {
             growPartition = true;
@@ -48,7 +49,7 @@
           services.guildedthorn = {
             enable = true;
             port = 8080;
-            environmentFile = "/etc/guildedthorn/secrets.env";
+            environmentFile = config.sops.secrets.guildedthorn_env.path;
           };
 
           services.owncast = {
@@ -70,7 +71,7 @@
             after = [ "network-online.target" ];
             serviceConfig = {
               ExecStart = "${pkgs.cloudflared}/bin/cloudflared tunnel --no-autoupdate --loglevel info run";
-              EnvironmentFile = "/etc/cloudflared/token";
+              EnvironmentFile = config.sops.templates."cloudflared.env".path;
               Restart = "on-failure";
               RestartSec = 5;
               DynamicUser = true;
