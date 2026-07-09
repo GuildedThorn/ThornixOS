@@ -524,11 +524,11 @@
         "nixpkgs": "nixpkgs_5"
       },
       "locked": {
-        "lastModified": 1782400363,
-        "narHash": "sha256-zQdUEox7EwNJPlF/usCebFNJU7owdkGjgOfIFRyQf5g=",
+        "lastModified": 1783591034,
+        "narHash": "sha256-Rv+vOa+SDLK55PPRoobvpZ9fHs/q1sCohUrsz3usc0Q=",
         "owner": "GuildedThorn",
         "repo": "GuildedThorn.com",
-        "rev": "f4063cce1c858200eef87c404fb71811c99e66df",
+        "rev": "77415dd0558c4a1d06684681b9593bad3a390af4",
         "type": "github"
       },
       "original": {
@@ -544,11 +544,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783479733,
-        "narHash": "sha256-d/JatqgG+Pmo+IuCTZfnrEAPWU3fdha48GQeXuFO+bE=",
+        "lastModified": 1783550008,
+        "narHash": "sha256-qbbZUk9IG9dLNwCPwdPBs6I5clxwugRpP+1YU+GPK20=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "cee3f0e7fec85d80c149c7afc29926747f7bd3c2",
+        "rev": "f4d01c1d87c7c2ec909549165d5a8338f1bd3315",
         "type": "github"
       },
       "original": {
@@ -1179,11 +1179,11 @@
         "systems": "systems_2"
       },
       "locked": {
-        "lastModified": 1783349931,
-        "narHash": "sha256-aYE76ATiGBg7/cQ2dHASRq97WvNum4OOIPgZ8xIK0QI=",
+        "lastModified": 1783544129,
+        "narHash": "sha256-qN9Z9Tw6sPp1vLeEz0RfrsiBOYS1yP+3919S+Gy8sYQ=",
         "owner": "nix-community",
         "repo": "nixvim",
-        "rev": "4fd45857deecb90d2732c87e0315daa48505515e",
+        "rev": "6d1424cefd041c595a517ee9f46adcb250938e24",
         "type": "github"
       },
       "original": {
@@ -1402,11 +1402,11 @@
         "scroll-stable": "scroll-stable"
       },
       "locked": {
-        "lastModified": 1783216732,
-        "narHash": "sha256-cQpeCjkdAL5UJWRLpe7qAef9cHKrPH0R9KePugJsjrI=",
+        "lastModified": 1783561980,
+        "narHash": "sha256-0NT9bUU5MRgci0GU6rbuWrspxu46o/nH0+FUEducp1E=",
         "owner": "Diax170",
         "repo": "scroll-flake",
-        "rev": "80ed8318563ec264f4947f87c0274880da6ecace",
+        "rev": "76a9f4428965da84dfc57f93cf0652cf4ef7b95f",
         "type": "github"
       },
       "original": {
@@ -1418,11 +1418,11 @@
     "scroll-git": {
       "flake": false,
       "locked": {
-        "lastModified": 1783180705,
-        "narHash": "sha256-8YnKl+NBiZzjS3hTn4XfKMDFjNiMfIg0i8K0nbdp/8A=",
+        "lastModified": 1783531417,
+        "narHash": "sha256-6off8d7jB5/HcQMz1yt/016udzqWlzYqTAyEJVa/aWk=",
         "owner": "dawsers",
         "repo": "scroll",
-        "rev": "4ea231fc9f7ccac4fc6800f5692278b3327b9c25",
+        "rev": "a2a2a304d73aaa98baea887e30860258868bbc59",
         "type": "github"
       },
       "original": {
