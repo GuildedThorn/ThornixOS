@@ -35,9 +35,11 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
-      # Real builds (not just eval) are heavier per-job — keep a concurrency
-      # cap so 10 hosts don't all hammer the runner pool / Cachix at once.
-      max-parallel: 4
+      # No concurrency cap: max-parallel existed to avoid throttling
+      # GitHub's Actions Cache API (the old FlakeHub-less magic-nix-cache
+      # fallback). Cachix is a dedicated service built for concurrent CI
+      # load, so that constraint no longer applies — let all 10 hosts run
+      # at once instead of serializing into batches.
       matrix:
         host:
           - firewall
