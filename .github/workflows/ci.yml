@@ -23,6 +23,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # GitHub's Actions Cache API throttles magic-nix-cache-action under
+      # concurrent load (we're not FlakeHub-authenticated, so it falls back to
+      # the GHA cache as its backing store) — 10 matrix jobs all hitting it at
+      # once regularly trips "rate limit exceeded" on an otherwise-unrelated
+      # host's build. Capping concurrency keeps us under that ceiling.
+      max-parallel: 4
       matrix:
         host:
           - firewall
