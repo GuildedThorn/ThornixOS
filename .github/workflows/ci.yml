@@ -12,6 +12,12 @@ concurrency:
 jobs:
   flake-check:
     runs-on: ubuntu-latest
+    # Lets magic-nix-cache-action authenticate to FlakeHub via GitHub's OIDC
+    # token instead of falling back to the GHA cache API (which is what was
+    # actually getting rate-limited under matrix load).
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@main
@@ -26,6 +32,7 @@ jobs:
     # host's deploy branch unless the whole flake is known-good first.
     needs: flake-check
     permissions:
+      id-token: write
       contents: write
     strategy:
       fail-fast: false
