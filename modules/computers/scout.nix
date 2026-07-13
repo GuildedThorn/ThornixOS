@@ -202,9 +202,6 @@
 
           services.upower.enable = true;
 
-          services.howdy.enable = true;
-          services.linux-enable-ir-emitter.enable = true;
-
           services.tlp = {
             enable = true;
             settings = {
@@ -321,11 +318,6 @@
 
           security.pam.services.sddm.u2fAuth = true;
           security.pam.services.sudo.u2fAuth = true;
-          security.pam.howdy.enable = true;
-
-          security.pam.services.greetd.howdy.control = "sufficient";
-
-          security.pam.services.sudo.rules.auth.howdy.control = lib.mkForce "sufficient";
         }
       )
     ];
