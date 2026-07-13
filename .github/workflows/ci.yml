@@ -21,6 +21,12 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    # A broken flake (bad syntax, a failing check output, ...) can leave a
+    # host's own evaluation looking fine in isolation — don't promote any
+    # host's deploy branch unless the whole flake is known-good first.
+    needs: flake-check
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       # GitHub's Actions Cache API throttles magic-nix-cache-action under
@@ -49,3 +55,10 @@ jobs:
         run: |
           nix build --dry-run --no-link \
             ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
+      # comin on each host tracks deploy-<hostname> instead of main (see
+      # modules/users/thorn.nix) — only fast-forward it here, once this
+      # host's own build has actually passed, so a broken commit for one
+      # host can never get deployed just because main advanced.
+      - name: Promote deploy-${{ matrix.host }}
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: git push origin HEAD:refs/heads/deploy-${{ matrix.host }} --force

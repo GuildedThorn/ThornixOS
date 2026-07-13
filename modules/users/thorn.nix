@@ -4,7 +4,7 @@ let
 in
 {
   nixos.modules.thorn-user =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
     {
 
       home-manager.users.thorn = homeManagerThorn;
@@ -123,7 +123,11 @@ in
           {
             name = "origin";
             url = "https://github.com/GuildedThorn/ThornixOS.git";
-            branches.main.name = "main";
+            # Each host follows its own deploy-<hostname> branch instead of
+            # main directly — CI only fast-forwards it once that specific
+            # host's build passes (see .github/workflows/ci.yml), so a host
+            # never deploys a config that hasn't been proven to evaluate.
+            branches.main.name = "deploy-${config.networking.hostName}";
           }
         ];
       };
