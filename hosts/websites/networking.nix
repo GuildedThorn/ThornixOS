@@ -18,6 +18,14 @@
       "1.1.1.1"
     ];
 
+    # 172.16.25.2 doesn't resolve internal .arpa names for this host, and
+    # the SeaweedFS S3 cert is issued for the hostname, not the raw IP —
+    # so this needs to resolve locally rather than pointing S3Endpoint at
+    # the IP directly.
+    hosts = {
+      "172.16.25.4" = [ "truenas.guildedthorn.arpa" ];
+    };
+
     # cloudflared is outbound-only; only SSH is exposed publicly.
     firewall.allowedTCPPorts = [
       22
