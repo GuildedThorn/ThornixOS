@@ -103,7 +103,6 @@
             distrobox
 
             postman
-            mongodb-compass
 
             virt-viewer
 
@@ -177,6 +176,10 @@
             }
             {
               appId = "org.gnome.gitlab.cheywood.Pulp";
+              origin = "flathub";
+            }
+            {
+              appId = "com.mongodb.Compass";
               origin = "flathub";
             }
           ];

@@ -77,7 +77,6 @@
             claude-code
 
             postman
-            mongodb-compass
 
             keepassxc
 
@@ -178,6 +177,12 @@
           services.pcscd.plugins = [ pkgs.ccid ];
 
           services.flatpak.enable = true;
+          services.flatpak.packages = [
+            {
+              appId = "com.mongodb.Compass";
+              origin = "flathub";
+            }
+          ];
 
           systemd.oomd.enable = true;
 
