@@ -67,11 +67,6 @@
             };
           };
 
-          services.technitium-dns-server = {
-            enable = true;
-            openFirewall = true;
-          };
-
           #services.mongodb = {
           #enable = true;
           #  enableAuth = true;

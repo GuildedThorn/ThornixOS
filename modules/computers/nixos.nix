@@ -239,11 +239,6 @@
             yubikey-personalization
           ];
 
-          services.technitium-dns-server = {
-            enable = true;
-            openFirewall = true;
-          };
-
           services.avahi = {
             enable = true;
             nssmdns4 = true;
