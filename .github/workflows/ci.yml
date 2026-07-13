@@ -12,16 +12,16 @@ concurrency:
 jobs:
   flake-check:
     runs-on: ubuntu-latest
-    # Lets magic-nix-cache-action authenticate to FlakeHub via GitHub's OIDC
-    # token instead of falling back to the GHA cache API (which is what was
-    # actually getting rate-limited under matrix load).
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: cachix/cachix-action@v17
+        with:
+          name: guildedthorn
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          # Fixed-output/source derivations are cheap to refetch from their
+          # original URL and aren't worth cache storage.
+          pushFilter: '(-source$|\.tar\.gz$)'
       - uses: DeterminateSystems/flake-checker-action@v12
       - run: nix flake check
 
@@ -32,15 +32,11 @@ jobs:
     # host's deploy branch unless the whole flake is known-good first.
     needs: flake-check
     permissions:
-      id-token: write
       contents: write
     strategy:
       fail-fast: false
-      # GitHub's Actions Cache API throttles magic-nix-cache-action under
-      # concurrent load (we're not FlakeHub-authenticated, so it falls back to
-      # the GHA cache as its backing store) — 10 matrix jobs all hitting it at
-      # once regularly trips "rate limit exceeded" on an otherwise-unrelated
-      # host's build. Capping concurrency keeps us under that ceiling.
+      # Real builds (not just eval) are heavier per-job — keep a concurrency
+      # cap so 10 hosts don't all hammer the runner pool / Cachix at once.
       max-parallel: 4
       matrix:
         host:
@@ -57,10 +53,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
-      - name: Evaluate ${{ matrix.host }}
+      - uses: cachix/cachix-action@v17
+        with:
+          name: guildedthorn
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          pushFilter: '(-source$|\.tar\.gz$)'
+      - name: Build ${{ matrix.host }}
         run: |
-          nix build --dry-run --no-link \
+          nix build --no-link \
             ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
       # comin on each host tracks deploy-<hostname> instead of main (see
       # modules/users/thorn.nix) — only fast-forward it here, once this
