@@ -86,7 +86,6 @@
             android-tools
 
             mixxx
-            musescore
             hydrogen
 
             gphoto2

@@ -116,7 +116,6 @@
             android-tools
 
             mixxx
-            musescore
             hydrogen
 
             openxr-loader
