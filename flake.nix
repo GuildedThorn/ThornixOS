@@ -2,7 +2,7 @@
   description = "NixOS + Home Manager + Makefile DevShell";
 
   inputs = {
-    nixpkgs.url = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz";
+    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
 
     flake-parts = {
       url = "github:hercules-ci/flake-parts";

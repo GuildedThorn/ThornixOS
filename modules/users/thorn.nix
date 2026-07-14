@@ -136,7 +136,7 @@ in
 
       stylix = {
         enable = true;
-        base16Scheme = "${pkgs.base16-schemes}/share/themes/kanagawa.yaml";
+        base16Scheme = "${pkgs.base16-schemes}/share/themes/catppuccin-mocha.yaml";
         fonts = {
           sansSerif = {
             package = pkgs.geist-font;
