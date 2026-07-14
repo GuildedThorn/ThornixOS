@@ -524,11 +524,11 @@
         "nixpkgs": "nixpkgs_5"
       },
       "locked": {
-        "lastModified": 1783950969,
-        "narHash": "sha256-Gn0qeiaT2uRcojKJu35khhwvbQ+K6RvmrzYVOm9crXc=",
+        "lastModified": 1784058670,
+        "narHash": "sha256-XOWpT39IHXBnJ5hWvTwNsEc/RioILhegpXfGgsYUyYk=",
         "owner": "GuildedThorn",
         "repo": "GuildedThorn.com",
-        "rev": "1842e328bdde7564982f3525e0186cc8accc887c",
+        "rev": "a22143813ba23ba84274074b2a73c11fb7f883f7",
         "type": "github"
       },
       "original": {
