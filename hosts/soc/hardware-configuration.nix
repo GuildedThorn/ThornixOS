@@ -1,7 +1,4 @@
-# Placeholder matching the standard Proxmox VM layout (single virtio/SCSI
-# disk, ext4 root on /dev/sda1, labeled swap) — same as proxmox-guest.
-# Regenerate with `nixos-generate-config` after creating the VM if its
-# layout differs.
+# Proxmox VM (virtio/SCSI). Filesystems come from disko.nix.
 {
   lib,
   modulesPath,
@@ -24,16 +21,6 @@
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ ];
   boot.extraModulePackages = [ ];
-
-  fileSystems."/" = {
-    device = "/dev/sda1";
-    autoResize = true;
-    fsType = "ext4";
-  };
-
-  swapDevices = [
-    { device = "/dev/disk/by-label/swap"; }
-  ];
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 }

@@ -10,6 +10,7 @@
       ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
 
       "${inputs.self}/hosts/soc/hardware-configuration.nix"
+      "${inputs.self}/hosts/soc/disko.nix"
       "${inputs.self}/hosts/soc/networking.nix"
       "${inputs.self}/hosts/soc/secrets.nix"
 
@@ -43,11 +44,20 @@
             (builtins.readFile "${inputs.self}/certs/ThornCloud_CA.crt")
           ];
 
-          boot.loader.grub.devices = [ "nodev" ];
-          boot.growPartition = true;
-          # Keep the NIC named eth0, matching the static config in
-          # hosts/soc/networking.nix (same as websites).
-          boot.kernelParams = [ "net.ifnames=0" ];
+          boot = {
+            growPartition = true;
+            # BIOS boot via GRUB on the whole disk. disko already registers
+            # /dev/sda as a GRUB device; force a single entry so the two
+            # definitions don't merge into a duplicate (mirroredBoots assert).
+            loader.grub = {
+              enable = true;
+              devices = lib.mkForce [ "/dev/sda" ];
+              efiSupport = false;
+            };
+            # Keep the NIC named eth0, matching the static config in
+            # hosts/soc/networking.nix (same as websites).
+            kernelParams = [ "net.ifnames=0" ];
+          };
           services.qemuGuest.enable = true;
 
           services.openssh.settings = {
