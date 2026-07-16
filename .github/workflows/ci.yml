@@ -47,7 +47,6 @@ jobs:
           - mitm
           - nixos
           - proxmox-guest
-          - proxmox-mitm
           - websites
           - scout
           - vmware-guest
