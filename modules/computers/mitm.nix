@@ -22,24 +22,6 @@
             recommendedGzipSettings = true;
             recommendedOptimisation = true;
             virtualHosts = {
-              "guildedthorn.com" = {
-                serverName = "guildedthorn.com";
-                useACMEHost = "guildedthorn.com";
-                acmeRoot = "/var/lib/acme/challenges-guildedthorn";
-                forceSSL = true;
-                locations."/" = {
-                  proxyPass = "https://proxmox.guildedthorn.arpa:5000";
-                };
-              };
-              "radio.guildedthorn.com" = {
-                serverName = "radio.guildedthorn.com";
-                useACMEHost = "guildedthorn.com";
-                acmeRoot = "/var/lib/acme/challenges-guildedthorn";
-                forceSSL = true;
-                locations."/" = {
-                  proxyPass = "https://proxmox.guildedthorn.arpa:5001";
-                };
-              };
               "searxng.guildedthorn.arpa" = {
                 serverName = "searxng.guildedthorn.arpa";
                 sslCertificate = "...";
@@ -52,11 +34,6 @@
               };
             };
           };
-
-          #services.mongodb = {
-          #enable = true;
-          #  enableAuth = true;
-          #};
 
           services.searx = {
             enable = false;
@@ -221,6 +198,27 @@
             };
           };
 
+          services.grafana = {
+            enable = false;
+            settings = {
+              server = {
+                http_addr = "127.0.0.1";
+                http_port = 3000;
+                enforce_domain = true;
+                enable_gzip = true;
+                domain = "grafana.guildedthorn.arpa";
+
+                # Alternatively, if you want to serve Grafana from a subpath:
+                # domain = "your.domain";
+                # root_url = "https://your.domain/grafana/";
+                # serve_from_sub_path = true;
+              };
+
+              # Prevents Grafana from phoning home
+              #analytics.reporting_enabled = false;
+            };
+          };
+
           users.users.nginx.extraGroups = [ "acme" ];
           users.groups.searx.members = [ "nginx" ];
 
@@ -234,9 +232,6 @@
                 webroot = "/var/lib/acme/challenges-guildedthorn";
                 email = "admin@guildedthorn.com";
                 group = "nginx";
-                extraDomainNames = [
-                  "radio.guildedthorn.com"
-                ];
               };
             };
           };

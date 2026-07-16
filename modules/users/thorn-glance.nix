@@ -1,6 +1,6 @@
 {
   nixos.modules.thorn-glance =
-    { ... }:
+    { pkgs, ... }:
     {
       services.glance = {
         enable = true;
@@ -281,5 +281,8 @@
           ];
         };
       };
+      environment.systemPackages = with pkgs; [
+        glance
+      ];
     };
 }

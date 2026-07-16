@@ -2,3 +2,6 @@
 secrets/*
 
 /.idea/
+
+# Claude Code local permission settings
+.claude/settings.local.json

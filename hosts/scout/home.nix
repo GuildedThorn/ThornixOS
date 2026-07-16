@@ -9,10 +9,11 @@
       home.stateVersion = "26.11";
       thorn.desktop.hyprland.enable = true;
       thorn.desktop.rice.enable = true;
-      thorn.programs.vesktop.enable = true;
+      #thorn.programs.vesktop.enable = true;
       thorn.programs.firefox.enable = true;
       thorn.programs.ghostty.enable = true;
       thorn.programs.obsidian.enable = true;
+      thorn.programs.claude-code.enable = true;
     }
     (lib.mkIf config.thorn.desktop.hyprland.enable {
       wayland.windowManager.hyprland.settings.monitor = [

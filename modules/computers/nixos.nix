@@ -40,7 +40,6 @@
         {
           environment.systemPackages = with pkgs; [
             corectrl
-
             openrgb
 
             displaylink
@@ -48,12 +47,6 @@
             nwg-displays
             nwg-look
 
-            glance
-
-            tradingview
-            grisbi
-
-            komikku
             jellyfin-desktop
 
             teamspeak6-client
@@ -71,10 +64,6 @@
 
             fritzing
 
-            plasticity
-
-            ethtool
-
             steam
             steam-run
             steamcmd
@@ -83,7 +72,6 @@
             piper
 
             heroic
-
             osu-lazer-bin
             clonehero
 
@@ -91,22 +79,16 @@
             libretro.pcsx-rearmed
             libretro.pcsx2
 
-            rofi-obsidian
-
             chirp
 
             arduino
             arduino-ide
 
             codex
-
-            distrobox
-
-            postman
+            opencode
+            claude-code
 
             virt-viewer
-
-            vmware-workstation
 
             keepassxc
 
@@ -122,12 +104,8 @@
             xrizer
             wayvr
 
-            opencode
-
-            gparted
             wakatime-cli
 
-            linux-wallpaperengine
             swaybg
             mpvpaper
             cage
