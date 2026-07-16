@@ -9,6 +9,11 @@ keys:
   - &host_websites age1k3jvm08n7p5yyptjlsuz7mhk0smdg6lh9etgtxdssuzn08v0wysql3wjk2
 
 creation_rules:
+  # soc has no age recipient yet — the VM doesn't exist. After first boot:
+  # `ssh-to-age -i /etc/ssh/ssh_host_ed25519_key.pub`, add the key under
+  # keys: and to this rule, then `sops updatekeys hosts/soc/secrets.yaml`.
+  - path_regex: hosts/soc/secrets\.ya?ml$
+    pgp: *admin_jamie
   - path_regex: hosts/nixos/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_nixos

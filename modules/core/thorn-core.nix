@@ -4,5 +4,6 @@
     config.nixos.modules.base
     config.nixos.modules.home-manager-base
     config.nixos.modules.thorn-user
+    config.nixos.modules.services-observability
   ];
 }

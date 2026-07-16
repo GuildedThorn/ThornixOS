@@ -49,6 +49,7 @@ jobs:
           - proxmox-guest
           - websites
           - scout
+          - soc
           - vmware-guest
           - vmware-test
     steps:
