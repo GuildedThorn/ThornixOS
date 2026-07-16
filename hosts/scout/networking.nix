@@ -4,8 +4,9 @@
     hostName = "scout";
     enableIPv6 = false;
 
-    # System-wide DNS
-    nameservers = [ "1.1.1.1" ];
+    # No static DNS pin: this laptop roams. NetworkManager uses each
+    # network's DHCP resolver — pfSense at home (which serves the .arpa
+    # names), whatever the local network provides elsewhere.
 
     firewall.allowedTCPPorts = [
       53

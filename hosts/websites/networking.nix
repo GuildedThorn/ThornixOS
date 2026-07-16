@@ -13,15 +13,16 @@
     ];
 
     defaultGateway = "172.16.25.1";
+    # pfSense resolves the internal .arpa names; 172.16.25.2 was the mitm
+    # box, not a DNS server.
     nameservers = [
-      "172.16.25.2"
+      "172.16.25.1"
       "1.1.1.1"
     ];
 
-    # 172.16.25.2 doesn't resolve internal .arpa names for this host, and
-    # the SeaweedFS S3 cert is issued for the hostname, not the raw IP —
-    # so this needs to resolve locally rather than pointing S3Endpoint at
-    # the IP directly.
+    # Kept as a belt-and-suspenders pin: the SeaweedFS S3 cert is issued
+    # for the hostname, so this name must resolve even if pfSense DNS is
+    # briefly down.
     hosts = {
       "172.16.25.4" = [ "truenas.guildedthorn.arpa" ];
     };
