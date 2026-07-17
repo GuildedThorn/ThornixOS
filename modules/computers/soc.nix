@@ -186,6 +186,10 @@
                 address  = "0.0.0.0:5514"
                 protocol = "udp"
                 labels   = { job = "syslog" }
+                # pfSense/FreeBSD syslogd emits old BSD-style RFC3164, not
+                # the RFC5424 Alloy defaults to (which expects a version
+                # field — "error parsing syslog stream" without this).
+                syslog_format = "rfc3164"
               }
               relabel_rules = loki.relabel.syslog.rules
               forward_to    = [loki.write.soc.receiver]
