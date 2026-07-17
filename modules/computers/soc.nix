@@ -146,6 +146,13 @@
                   { targets = map (host: "${host}.guildedthorn.arpa:9100") fleet; }
                 ];
               }
+              # Loki's own metrics — lets us alert when the log pipeline
+              # itself breaks (soc going blind is worse than any single
+              # host going down, since it's the thing that would tell us).
+              {
+                job_name = "loki";
+                static_configs = [ { targets = [ "127.0.0.1:3100" ]; } ];
+              }
             ];
           };
 
@@ -343,6 +350,32 @@
                           };
                           for = "0s";
                           summary = "CrowdSec detected an attack scenario (detect-only, nothing was blocked).";
+                        })
+                        (rule {
+                          uid = "siem-loki-down";
+                          title = "Log pipeline down (Loki unreachable)";
+                          datasourceUid = "prometheus";
+                          expr = "up{job=\"loki\"}";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "5m";
+                          noDataState = "Alerting";
+                          summary = "Prometheus can't scrape Loki on soc — the SIEM may be blind to new logs.";
+                        })
+                        (rule {
+                          uid = "siem-log-ingest-stalled";
+                          title = "Log ingest stalled (no new journal lines)";
+                          datasourceUid = "loki";
+                          expr = "sum(count_over_time({job=\"systemd-journal\"} [10m]))";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "10m";
+                          noDataState = "Alerting";
+                          summary = "No journal lines reached Loki from any host in 10 minutes — shipping is broken.";
                         })
                       ];
                   }

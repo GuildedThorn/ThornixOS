@@ -69,6 +69,50 @@ git push   # comin on the VM picks it up within ~a minute
 Only `guildedthorn.service` restarts (a few seconds); other services on the
 VM are untouched.
 
+## SOC / observability
+
+The `soc` VM (172.16.25.51) is the fleet's monitoring and SIEM hub. Nothing
+about it is push-based — every host ships to it, and it pulls metrics back.
+
+**What runs where:**
+
+- **soc**: Loki (logs, chunks in the NAS's SeaweedFS S3 `loki` bucket, 90d
+  retention), Prometheus (metrics, 90d local), and Grafana
+  (`http://soc.guildedthorn.arpa:3000`).
+- **every host** (via `services-observability` + `services-audit`, both in
+  `thorn-core`): Grafana Alloy tails the systemd journal and pushes it to
+  Loki; `node_exporter` exposes metrics on :9100 for Prometheus to scrape;
+  auditd adds a baseline of security rules (identity/sudoers/sshd changes,
+  module loads, privilege exec) whose events ride the same journal stream.
+- **websites**: additionally runs Suricata (af-packet IDS on `lo`+`eth0` —
+  `lo` because real ingress is the Cloudflare tunnel, readable only on
+  loopback) and CrowdSec (detect-only, no bouncer). Suricata's EVE JSON
+  ships to Loki via a second Alloy file source.
+
+**How a log becomes a graph:** journal line → Alloy (`loki.source.journal`)
+→ Loki on soc → Grafana panel / alert rule. Metrics are the reverse pull:
+Prometheus on soc scrapes each host's `:9100`. Both directions depend on
+`<host>.guildedthorn.arpa` resolving — static hosts are pinned in
+`modules/core/lan-hosts.nix`; DHCP hosts (the laptops) need a pfSense static
+reservation or their Prometheus target shows down.
+
+**Dashboards & alerts** are provisioned from the repo, so they survive
+rebuilds and aren't hand-clicked:
+
+- Dashboards: `hosts/soc/dashboards/*.json` (SOC Overview, Fleet Health),
+  wired in via `services.grafana.provision.dashboards`.
+- Alert rules: inline in `modules/computers/soc.nix` under
+  `provision.alerting` (host down, unit failed, SSH brute force, Suricata
+  alert, CrowdSec scenario, Loki down, log-ingest stalled). Dashboard-only
+  for now — no contact points until a notification channel is chosen.
+
+**Adding a new detection** is usually two edits: a Loki/Prometheus query as
+a new dashboard panel, and a matching entry in the `alerting` rules list
+(copy an existing `(rule { … })` block — they share a helper that builds the
+Grafana instant-query + threshold shape). If it needs a new data source
+(e.g. a new sensor's logs), add an Alloy file source on the emitting host
+the way `services-suricata` does.
+
 ## CI
 
 GitHub Actions runs `nix flake check` and dry-run-builds every host's

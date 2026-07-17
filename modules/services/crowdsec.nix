@@ -23,8 +23,15 @@
           }
         ];
 
-        # The LAPI default of 127.0.0.1:8080 collides with the
-        # guildedthorn app on websites; keep it well out of the way.
+        # Run a self-contained local LAPI (engine + agent on the same box).
+        # Without this the module leaves api.client with a null credentials
+        # path and crowdsec dies at startup ("no API client section"). The
+        # bootstrap `cscli machine add` writes creds to credentialsFile on
+        # first start; the agent then reads them back to reach its own LAPI.
+        settings.general.api.server.enable = true;
+        settings.lapi.credentialsFile = "/var/lib/crowdsec/local_api_credentials.yaml";
+        # LAPI default 127.0.0.1:8080 collides with the guildedthorn app on
+        # websites; move it clear.
         settings.general.api.server.listen_uri = "127.0.0.1:8083";
       };
     };
