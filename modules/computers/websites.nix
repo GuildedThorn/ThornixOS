@@ -10,7 +10,9 @@
       config.nixos.modules.thorn-core
 
       config.nixos.modules.services-clamav
+      config.nixos.modules.services-crowdsec
       config.nixos.modules.services-ssh
+      config.nixos.modules.services-suricata
 
       inputs.guildedthorn-com.nixosModules.default
 
@@ -22,7 +24,12 @@
       "${inputs.self}/hosts/websites/secrets.nix"
 
       (
-        { config, lib, pkgs, ... }:
+        {
+          config,
+          lib,
+          pkgs,
+          ...
+        }:
         {
           boot = {
             growPartition = true;
@@ -58,6 +65,14 @@
             environmentFile = config.sops.secrets.guildedthorn_env.path;
           };
 
+          # Public traffic arrives through the Cloudflare tunnel, so on
+          # eth0 it's just TLS to Cloudflare — the readable HTTP is on
+          # loopback between cloudflared and the app. Watch both.
+          thorn.suricata.interfaces = [
+            "lo"
+            "eth0"
+          ];
+
           services.owncast = {
             enable = true;
             listen = "127.0.0.1";
@@ -66,9 +81,13 @@
           };
 
           services.rabbitmq.enable = true;
-          # epmd listens on IPv6 by default, which is disabled on this host;
-          # RabbitMQ only needs it on loopback.
-          services.epmd.listenStream = "127.0.0.1:4369";
+          # epmd listens on IPv6 by default, which is disabled on this host.
+          # It must cover 127.0.0.2 too: RabbitMQ's node is rabbit@websites,
+          # and NixOS maps the bare hostname to 127.0.0.2, so epmd pinned to
+          # 127.0.0.1 alone leaves rabbit unable to register (epmd_error
+          # address crash loop). 4369 stays LAN-invisible — it's not in
+          # firewall.allowedTCPPorts.
+          services.epmd.listenStream = "0.0.0.0:4369";
 
           systemd.services.cloudflared = {
             description = "Cloudflare Tunnel";

@@ -168,15 +168,162 @@
                 {
                   name = "Loki";
                   type = "loki";
+                  uid = "loki";
                   url = "http://127.0.0.1:3100";
                 }
                 {
                   name = "Prometheus";
                   type = "prometheus";
+                  uid = "prometheus";
                   url = "http://127.0.0.1:9090";
                   isDefault = true;
                 }
               ];
+
+              # SOC Phase 3: correlation/alerting rules, visible in the
+              # Grafana alerting UI. No contact points yet — deliberately
+              # dashboard-only until a notification channel is picked.
+              alerting.rules.settings = {
+                apiVersion = 1;
+                groups = [
+                  {
+                    orgId = 1;
+                    name = "siem";
+                    folder = "SIEM";
+                    interval = "1m";
+                    rules =
+                      let
+                        # Instant query (refId A) + threshold expression
+                        # (refId C) — the shape Grafana's UI itself builds.
+                        rule =
+                          {
+                            uid,
+                            title,
+                            datasourceUid,
+                            expr,
+                            evaluator,
+                            for,
+                            summary,
+                            noDataState ? "OK",
+                          }:
+                          {
+                            inherit
+                              uid
+                              title
+                              for
+                              noDataState
+                              ;
+                            condition = "C";
+                            execErrState = "Error";
+                            annotations.summary = summary;
+                            data = [
+                              {
+                                refId = "A";
+                                inherit datasourceUid;
+                                relativeTimeRange = {
+                                  from = 600;
+                                  to = 0;
+                                };
+                                model = {
+                                  refId = "A";
+                                  inherit expr;
+                                  instant = true;
+                                };
+                              }
+                              {
+                                refId = "C";
+                                datasourceUid = "__expr__";
+                                relativeTimeRange = {
+                                  from = 0;
+                                  to = 0;
+                                };
+                                model = {
+                                  refId = "C";
+                                  type = "threshold";
+                                  expression = "A";
+                                  conditions = [
+                                    {
+                                      type = "query";
+                                      inherit evaluator;
+                                      operator.type = "and";
+                                      query.params = [ "C" ];
+                                      reducer = {
+                                        type = "last";
+                                        params = [ ];
+                                      };
+                                    }
+                                  ];
+                                };
+                              }
+                            ];
+                          };
+                      in
+                      [
+                        (rule {
+                          uid = "siem-host-down";
+                          title = "Host down (node exporter unreachable)";
+                          datasourceUid = "prometheus";
+                          expr = "up{job=\"node\"}";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "5m";
+                          noDataState = "NoData";
+                          summary = "A fleet host has stopped answering Prometheus scrapes.";
+                        })
+                        (rule {
+                          uid = "siem-unit-failed";
+                          title = "systemd unit failed";
+                          datasourceUid = "prometheus";
+                          expr = "node_systemd_unit_state{state=\"failed\"} == 1";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "10m";
+                          summary = "A systemd unit has been in the failed state for 10 minutes.";
+                        })
+                        (rule {
+                          uid = "siem-ssh-bruteforce";
+                          title = "SSH brute force";
+                          datasourceUid = "loki";
+                          expr = "sum by (host) (count_over_time({job=\"systemd-journal\", unit=\"sshd.service\"} |~ \"Failed password|Invalid user\" [10m]))";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 10 ];
+                          };
+                          for = "0s";
+                          summary = "More than 10 failed SSH logins on one host in 10 minutes.";
+                        })
+                        (rule {
+                          uid = "siem-suricata-alert";
+                          title = "Suricata IDS alert";
+                          datasourceUid = "loki";
+                          expr = "sum by (host) (count_over_time({job=\"suricata\"} | json | event_type = \"alert\" [10m]))";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          summary = "Suricata raised at least one IDS alert.";
+                        })
+                        (rule {
+                          uid = "siem-crowdsec-alert";
+                          title = "CrowdSec scenario triggered";
+                          datasourceUid = "loki";
+                          expr = "sum by (host) (count_over_time({unit=\"crowdsec.service\"} |~ \"performed\" [10m]))";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          summary = "CrowdSec detected an attack scenario (detect-only, nothing was blocked).";
+                        })
+                      ];
+                  }
+                ];
+              };
             };
           };
         }

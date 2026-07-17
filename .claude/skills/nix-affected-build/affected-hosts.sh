@@ -16,7 +16,7 @@ set -euo pipefail
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
-all_hosts=(firewall mac mitm nixos proxmox-guest proxmox-mitm websites scout vmware-guest vmware-test)
+all_hosts=(firewall mac mitm nixos proxmox-guest soc websites scout vmware-guest vmware-test)
 
 if [ "${1:-}" = "--against" ] && [ -n "${2:-}" ]; then
   mapfile -t changed_files < <(git diff --name-only "$2"...HEAD --)
