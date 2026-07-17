@@ -146,6 +146,19 @@
                   { targets = map (host: "${host}.guildedthorn.arpa:9100") fleet; }
                 ];
               }
+              # pfSense (node_exporter package). Kept in its own job with an
+              # explicit instance label because it's not a flake host, and
+              # addressed by IP — pfsense.guildedthorn.arpa's own override
+              # oddly resolves to the other subnet (192.168.1.1).
+              {
+                job_name = "pfsense";
+                static_configs = [
+                  {
+                    targets = [ "172.16.25.1:9100" ];
+                    labels.instance = "pfsense.guildedthorn.arpa:9100";
+                  }
+                ];
+              }
               # Loki's own metrics — lets us alert when the log pipeline
               # itself breaks (soc going blind is worse than any single
               # host going down, since it's the thing that would tell us).
@@ -155,6 +168,45 @@
               }
             ];
           };
+
+          # Syslog → Loki ingest for non-NixOS devices (pfSense today; any
+          # appliance that can't run Alloy). soc's Alloy — already shipping
+          # soc's own journal via services-observability — gains a syslog
+          # listener that forwards into Loki through the same loki.write.soc
+          # receiver. Port 5514 (unprivileged) so Alloy's DynamicUser can
+          # bind it without extra capabilities; point the sender at
+          # 172.16.25.51:5514. Host/app labels come from the syslog header,
+          # so many devices can share this one listener. When the firewall
+          # becomes a NixOS host it ships via journal instead and this stays
+          # for everything else.
+          networking.firewall.allowedUDPPorts = [ 5514 ];
+          environment.etc."alloy/syslog.alloy".text = ''
+            loki.source.syslog "network" {
+              listener {
+                address  = "0.0.0.0:5514"
+                protocol = "udp"
+                labels   = { job = "syslog" }
+              }
+              relabel_rules = loki.relabel.syslog.rules
+              forward_to    = [loki.write.soc.receiver]
+            }
+
+            loki.relabel "syslog" {
+              forward_to = []
+              rule {
+                source_labels = ["__syslog_message_hostname"]
+                target_label  = "host"
+              }
+              rule {
+                source_labels = ["__syslog_message_app_name"]
+                target_label  = "app"
+              }
+              rule {
+                source_labels = ["__syslog_message_severity"]
+                target_label  = "severity"
+              }
+            }
+          '';
 
           services.grafana = {
             enable = true;
