@@ -193,6 +193,17 @@
                 }
               ];
 
+              dashboards.settings.providers = [
+                {
+                  name = "thornix";
+                  folder = "SIEM";
+                  # UI tweaks are allowed but live only until the next
+                  # deploy — the JSON in the repo is the source of truth.
+                  allowUiUpdates = true;
+                  options.path = "${inputs.self}/hosts/soc/dashboards";
+                }
+              ];
+
               # SOC Phase 3: correlation/alerting rules, visible in the
               # Grafana alerting UI. No contact points yet — deliberately
               # dashboard-only until a notification channel is picked.
