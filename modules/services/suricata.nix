@@ -27,23 +27,6 @@
             vars.address-groups.HOME_NET = "[172.16.25.0/24,127.0.0.0/8]";
             af-packet = map (interface: { inherit interface; }) cfg.interfaces;
 
-            # ET Open ships modbus/dnp3 industrial-protocol rules, but those
-            # app-layer parsers are off by default — the rules then fail to
-            # parse, and Suricata's strict startup config test (-T) treats
-            # any unparseable rule as fatal ("Loading signatures failed"),
-            # crash-looping the service. Enabling the parsers lets the rules
-            # load; they simply never match on a web host's traffic.
-            app-layer.protocols = {
-              modbus = {
-                enabled = "yes";
-                detection-enabled = "yes";
-              };
-              dnp3 = {
-                enabled = "yes";
-                detection-enabled = "yes";
-              };
-            };
-
             # Locally-originated and loopback packets carry no valid
             # checksums (offloading), which would otherwise make the
             # stream engine drop everything as invalid.
@@ -74,6 +57,18 @@
           "abuse.ch/sslbl-blacklist"
           "abuse.ch/sslbl-c2"
           "oisf/trafficid"
+        ];
+
+        # Drop ET Open's modbus/dnp3 industrial-protocol rules. Suricata
+        # 8.0.3 can't enable dnp3 detection at all, so those rules fail to
+        # parse, and the strict startup test (-T) treats any unparseable
+        # rule as fatal — crash-looping the service. suricata-update's
+        # `re:` disables every rule matching the pattern; neither protocol
+        # is relevant on a web host. (Overrides the module's default, which
+        # only disables five dnp3 SIDs.)
+        services.suricata.disabledRules = [
+          "re:modbus"
+          "re:dnp3"
         ];
 
         # Ship EVE events to Loki. Alloy runs with DynamicUser; group
