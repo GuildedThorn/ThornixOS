@@ -23,7 +23,6 @@
       config.nixos.modules.services-ssh
       config.nixos.modules.services-steam
       config.nixos.modules.services-tablets
-      config.nixos.modules.services-vmware
       config.nixos.modules.services-vr
 
       config.nixos.modules.thorn-glance
