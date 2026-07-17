@@ -267,9 +267,47 @@
                 }
               ];
 
-              # SOC Phase 3: correlation/alerting rules, visible in the
-              # Grafana alerting UI. No contact points yet — deliberately
-              # dashboard-only until a notification channel is picked.
+              # Deliver alerts to Discord. The webhook URL is read from the
+              # sops secret at runtime via $__file{}, so it's never in the
+              # Nix store or the repo.
+              alerting.contactPoints.settings = {
+                apiVersion = 1;
+                contactPoints = [
+                  {
+                    orgId = 1;
+                    name = "discord";
+                    receivers = [
+                      {
+                        uid = "discord-siem";
+                        type = "discord";
+                        settings.url = "$__file{${config.sops.secrets.grafana_discord_webhook.path}}";
+                      }
+                    ];
+                  }
+                ];
+              };
+
+              # Route everything to Discord. Every alert here is a SIEM rule,
+              # so a single default route is all we need; group by alertname
+              # and host so one flapping host doesn't spam per-series.
+              alerting.policies.settings = {
+                apiVersion = 1;
+                policies = [
+                  {
+                    orgId = 1;
+                    receiver = "discord";
+                    group_by = [
+                      "alertname"
+                      "host"
+                    ];
+                    group_wait = "30s";
+                    group_interval = "5m";
+                    repeat_interval = "4h";
+                  }
+                ];
+              };
+
+              # SOC Phase 3: correlation/alerting rules.
               alerting.rules.settings = {
                 apiVersion = 1;
                 groups = [

@@ -19,4 +19,8 @@
   # Grafana encrypts DB secrets with this; it has no default anymore and
   # can't be rotated easily — generated once, never needs manual editing.
   sops.secrets.grafana_secret_key.owner = "grafana";
+
+  # Discord webhook the SIEM alert rules notify. Read into the provisioned
+  # contact point via $__file{} so the URL never lands in the Nix store.
+  sops.secrets.grafana_discord_webhook.owner = "grafana";
 }
