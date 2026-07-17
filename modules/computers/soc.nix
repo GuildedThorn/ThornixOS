@@ -170,45 +170,39 @@
           };
 
           # Syslog → Loki ingest for non-NixOS devices (pfSense today; any
-          # appliance that can't run Alloy). soc's Alloy — already shipping
-          # soc's own journal via services-observability — gains a syslog
-          # listener that forwards into Loki through the same loki.write.soc
-          # receiver. Port 5514 (unprivileged) so Alloy's DynamicUser can
-          # bind it without extra capabilities; point the sender at
-          # 172.16.25.51:5514. Host/app labels come from the syslog header,
-          # so many devices can share this one listener. When the firewall
-          # becomes a NixOS host it ships via journal instead and this stays
-          # for everything else.
+          # appliance that can't run Alloy). pfSense's FreeBSD syslogd emits
+          # a non-standard RFC3164 with NO hostname field
+          # (`<pri>TIMESTAMP tag: msg`), which Alloy's strict syslog parser
+          # rejects outright. So rsyslog fronts it: it tolerantly accepts the
+          # datagrams on 5514/udp, fills the missing hostname from the source
+          # IP, and writes one file per source under /var/log/remote; Alloy
+          # then tails those into Loki via the same loki.write.soc receiver.
+          # Files are 0644 so Alloy's DynamicUser can read them. When the
+          # firewall becomes a NixOS host it ships via journal instead and
+          # this stays for other appliances.
           networking.firewall.allowedUDPPorts = [ 5514 ];
+          services.rsyslogd = {
+            enable = true;
+            extraConfig = ''
+              module(load="imudp")
+              input(type="imudp" port="5514")
+              template(name="remotefile" type="string"
+                       string="/var/log/remote/%FROMHOST-IP%.log")
+              if ($fromhost-ip != "127.0.0.1") then {
+                action(type="omfile" dynaFile="remotefile"
+                       fileCreateMode="0644" dirCreateMode="0755")
+                stop
+              }
+            '';
+          };
           environment.etc."alloy/syslog.alloy".text = ''
-            loki.source.syslog "network" {
-              listener {
-                address  = "0.0.0.0:5514"
-                protocol = "udp"
-                labels   = { job = "syslog" }
-                # pfSense/FreeBSD syslogd emits old BSD-style RFC3164, not
-                # the RFC5424 Alloy defaults to (which expects a version
-                # field — "error parsing syslog stream" without this).
-                syslog_format = "rfc3164"
-              }
-              relabel_rules = loki.relabel.syslog.rules
-              forward_to    = [loki.write.soc.receiver]
-            }
-
-            loki.relabel "syslog" {
-              forward_to = []
-              rule {
-                source_labels = ["__syslog_message_hostname"]
-                target_label  = "host"
-              }
-              rule {
-                source_labels = ["__syslog_message_app_name"]
-                target_label  = "app"
-              }
-              rule {
-                source_labels = ["__syslog_message_severity"]
-                target_label  = "severity"
-              }
+            loki.source.file "remote_syslog" {
+              targets    = [{
+                "__path__" = "/var/log/remote/*.log",
+                job        = "syslog",
+                host       = "pfsense",
+              }]
+              forward_to = [loki.write.soc.receiver]
             }
           '';
 
