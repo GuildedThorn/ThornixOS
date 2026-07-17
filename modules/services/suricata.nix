@@ -27,6 +27,23 @@
             vars.address-groups.HOME_NET = "[172.16.25.0/24,127.0.0.0/8]";
             af-packet = map (interface: { inherit interface; }) cfg.interfaces;
 
+            # ET Open ships modbus/dnp3 industrial-protocol rules, but those
+            # app-layer parsers are off by default — the rules then fail to
+            # parse, and Suricata's strict startup config test (-T) treats
+            # any unparseable rule as fatal ("Loading signatures failed"),
+            # crash-looping the service. Enabling the parsers lets the rules
+            # load; they simply never match on a web host's traffic.
+            app-layer.protocols = {
+              modbus = {
+                enabled = "yes";
+                detection-enabled = "yes";
+              };
+              dnp3 = {
+                enabled = "yes";
+                detection-enabled = "yes";
+              };
+            };
+
             # Locally-originated and loopback packets carry no valid
             # checksums (offloading), which would otherwise make the
             # stream engine drop everything as invalid.
