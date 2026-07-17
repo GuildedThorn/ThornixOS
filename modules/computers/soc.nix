@@ -164,6 +164,19 @@
             };
             provision = {
               enable = true;
+              # The datasources originally provisioned without explicit
+              # uids; Grafana can't change a uid in place ("data source not
+              # found" crash loop), so drop and re-create them each start.
+              datasources.settings.deleteDatasources = [
+                {
+                  name = "Loki";
+                  orgId = 1;
+                }
+                {
+                  name = "Prometheus";
+                  orgId = 1;
+                }
+              ];
               datasources.settings.datasources = [
                 {
                   name = "Loki";
