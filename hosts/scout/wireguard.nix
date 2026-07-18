@@ -1,35 +1,67 @@
 { config, ... }:
-{
-  # Road-warrior WireGuard back to pfSense. Full-tunnel (all traffic routed
-  # home when connected: LAN access + protection on hostile networks + SOC
-  # telemetry reaches soc over the tunnel).
+let
+  # Road-warrior WireGuard back to pfSense, in two flavors sharing one
+  # identity (same keys/IP, so pfSense sees a single peer either way):
+  #   wg0 — FULL tunnel: all traffic routed home (LAN access + protection
+  #         on hostile networks + SOC telemetry).
+  #   wg1 — SPLIT tunnel: only home subnets routed; internet stays local
+  #         (faster, no MTU tax on general browsing).
+  # Only one can be up at a time — the units Conflict, so starting one
+  # stops the other:
+  #   vpn-full / vpn-split / vpn-off / vpn-status   (aliases below)
   #
   # ON DEMAND, not auto-started (autostart = false). scout is sometimes
   # physically on the home LAN, and an always-up tunnel there would try to
   # reach the WAN IP from inside the network (a hairpin pfSense won't do) —
   # the handshake fails but the routes are already installed, black-holing
-  # traffic. So bring it up only when remote:
-  #   sudo systemctl start wg-quick-wg0     # connect  (or `wg-quick up wg0`)
-  #   sudo systemctl stop  wg-quick-wg0     # disconnect
-  #   systemctl is-active  wg-quick-wg0     # status
-  networking.wg-quick.interfaces.wg0 = {
+  # traffic. So bring it up only when remote.
+  peer = allowedIPs: {
+    inherit allowedIPs;
+    publicKey = "+4jlbw4WepYylpUPk36tV+9G6ny+Px8vslzuRPoD/So=";
+    presharedKeyFile = config.sops.secrets.wg_preshared_key.path;
+    endpoint = "205.178.64.45:4501";
+    persistentKeepalive = 25;
+  };
+  iface = {
     address = [ "10.10.10.3/32" ];
-    dns = [ "10.10.10.1" ]; # pfSense over the tunnel — resolves .arpa names
+    # pfSense over the tunnel — resolves .arpa names. Set for both modes:
+    # split still needs it for LAN name resolution, at the cost of all DNS
+    # queries riding the tunnel.
+    dns = [ "10.10.10.1" ];
+    privateKeyFile = config.sops.secrets.wg_private_key.path;
+    autostart = false;
     # 1280 instead of wg-quick's default 1420: cellular hotspots drop
     # full-size encapsulated packets (PMTUD black hole — TLS handshakes
     # stall while pings pass). 1280 is the always-works floor for a
     # laptop that roams across arbitrary networks.
     mtu = 1280;
-    privateKeyFile = config.sops.secrets.wg_private_key.path;
-    autostart = false;
-    peers = [
-      {
-        publicKey = "+4jlbw4WepYylpUPk36tV+9G6ny+Px8vslzuRPoD/So=";
-        presharedKeyFile = config.sops.secrets.wg_preshared_key.path;
-        endpoint = "205.178.64.45:4501";
-        allowedIPs = [ "0.0.0.0/0" ];
-        persistentKeepalive = 25;
-      }
-    ];
+  };
+in
+{
+  networking.wg-quick.interfaces = {
+    wg0 = iface // {
+      peers = [ (peer [ "0.0.0.0/0" ]) ];
+    };
+    # Home subnets only. Deliberately NOT 192.168.1.0/24 (the pfSense LAN
+    # side): hotspots use that range constantly and a tunnel route for it
+    # would fight the local network scout is actually sitting on.
+    wg1 = iface // {
+      peers = [
+        (peer [
+          "10.10.10.0/24"
+          "172.16.25.0/24"
+        ])
+      ];
+    };
+  };
+
+  systemd.services."wg-quick-wg0".unitConfig.Conflicts = [ "wg-quick-wg1.service" ];
+  systemd.services."wg-quick-wg1".unitConfig.Conflicts = [ "wg-quick-wg0.service" ];
+
+  environment.shellAliases = {
+    vpn-full = "sudo systemctl start wg-quick-wg0";
+    vpn-split = "sudo systemctl start wg-quick-wg1";
+    vpn-off = "sudo systemctl stop wg-quick-wg0 wg-quick-wg1";
+    vpn-status = "sudo wg show";
   };
 }
