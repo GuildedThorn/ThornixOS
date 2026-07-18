@@ -23,16 +23,15 @@
           seaweedfsS3 = "truenas.guildedthorn.arpa:30304";
 
           # Hosts Prometheus scrapes for node metrics (port 9100, opened
-          # fleet-wide by services-observability). A powered-off lab VM just
-          # shows as down.
+          # fleet-wide by services-observability). Only the always-on hosts:
+          # the laptops (mac, scout) and lab VMs (mitm, proxmox-guest) are
+          # intermittent, so scraping them just yields a permanent "down"
+          # and noisy host-down alerts. They still ship LOGS (Alloy pushes
+          # whenever they're up); add one back here if it becomes always-on.
+          # "firewall" is in the flake but not deployed — pfSense fills that
+          # role for now.
           fleet = [
-            # "firewall" is in the flake but not deployed — pfSense is the
-            # router for now; add it back here when it's wired up.
-            "mac"
-            "mitm"
             "nixos"
-            "proxmox-guest"
-            "scout"
             "soc"
             "websites"
           ];
