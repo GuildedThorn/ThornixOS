@@ -446,6 +446,22 @@
                           summary = "Suricata raised at least one IDS alert.";
                         })
                         (rule {
+                          # pfSense's perimeter Suricata arrives as raw syslog
+                          # (job=syslog), not EVE JSON, so match the priority
+                          # tag in the text. Only 1-2 (high/critical) alert,
+                          # to keep low-severity decoder noise off Discord.
+                          uid = "siem-pfsense-suricata";
+                          title = "pfSense Suricata high-severity alert";
+                          datasourceUid = "loki";
+                          expr = "sum(count_over_time({job=\"syslog\"} |~ \"Priority: [12]\" [10m]))";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          summary = "pfSense's perimeter Suricata raised a high-severity (priority 1-2) alert.";
+                        })
+                        (rule {
                           uid = "siem-crowdsec-alert";
                           title = "CrowdSec scenario triggered";
                           datasourceUid = "loki";
