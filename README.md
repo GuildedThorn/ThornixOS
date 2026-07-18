@@ -103,8 +103,10 @@ reservation or their Prometheus target shows down.
 **Dashboards & alerts** are provisioned from the repo, so they survive
 rebuilds and aren't hand-clicked:
 
-- Dashboards: `hosts/soc/dashboards/*.json` (SOC Overview, Fleet Health),
-  wired in via `services.grafana.provision.dashboards`.
+- Dashboards: `hosts/soc/dashboards/*.json` (SOC Overview, Fleet Health,
+  Endpoint Activity, Log Pipeline Health, Fleet Deploys), wired in via
+  `services.grafana.provision.dashboards` — the whole directory is
+  provisioned, so a new file needs no other edit.
 - Alert rules: inline in `modules/computers/soc.nix` under
   `provision.alerting` (host down, unit failed, SSH brute force, Suricata
   alert, CrowdSec scenario, Loki down, plus one log-silence rule generated
@@ -113,6 +115,15 @@ rebuilds and aren't hand-clicked:
   notification policy routes both to the same Discord webhook but gives
   `critical` faster grouping and hourly re-notification, so an IDS hit
   doesn't sit behind a once-failed systemd unit.
+
+**Deploy visibility:** Prometheus scrapes comin's metrics endpoint (`:4243`,
+opened fleet-wide by `services-observability`) alongside node metrics.
+`comin_deployment_info` carries the deployed commit id per host, so "is
+every host running what I pushed?" is the Fleet Deploys dashboard rather
+than an SSH session. Roaming hosts push the same job over remote-write.
+This matters because a failed deploy is otherwise invisible — the host
+stays up, keeps shipping logs, and looks healthy on every other panel
+while running its previous generation.
 
 **Known blind spot:** soc monitors itself, so if the VM is down there is
 nothing left to notice or notify. An external dead-man's-switch is the

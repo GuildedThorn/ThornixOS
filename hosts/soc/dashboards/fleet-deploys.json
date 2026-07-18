@@ -1,0 +1,203 @@
+{
+  "uid": "fleet-deploys",
+  "title": "Fleet Deploys",
+  "tags": ["fleet", "infra", "gitops"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "60s",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Deploy status",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Hosts reporting comin",
+      "description": "Hosts whose comin metrics endpoint is scrapeable. Roaming hosts push this instead of being scraped, so they appear only while online.",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "count(up{job=\"comin\"} == 1) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "green", "value": 3 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Failed deploys",
+      "description": "A failed deploy leaves the host running its previous generation — up, shipping logs, and healthy on every other panel.",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(comin_last_deployment_failed) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "red", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Failed builds / evals",
+      "description": "The pushed commit never became a system on this host. CI gates deploy branches, so this usually means a host-specific failure CI could not catch.",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(comin_last_build_failed + comin_last_eval_failed) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "red", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Reboot pending",
+      "description": "Deployed successfully but needs a reboot to fully take effect (kernel or initrd change). Informational, not a failure — coloured amber rather than red.",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(comin_need_to_reboot) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Fleet config state",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Deployed commit by host",
+      "description": "The answer to \"is every host running what I pushed?\". Compare these commit ids against the tip of each deploy-<hostname> branch; hosts that differ have not picked the change up yet. A host missing from this table entirely is not reporting comin metrics at all.",
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "comin_deployment_info", "instant": true, "format": "table" }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "Value": true, "job": true, "__name__": true },
+            "renameByName": {
+              "instance": "Host",
+              "commit_id": "Deployed commit",
+              "status": "Status"
+            },
+            "indexByName": { "instance": 0, "commit_id": 1, "status": 2 }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Status" },
+            "properties": [
+              { "id": "mappings", "value": [
+                { "type": "value", "options": {
+                  "done": { "text": "done", "color": "green", "index": 0 },
+                  "failed": { "text": "failed", "color": "red", "index": 1 }
+                } }
+              ] },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "sm", "footer": { "show": false } }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Trends",
+      "gridPos": { "x": 0, "y": 15, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Deploy / build / eval failures by host",
+      "description": "Stepped rather than smoothed: these are 0/1 state gauges, so interpolating between points would imply a half-failed deploy.",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "comin_last_deployment_failed", "legendFormat": "{{instance}} deploy" },
+        { "refId": "B", "expr": "comin_last_build_failed", "legendFormat": "{{instance}} build" },
+        { "refId": "C", "expr": "comin_last_eval_failed", "legendFormat": "{{instance}} eval" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "lineInterpolation": "stepAfter" }, "unit": "short", "min": 0, "max": 1 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Fetch failures by host",
+      "description": "comin failing to reach GitHub. Expected to be noisy for roaming hosts on captive-portal or cellular networks — sustained failure on an always-on host is the real signal.",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "comin_last_fetch_failed", "legendFormat": "{{instance}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "lineInterpolation": "stepAfter" }, "unit": "short", "min": 0, "max": 1 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    }
+  ]
+}
