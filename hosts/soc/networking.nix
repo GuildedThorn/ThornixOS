@@ -24,6 +24,7 @@
       22
       3000 # Grafana
       3100 # Loki push (Alloy on every host)
+      9090 # Prometheus remote_write receiver (roaming hosts: scout over WireGuard)
     ];
   };
 }

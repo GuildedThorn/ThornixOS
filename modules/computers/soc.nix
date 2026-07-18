@@ -137,6 +137,9 @@
           services.prometheus = {
             enable = true;
             retentionTime = "90d";
+            # Accept pushed metrics from roaming hosts (scout via
+            # services-observability-roaming) that can't be scraped.
+            extraFlags = [ "--web.enable-remote-write-receiver" ];
             globalConfig.scrape_interval = "30s";
             scrapeConfigs = [
               {
