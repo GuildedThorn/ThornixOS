@@ -25,6 +25,21 @@
           scrape_interval = "30s"
         }
 
+        // comin's metrics, pushed the same way. Roaming hosts are the ones
+        // where "is this actually on the pushed config?" is hardest to
+        // answer by hand — they're rarely reachable and often behind a
+        // captive portal or cellular NAT — so shipping deploy state matters
+        // more here than on the always-on hosts, not less.
+        prometheus.scrape "comin_local" {
+          targets = [{
+            __address__ = "127.0.0.1:4243",
+            instance    = "${config.networking.hostName}.guildedthorn.arpa:4243",
+          }]
+          forward_to      = [prometheus.remote_write.soc.receiver]
+          job_name        = "comin"
+          scrape_interval = "60s"
+        }
+
         prometheus.remote_write "soc" {
           endpoint {
             url = "http://soc.guildedthorn.arpa:9090/api/v1/write"

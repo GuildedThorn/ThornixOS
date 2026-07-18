@@ -171,6 +171,25 @@
                 job_name = "loki";
                 static_configs = [ { targets = [ "127.0.0.1:3100" ]; } ];
               }
+              # comin — the deploy layer. Everything else scraped here says
+              # whether a host is alive; this says whether it's running the
+              # config that was pushed. comin_deployment_info carries the
+              # deployed commit id as a label, so a stale host is visible
+              # rather than something you discover by SSH.
+              #
+              # Roaming hosts aren't listed: they push this same job over
+              # remote-write via services-observability-roaming, using
+              # matching job/instance labels so both paths land in one series
+              # set.
+              {
+                job_name = "comin";
+                # Deploys are minute-scale at best; scraping faster just adds
+                # samples that can't differ.
+                scrape_interval = "60s";
+                static_configs = [
+                  { targets = map (host: "${host}.guildedthorn.arpa:4243") fleet; }
+                ];
+              }
             ];
           };
 
@@ -554,6 +573,40 @@
                           };
                           for = "0s";
                           summary = "CrowdSec detected an attack scenario (detect-only, nothing was blocked).";
+                        })
+                        (rule {
+                          # A failed deploy leaves the host silently running
+                          # its previous generation — it stays up, keeps
+                          # shipping logs, and looks entirely healthy on every
+                          # other panel. Nothing else in this rule set would
+                          # notice.
+                          uid = "siem-comin-deploy-failed";
+                          title = "comin deploy failed";
+                          datasourceUid = "prometheus";
+                          expr = "comin_last_deployment_failed";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "5m";
+                          summary = "A host's last comin deployment failed — it is still running its previous configuration.";
+                        })
+                        (rule {
+                          # Build and eval failures are summed rather than
+                          # given a rule each: both mean "the pushed config
+                          # did not become a system", and the journal says
+                          # which. They carry identical label sets, so the
+                          # addition matches cleanly.
+                          uid = "siem-comin-build-failed";
+                          title = "comin build or eval failed";
+                          datasourceUid = "prometheus";
+                          expr = "comin_last_build_failed + comin_last_eval_failed";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "5m";
+                          summary = "A host failed to build or evaluate its configuration — the pushed commit never became a system.";
                         })
                         (rule {
                           uid = "siem-loki-down";

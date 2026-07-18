@@ -50,5 +50,23 @@
         enabledCollectors = [ "systemd" ];
         openFirewall = true;
       };
+
+      # comin's metrics endpoint. comin already listens on 0.0.0.0:4243 on
+      # every host (it's on by default); this only opens the port so soc can
+      # scrape it.
+      #
+      # Worth the exposure because it closes the fleet's one structural
+      # monitoring gap: everything else here reports whether a host is alive
+      # and talking, but nothing reports whether it is running the config
+      # that was pushed. comin_deployment_info carries the deployed commit
+      # id, so "did my change actually land" becomes a query instead of an
+      # SSH session. On a repo whose entire deployment model is GitOps, that
+      # is the layer most worth seeing.
+      #
+      # Same trust assumption 9100 already makes: LAN-reachable, unauthenticated,
+      # read-only. It exposes commit ids and deploy/build/eval status — no
+      # secrets, but it does tell a LAN observer exactly what version each
+      # host runs.
+      networking.firewall.allowedTCPPorts = [ 4243 ];
     };
 }
