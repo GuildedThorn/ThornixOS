@@ -161,18 +161,18 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Network traffic (eth0)",
+      "title": "Network traffic (primary NIC)",
       "gridPos": { "x": 16, "y": 8, "w": 8, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "irate(node_network_receive_bytes_total{device=\"eth0\"}[5m])",
+          "expr": "irate(node_network_receive_bytes_total{device=~\"eth0|enp42s0\"}[5m])",
           "legendFormat": "{{instance}} rx"
         },
         {
           "refId": "B",
-          "expr": "irate(node_network_transmit_bytes_total{device=\"eth0\"}[5m])",
+          "expr": "irate(node_network_transmit_bytes_total{device=~\"eth0|enp42s0\"}[5m])",
           "legendFormat": "{{instance}} tx"
         }
       ],
