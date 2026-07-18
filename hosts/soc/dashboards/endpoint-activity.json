@@ -34,7 +34,7 @@
       "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?exec\" [$range]))", "instant": true }
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |~ \"key=.?exec\" [$range]))", "instant": true }
       ],
       "fieldConfig": {
         "defaults": {
@@ -54,7 +54,7 @@
       "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "count(sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?exec\" [$range])))", "instant": true }
+        { "refId": "A", "expr": "count(sum by (host) (count_over_time({job=\"systemd-journal\"} |~ \"key=.?exec\" [$range])))", "instant": true }
       ],
       "fieldConfig": {
         "defaults": {
@@ -78,7 +78,7 @@
       "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?priv-exec\" [$range]))", "instant": true }
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |~ \"key=.?priv-exec\" [$range]))", "instant": true }
       ],
       "fieldConfig": {
         "defaults": {
@@ -98,7 +98,7 @@
       "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?(identity|privilege)\" [$range]))", "instant": true }
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |~ \"key=.?(identity|privilege)\" [$range]))", "instant": true }
       ],
       "fieldConfig": {
         "defaults": {
@@ -128,7 +128,7 @@
       "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?exec\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |~ \"key=.?exec\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
       ],
       "fieldConfig": {
         "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "gradientMode": "opacity" }, "unit": "short", "min": 0 },
@@ -143,7 +143,7 @@
       "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?priv-exec\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |~ \"key=.?priv-exec\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
       ],
       "fieldConfig": {
         "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "gradientMode": "opacity" }, "unit": "short", "min": 0 },
@@ -161,11 +161,12 @@
     {
       "id": 7,
       "type": "logs",
-      "title": "Process execution",
+      "title": "Process execution (command lines)",
+      "description": "Matches EXECVE records, not the key=exec SYSCALL records the tiles count. auditd splits one execution across two lines: SYSCALL carries the key and the uid/auid context, EXECVE carries the actual argv. Filtering this panel by key would therefore return the metadata and hide the command, which is the one thing you want to read here.",
       "gridPos": { "x": 0, "y": 15, "w": 12, "h": 9 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "{job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?exec\"", "queryType": "range" }
+        { "refId": "A", "expr": "{job=\"systemd-journal\"} |= \"EXECVE\"", "queryType": "range" }
       ],
       "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
     },
@@ -176,7 +177,7 @@
       "gridPos": { "x": 12, "y": 15, "w": 12, "h": 9 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "{job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?(priv-exec|identity|privilege|modules|time-change)\"", "queryType": "range" }
+        { "refId": "A", "expr": "{job=\"systemd-journal\"} |~ \"key=.?(priv-exec|identity|privilege|modules|time-change)\"", "queryType": "range" }
       ],
       "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
     }

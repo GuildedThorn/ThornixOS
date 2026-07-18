@@ -226,10 +226,11 @@
       "id": 10,
       "type": "timeseries",
       "title": "Audit events by host",
+      "description": "Matches the auditd record types rather than the literal \"audit(\" prefix. journald renders audit records as `audit[pid]: SYSCALL ...` and does NOT include the audit(timestamp:serial) form that appears in raw auditd log files — so the old filter matched essentially nothing and this panel read as \"no audit activity\" rather than \"broken query\".",
       "gridPos": { "x": 0, "y": 22, "w": 12, "h": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"audit(\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |~ \"SYSCALL|EXECVE|AVC|USER_AUTH|CRED_|SERVICE_\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
       ],
       "fieldConfig": {
         "defaults": { "custom": { "lineWidth": 1, "fillOpacity": 8, "showPoints": "never" }, "unit": "short", "min": 0 },
