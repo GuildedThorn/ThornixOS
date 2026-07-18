@@ -21,7 +21,7 @@
       {
         publicKey = "+4jlbw4WepYylpUPk36tV+9G6ny+Px8vslzuRPoD/So=";
         presharedKeyFile = config.sops.secrets.wg_preshared_key.path;
-        endpoint = "205.178.64.45:51820";
+        endpoint = "205.178.64.45:4501";
         allowedIPs = [ "0.0.0.0/0" ];
         persistentKeepalive = 25;
       }
