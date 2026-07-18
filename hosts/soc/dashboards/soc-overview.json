@@ -1,59 +1,148 @@
 {
   "uid": "soc-overview",
   "title": "SOC Overview",
-  "tags": ["siem"],
+  "tags": ["siem", "security"],
   "timezone": "browser",
   "schemaVersion": 39,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "range",
+        "type": "interval",
+        "label": "Tile window",
+        "query": "1h,6h,12h,24h",
+        "current": { "text": "24h", "value": "24h" },
+        "auto": false
+      }
+    ]
+  },
   "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Security posture",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
     {
       "id": 1,
       "type": "stat",
-      "title": "Fleet targets up",
-      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "title": "Hosts up",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "count(up{job=\"node\"} == 1) OR vector(0)", "instant": true }
+        { "refId": "A", "expr": "count(up{job=\"node\"} == 1) OR vector(0)", "instant": true, "legendFormat": "up" },
+        { "refId": "B", "expr": "count(up{job=\"node\"})", "instant": true, "legendFormat": "total" }
       ],
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [{ "id": "displayName", "value": "Up" }] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [{ "id": "displayName", "value": "Total" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "text" } }] }
+        ]
       },
-      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value_and_name", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 2,
       "type": "stat",
-      "title": "Targets down",
-      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "title": "Failed SSH ($range)",
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "sum(1 - up{job=\"node\"}) OR vector(0)", "instant": true }
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\", unit=\"sshd.service\"} |~ \"Failed password|Invalid user\" [$range]))", "instant": true }
       ],
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
-            ]
-          }
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 20 },
+            { "color": "red", "value": 100 }
+          ] }
         },
         "overrides": []
       },
-      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 3,
       "type": "stat",
-      "title": "Failed systemd units",
-      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "title": "Suricata alerts ($range)",
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"suricata\"} | json | event_type = \"alert\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "pfSense IDS ($range)",
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\"} |= \"[Priority:\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "CrowdSec ($range)",
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({unit=\"crowdsec.service\"} |~ \"performed\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Failed units",
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "refId": "A", "expr": "sum(node_systemd_unit_state{state=\"failed\"}) OR vector(0)", "instant": true }
@@ -61,208 +150,158 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 1 },
-              { "color": "red", "value": 3 }
-            ]
-          }
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "red", "value": 3 }
+          ] }
         },
         "overrides": []
       },
-      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Log volume by host",
-      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} [$__auto]))",
-          "queryType": "range",
-          "legendFormat": "{{host}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 1, "fillOpacity": 8, "showPoints": "never" },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      }
-    },
-    {
-      "id": 5,
-      "type": "timeseries",
-      "title": "Failed SSH logins by host",
-      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (host) (count_over_time({job=\"systemd-journal\", unit=\"sshd.service\"} |~ \"Failed password|Invalid user\" [$__auto]))",
-          "queryType": "range",
-          "legendFormat": "{{host}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 1, "fillOpacity": 8, "showPoints": "never" },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      }
-    },
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Suricata alerts by host",
-      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (host) (count_over_time({job=\"suricata\"} | json | event_type = \"alert\" [$__auto]))",
-          "queryType": "range",
-          "legendFormat": "{{host}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 1, "fillOpacity": 8, "showPoints": "never" },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      }
+      "id": 101,
+      "type": "row",
+      "title": "Active alerts",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
     },
     {
       "id": 7,
-      "type": "timeseries",
-      "title": "Audit events by host",
-      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"audit(\" [$__auto]))",
-          "queryType": "range",
-          "legendFormat": "{{host}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 1, "fillOpacity": 8, "showPoints": "never" },
-          "unit": "short"
-        },
-        "overrides": []
-      },
+      "type": "alertlist",
+      "title": "Firing & pending SIEM alerts",
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 7 },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "viewMode": "list",
+        "groupMode": "default",
+        "maxItems": 20,
+        "sortOrder": 3,
+        "dashboardAlerts": false,
+        "alertInstanceLabelFilter": "",
+        "datasource": "Grafana",
+        "stateFilter": { "firing": true, "pending": true, "noData": false, "normal": false, "error": true }
       }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Detections over time",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+      "collapsed": false
     },
     {
       "id": 8,
-      "type": "logs",
-      "title": "Recent Suricata alerts",
-      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 9 },
+      "type": "timeseries",
+      "title": "IDS alerts by sensor",
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        {
-          "refId": "A",
-          "expr": "{job=\"suricata\"} | json | event_type = \"alert\"",
-          "queryType": "range"
-        }
+        { "refId": "A", "expr": "sum(count_over_time({job=\"suricata\"} | json | event_type = \"alert\" [$__auto]))", "queryType": "range", "legendFormat": "websites (host)" },
+        { "refId": "B", "expr": "sum(count_over_time({job=\"syslog\"} |= \"[Priority:\" [$__auto]))", "queryType": "range", "legendFormat": "pfSense (perimeter)" }
       ],
-      "options": {
-        "showTime": true,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending",
-        "enableLogDetails": true
-      }
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "gradientMode": "opacity" }, "unit": "short", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["sum", "lastNotNull"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
     },
     {
       "id": 9,
-      "type": "logs",
-      "title": "CrowdSec detections",
-      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 9 },
+      "type": "timeseries",
+      "title": "Failed SSH logins by host",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        {
-          "refId": "A",
-          "expr": "{unit=\"crowdsec.service\"} |~ \"performed\"",
-          "queryType": "range"
-        }
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\", unit=\"sshd.service\"} |~ \"Failed password|Invalid user\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
       ],
-      "options": {
-        "showTime": true,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending",
-        "enableLogDetails": true
-      }
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "gradientMode": "opacity" }, "unit": "short", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["sum"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
     },
     {
       "id": 10,
       "type": "timeseries",
-      "title": "pfSense Suricata alerts/min",
-      "gridPos": { "x": 0, "y": 29, "w": 12, "h": 8 },
+      "title": "Audit events by host",
+      "gridPos": { "x": 0, "y": 22, "w": 12, "h": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(count_over_time({job=\"syslog\"} |= \"[Priority:\" [$__auto]))",
-          "queryType": "range",
-          "legendFormat": "pfSense alerts"
-        }
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"audit(\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
       ],
       "fieldConfig": {
-        "defaults": {
-          "custom": { "lineWidth": 1, "fillOpacity": 8, "showPoints": "never" },
-          "unit": "short"
-        },
+        "defaults": { "custom": { "lineWidth": 1, "fillOpacity": 8, "showPoints": "never" }, "unit": "short", "min": 0 },
         "overrides": []
       },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      }
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
     },
     {
       "id": 11,
-      "type": "logs",
-      "title": "Recent pfSense Suricata alerts",
-      "gridPos": { "x": 12, "y": 29, "w": 12, "h": 8 },
+      "type": "timeseries",
+      "title": "Log volume by host",
+      "gridPos": { "x": 12, "y": 22, "w": 12, "h": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        {
-          "refId": "A",
-          "expr": "{job=\"syslog\"} |= \"[Priority:\"",
-          "queryType": "range"
-        }
+        { "refId": "A", "expr": "sum by (host) (rate({job=\"systemd-journal\"} [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
       ],
-      "options": {
-        "showTime": true,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending",
-        "enableLogDetails": true
-      }
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 1, "fillOpacity": 8, "showPoints": "never", "stacking": { "mode": "normal" } }, "unit": "cps", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Live events",
+      "gridPos": { "x": 0, "y": 30, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 12,
+      "type": "logs",
+      "title": "Suricata alerts — websites (host sensor)",
+      "gridPos": { "x": 0, "y": 31, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"suricata\"} | json | event_type = \"alert\" | line_format \"[{{.alert_severity}}] {{.alert_signature}}  {{.src_ip}} -> {{.dest_ip}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 13,
+      "type": "logs",
+      "title": "Suricata alerts — pfSense (perimeter)",
+      "gridPos": { "x": 12, "y": 31, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"syslog\"} |= \"[Priority:\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 14,
+      "type": "logs",
+      "title": "CrowdSec detections",
+      "gridPos": { "x": 0, "y": 40, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{unit=\"crowdsec.service\"} |~ \"performed|ban\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 15,
+      "type": "logs",
+      "title": "Auth failures (fleet)",
+      "gridPos": { "x": 12, "y": 40, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\", unit=\"sshd.service\"} |~ \"Failed password|Invalid user|authentication failure\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
     }
   ]
 }
