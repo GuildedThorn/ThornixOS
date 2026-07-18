@@ -23,4 +23,9 @@
   # Discord webhook the SIEM alert rules notify. Read into the provisioned
   # contact point via $__file{} so the URL never lands in the Nix store.
   sops.secrets.grafana_discord_webhook.owner = "grafana";
+
+  # TLS private key for Grafana's HTTPS listener. The matching cert
+  # (ThornCloud_CA-signed) lives in the repo at certs/; only the key is
+  # secret. Add the PEM to secrets.yaml before deploying the https block.
+  sops.secrets.grafana_tls_key.owner = "grafana";
 }
