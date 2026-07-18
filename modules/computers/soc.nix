@@ -304,9 +304,16 @@
                 ];
               };
 
-              # Route everything to Discord. Every alert here is a SIEM rule,
-              # so a single default route is all we need; group by alertname
-              # and host so one flapping host doesn't spam per-series.
+              # Route everything to Discord, but split by the `severity`
+              # label the rule helper sets. There's still only one webhook —
+              # the split buys timing, not destination: critical alerts
+              # (active hostility, or the SIEM going blind) page out fast and
+              # keep re-notifying until dealt with, while warnings batch up
+              # and stay quiet. Without this, a Suricata hit waits behind the
+              # same 30s/4h treatment as a systemd unit that failed once.
+              #
+              # Group by alertname and host so one flapping host doesn't spam
+              # per-series.
               alerting.policies.settings = {
                 apiVersion = 1;
                 policies = [
@@ -320,6 +327,23 @@
                     group_wait = "30s";
                     group_interval = "5m";
                     repeat_interval = "4h";
+                    routes = [
+                      {
+                        receiver = "discord";
+                        object_matchers = [
+                          [
+                            "severity"
+                            "="
+                            "critical"
+                          ]
+                        ];
+                        group_wait = "10s";
+                        group_interval = "1m";
+                        # Re-notify hourly rather than 4-hourly: a critical
+                        # that's still firing is one nobody has actioned yet.
+                        repeat_interval = "1h";
+                      }
+                    ];
                   }
                 ];
               };
@@ -346,7 +370,18 @@
                             evaluator,
                             for,
                             summary,
+                            # "critical" = something is actively hostile or
+                            # the SIEM itself is blind; "warning" = degraded,
+                            # look when convenient. Drives the notification
+                            # policy split below, and is a label you can
+                            # filter/silence on in Grafana.
+                            severity ? "warning",
                             noDataState ? "OK",
+                            # Lookback the rule evaluates over, in seconds.
+                            # Keep in sync with the range selector in `expr`
+                            # for Loki rules — the expression's own `[10m]`
+                            # is what actually bounds the count.
+                            window ? 600,
                           }:
                           {
                             inherit
@@ -358,12 +393,13 @@
                             condition = "C";
                             execErrState = "Error";
                             annotations.summary = summary;
+                            labels.severity = severity;
                             data = [
                               {
                                 refId = "A";
                                 inherit datasourceUid;
                                 relativeTimeRange = {
-                                  from = 600;
+                                  from = window;
                                   to = 0;
                                 };
                                 model = {
@@ -436,6 +472,7 @@
                             params = [ 10 ];
                           };
                           for = "0s";
+                          severity = "critical";
                           summary = "More than 10 failed SSH logins on one host in 10 minutes.";
                         })
                         (rule {
@@ -448,6 +485,7 @@
                             params = [ 0 ];
                           };
                           for = "0s";
+                          severity = "critical";
                           summary = "Suricata raised at least one IDS alert.";
                         })
                         (rule {
@@ -464,6 +502,7 @@
                             params = [ 0 ];
                           };
                           for = "0s";
+                          severity = "critical";
                           summary = "pfSense's perimeter Suricata raised a high-severity (priority 1-2) alert.";
                         })
                         (rule {
@@ -489,22 +528,49 @@
                           };
                           for = "5m";
                           noDataState = "Alerting";
+                          severity = "critical";
                           summary = "Prometheus can't scrape Loki on soc — the SIEM may be blind to new logs.";
                         })
-                        (rule {
-                          uid = "siem-log-ingest-stalled";
-                          title = "Log ingest stalled (no new journal lines)";
+                      ]
+                      # Per-host log-silence detection, one rule per always-on
+                      # host. This replaces a single fleet-wide
+                      # sum(count_over_time(...)) rule, which could only ever
+                      # catch TOTAL ingest failure: as long as one chatty host
+                      # kept shipping, the sum stayed healthy and a single
+                      # host going dark was invisible. Silencing the log
+                      # shipper is step one of a competent intrusion, so
+                      # per-host is the resolution that actually matters.
+                      #
+                      # noDataState = Alerting is load-bearing, not
+                      # decoration: a host that has gone completely silent
+                      # produces NO series for its matcher (LogQL sum() over
+                      # an empty vector returns empty, not zero), so the
+                      # threshold never evaluates and only the NoData path
+                      # fires. An "OK on no data" rule here would be exactly
+                      # backwards — silence is the signal.
+                      #
+                      # Scoped to `fleet` for the same reason Prometheus
+                      # scrapes only those hosts: the laptops and lab VMs are
+                      # legitimately offline much of the time and would alert
+                      # constantly.
+                      ++ map (
+                        host:
+                        rule {
+                          uid = "siem-log-silent-${host}";
+                          title = "Log silence from ${host}";
                           datasourceUid = "loki";
-                          expr = "sum(count_over_time({job=\"systemd-journal\"} [10m]))";
+                          expr = "sum(count_over_time({job=\"systemd-journal\", host=\"${host}\"} [15m]))";
                           evaluator = {
                             type = "lt";
                             params = [ 1 ];
                           };
-                          for = "10m";
+                          for = "5m";
+                          window = 900;
                           noDataState = "Alerting";
-                          summary = "No journal lines reached Loki from any host in 10 minutes — shipping is broken.";
-                        })
-                      ];
+                          severity = "critical";
+                          summary = "No journal lines have reached Loki from ${host} in 15 minutes — either the host is down or its log shipping has stopped.";
+                        }
+                      ) fleet;
                   }
                 ];
               };
