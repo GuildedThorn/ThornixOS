@@ -33,6 +33,7 @@ in
       home.stateVersion = "26.11";
       thorn.desktop.hyprland.enable = true;
       thorn.desktop.rice.enable = true;
+      thorn.desktop.wallpaper.enable = true;
       thorn.programs.vesktop.enable = false;
       thorn.programs.firefox.enable = true;
       thorn.programs.ghostty.enable = true;
