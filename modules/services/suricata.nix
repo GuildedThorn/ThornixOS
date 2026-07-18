@@ -59,14 +59,17 @@
           "oisf/trafficid"
         ];
 
-        # Drop ET Open's modbus/dnp3 industrial-protocol rules. Suricata
-        # 8.0.3 can't enable dnp3 detection at all, so those rules fail to
-        # parse, and the strict startup test (-T) treats any unparseable
-        # rule as fatal — crash-looping the service. suricata-update's
-        # `re:` disables every rule matching the pattern; neither protocol
-        # is relevant on a web host. (Overrides the module's default, which
-        # only disables five dnp3 SIDs.)
+        # Rules to strip from the built ruleset (suricata-update comments
+        # them out). Overrides the module default (five dnp3 SIDs).
         services.suricata.disabledRules = [
+          # SURICATA Ethertype unknown — a layer-2 decoder event that fires
+          # on every non-IP frame on the wire (STP/BPDU, LLDP from switches).
+          # Benign, no src/dst IP, and ~99% of this sensor's alert volume.
+          "2200121"
+          # ET Open's modbus/dnp3 industrial-protocol rules: irrelevant on a
+          # web host, and Suricata 8.0.3 can't enable dnp3 detection at all,
+          # so those rules fail to parse and the strict -T test aborts the
+          # whole load (crash-looping the service). `re:` matches by pattern.
           "re:modbus"
           "re:dnp3"
         ];
