@@ -1,0 +1,204 @@
+{
+  "uid": "pipeline-health",
+  "title": "Log Pipeline Health",
+  "tags": ["siem", "pipeline"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "range",
+        "type": "interval",
+        "label": "Tile window",
+        "query": "15m,1h,6h,24h",
+        "current": { "text": "1h", "value": "1h" },
+        "auto": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Pipeline status",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Loki",
+      "description": "If this is DOWN the SIEM is blind to new logs — every other panel here is stale rather than empty.",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "up{job=\"loki\"}", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "DOWN", "index": 0 },
+              "1": { "text": "UP", "index": 1 }
+            } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "green", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Hosts shipping ($range)",
+      "description": "Distinct hosts with journal lines in the window. Green at 3+ matches the always-on `fleet` list in soc.nix; laptops push this higher when they are up.",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "count(sum by (host) (count_over_time({job=\"systemd-journal\"} [$range])))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "green", "value": 3 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Fleet ingest rate",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate({job=\"systemd-journal\"} [5m]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "unit": "cps",
+          "decimals": 1,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Lines ingested ($range)",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Ingest by host",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Ingest rate by host",
+      "description": "Stacked, so the fleet total reads off the top edge while each host's contribution stays legible.",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host) (rate({job=\"systemd-journal\"} [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 1, "fillOpacity": 20, "showPoints": "never", "stacking": { "mode": "normal" } }, "unit": "cps", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "lastNotNull"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Lines by host ($range)",
+      "description": "A host that has gone fully silent has NO bar here rather than a zero-length one — Loki returns no series for it at all. That absence is exactly what the per-host log-silence alert catches, since a dashboard cannot show a series that does not exist.",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} [$range]))", "instant": true, "legendFormat": "{{host}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Loki internals",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Lines received by Loki",
+      "description": "Loki's own view of ingest, as a cross-check against the log-derived panels above. If these disagree, the gap is between Alloy and Loki.",
+      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(loki_distributor_lines_received_total[$__rate_interval]))", "legendFormat": "lines/s" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "gradientMode": "opacity" }, "unit": "cps", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Bytes received by Loki",
+      "description": "Drives the retention/storage side: sustained growth here is what eventually fills the loki bucket on the NAS.",
+      "gridPos": { "x": 12, "y": 15, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(loki_distributor_bytes_received_total[$__rate_interval]))", "legendFormat": "bytes/s" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "gradientMode": "opacity" }, "unit": "Bps", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single" } }
+    }
+  ]
+}

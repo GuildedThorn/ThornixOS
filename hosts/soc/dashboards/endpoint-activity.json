@@ -1,0 +1,184 @@
+{
+  "uid": "endpoint-activity",
+  "title": "Endpoint Activity",
+  "tags": ["siem", "security", "endpoint"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "range",
+        "type": "interval",
+        "label": "Tile window",
+        "query": "1h,6h,12h,24h",
+        "current": { "text": "24h", "value": "24h" },
+        "auto": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Execution posture",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Exec events ($range)",
+      "description": "execve records from auditd (key=exec). Volume is workload, not threat — coloured neutral on purpose so it doesn't read as an alarm.",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?exec\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Hosts reporting exec",
+      "description": "Distinct hosts with execve records in the window. Zero means the audit rule is not deployed or auditd is not shipping — a genuine state, so it is coloured.",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "count(sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?exec\" [$range])))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "green", "value": 3 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Privileged exec ($range)",
+      "description": "Executions through the sudo/su setuid wrappers (key=priv-exec).",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?priv-exec\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Identity / privilege file changes ($range)",
+      "description": "Writes to passwd/group/shadow (key=identity) or sudoers (key=privilege). Rare by nature, so any nonzero value is worth a look.",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?(identity|privilege)\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Execution over time",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Exec events by host",
+      "description": "Baseline shape matters more than absolute height: a host stepping well outside its own normal is the signal.",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?exec\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "gradientMode": "opacity" }, "unit": "short", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["sum", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Privileged execution by host",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?priv-exec\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "gradientMode": "opacity" }, "unit": "short", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["sum"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Live events",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "Process execution",
+      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?exec\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 8,
+      "type": "logs",
+      "title": "Privilege & identity changes",
+      "gridPos": { "x": 12, "y": 15, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\"} |= \"audit(\" |~ \"key=.?(priv-exec|identity|privilege|modules|time-change)\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    }
+  ]
+}
