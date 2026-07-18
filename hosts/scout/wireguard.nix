@@ -15,6 +15,11 @@
   networking.wg-quick.interfaces.wg0 = {
     address = [ "10.10.10.3/32" ];
     dns = [ "10.10.10.1" ]; # pfSense over the tunnel — resolves .arpa names
+    # 1280 instead of wg-quick's default 1420: cellular hotspots drop
+    # full-size encapsulated packets (PMTUD black hole — TLS handshakes
+    # stall while pings pass). 1280 is the always-works floor for a
+    # laptop that roams across arbitrary networks.
+    mtu = 1280;
     privateKeyFile = config.sops.secrets.wg_private_key.path;
     autostart = false;
     peers = [
