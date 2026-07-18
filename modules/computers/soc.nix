@@ -196,12 +196,18 @@
             '';
           };
           environment.etc."alloy/syslog.alloy".text = ''
-            loki.source.file "remote_syslog" {
-              targets    = [{
+            // loki.source.file tails exact paths only, so discover the
+            // per-source files under /var/log/remote via a glob first.
+            local.file_match "remote_syslog" {
+              path_targets = [{
                 "__path__" = "/var/log/remote/*.log",
                 job        = "syslog",
                 host       = "pfsense",
               }]
+            }
+
+            loki.source.file "remote_syslog" {
+              targets    = local.file_match.remote_syslog.targets
               forward_to = [loki.write.soc.receiver]
             }
           '';
@@ -210,9 +216,21 @@
             enable = true;
             settings = {
               server = {
+                # TLS via a ThornCloud_CA-signed cert (the fleet already
+                # trusts that CA — see security.pki above), so no browser
+                # warnings and admin creds/SIEM data don't cross the LAN in
+                # cleartext (relevant with MITM lab boxes on the network).
+                # Cert lives in the repo; the private key stays in sops.
+                # NOTE: soc's deploy needs BOTH certs/soc.guildedthorn.arpa.crt
+                # committed AND the grafana_tls_key secret present, or Grafana
+                # won't start — add both before pushing this.
+                protocol = "https";
                 http_addr = "0.0.0.0";
                 http_port = 3000;
                 domain = "soc.guildedthorn.arpa";
+                root_url = "https://soc.guildedthorn.arpa:3000";
+                cert_file = "${inputs.self}/certs/soc.guildedthorn.arpa.crt";
+                cert_key = config.sops.secrets.grafana_tls_key.path;
                 enable_gzip = true;
               };
               security.admin_password = "$__file{${config.sops.secrets.grafana_admin_password.path}}";
