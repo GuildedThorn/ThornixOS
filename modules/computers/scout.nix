@@ -23,6 +23,8 @@
 
       "${inputs.self}/hosts/scout/hardware-configuration.nix"
       "${inputs.self}/hosts/scout/networking.nix"
+      "${inputs.self}/hosts/scout/secrets.nix"
+      "${inputs.self}/hosts/scout/wireguard.nix"
 
       { home-manager.users.thorn = import "${inputs.self}/hosts/scout/home.nix"; }
 
