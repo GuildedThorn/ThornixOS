@@ -77,17 +77,21 @@ about it is push-based — every host ships to it, and it pulls metrics back.
 **What runs where:**
 
 - **soc**: Loki (logs, chunks in the NAS's SeaweedFS S3 `loki` bucket, 90d
-  retention), Prometheus (metrics, 90d local), and Grafana
-  (`http://soc.guildedthorn.arpa:3000`).
+  retention), Prometheus (metrics, 90d local, backed up nightly to the NAS
+  via restic), and Grafana (`https://soc.guildedthorn.arpa:3000`).
 - **every host** (via `services-observability` + `services-audit`, both in
   `thorn-core`): Grafana Alloy tails the systemd journal and pushes it to
   Loki; `node_exporter` exposes metrics on :9100 for Prometheus to scrape;
   auditd adds a baseline of security rules (identity/sudoers/sshd changes,
-  module loads, privilege exec) whose events ride the same journal stream.
+  module loads, privilege exec, and `execve` for real user sessions) whose
+  events ride the same journal stream.
+- **nixos, soc, websites**: additionally run CrowdSec (detect-only, no
+  bouncer — nothing is ever blocked), reading the journal's syslog
+  transport.
 - **websites**: additionally runs Suricata (af-packet IDS on `lo`+`eth0` —
   `lo` because real ingress is the Cloudflare tunnel, readable only on
-  loopback) and CrowdSec (detect-only, no bouncer). Suricata's EVE JSON
-  ships to Loki via a second Alloy file source.
+  loopback). Suricata's EVE JSON ships to Loki via a second Alloy file
+  source.
 
 **How a log becomes a graph:** journal line → Alloy (`loki.source.journal`)
 → Loki on soc → Grafana panel / alert rule. Metrics are the reverse pull:
@@ -103,8 +107,16 @@ rebuilds and aren't hand-clicked:
   wired in via `services.grafana.provision.dashboards`.
 - Alert rules: inline in `modules/computers/soc.nix` under
   `provision.alerting` (host down, unit failed, SSH brute force, Suricata
-  alert, CrowdSec scenario, Loki down, log-ingest stalled). Dashboard-only
-  for now — no contact points until a notification channel is chosen.
+  alert, CrowdSec scenario, Loki down, plus one log-silence rule generated
+  per always-on host). All deliver to Discord via a webhook held in sops.
+- Each rule carries a `severity` label (`critical` / `warning`). The
+  notification policy routes both to the same Discord webhook but gives
+  `critical` faster grouping and hourly re-notification, so an IDS hit
+  doesn't sit behind a once-failed systemd unit.
+
+**Known blind spot:** soc monitors itself, so if the VM is down there is
+nothing left to notice or notify. An external dead-man's-switch is the
+missing piece.
 
 **Adding a new detection** is usually two edits: a Loki/Prometheus query as
 a new dashboard panel, and a matching entry in the `alerting` rules list
