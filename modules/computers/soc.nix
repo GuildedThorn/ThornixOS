@@ -5,6 +5,9 @@
     modules = [
       config.nixos.modules.thorn-core
 
+      # The SIEM host is worth defending too — an attacker who reaches soc
+      # can rewrite the record of how they got in.
+      config.nixos.modules.services-crowdsec
       config.nixos.modules.services-ssh
 
       ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
