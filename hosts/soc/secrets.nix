@@ -15,6 +15,27 @@
     '';
   };
 
+  # restic repository password for the Prometheus TSDB backup. NOT
+  # recoverable — if this is lost the repo is unreadable, so it wants to be
+  # somewhere outside this fleet as well (password manager), not only here.
+  #
+  # ACTION REQUIRED before soc next deploys: this secret must exist in
+  # secrets.yaml or the restic units fail (the rest of soc still comes up).
+  #   sops hosts/soc/secrets.yaml   → add `restic_password: <long random>`
+  sops.secrets.restic_password = { };
+
+  # S3 credentials for the restic repo. Deliberately reusing the loki
+  # keypair rather than minting a second one: same NAS, same trust
+  # boundary, and it keeps this to a single new secret to provision. If you
+  # ever want least-privilege per-bucket creds, add
+  # restic_s3_{access_key_id,secret_access_key} and swap them in here.
+  sops.templates."restic-s3.env" = {
+    content = ''
+      AWS_ACCESS_KEY_ID=${config.sops.placeholder.loki_s3_access_key_id}
+      AWS_SECRET_ACCESS_KEY=${config.sops.placeholder.loki_s3_secret_access_key}
+    '';
+  };
+
   sops.secrets.grafana_admin_password.owner = "grafana";
   # Grafana encrypts DB secrets with this; it has no default anymore and
   # can't be rotated easily — generated once, never needs manual editing.

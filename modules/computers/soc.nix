@@ -174,6 +174,44 @@
             ];
           };
 
+          # Prometheus TSDB backup to the NAS. Loki's chunks already live in
+          # object storage, so soc has always been "rebuildable without data
+          # loss" for LOGS only — metrics sat on the VM disk with no copy
+          # anywhere, and a rebuild silently took 90 days of history with it.
+          #
+          # Backing up the data directory directly rather than going through
+          # Prometheus's snapshot API: the API route needs
+          # --web.enable-admin-api, and 9090 is reachable from the whole LAN
+          # (it has to be, for scout's remote-write). That admin surface
+          # includes delete-series, so enabling it would hand every host on
+          # the subnet a way to erase the metrics this backup exists to
+          # protect. Not a good trade for a cleaner snapshot.
+          #
+          # The cost of that choice: TSDB blocks are immutable once written,
+          # but the in-memory head is flushed through a live WAL, so a
+          # restic run can capture a torn tail. Prometheus truncates a
+          # partial WAL on replay, so a restore loses at most the last
+          # (unflushed) couple of hours rather than failing to start.
+          services.restic.backups.prometheus = {
+            initialize = true;
+            repository = "s3:https://${seaweedfsS3}/prometheus-backup";
+            passwordFile = config.sops.secrets.restic_password.path;
+            environmentFile = config.sops.templates."restic-s3.env".path;
+            paths = [ "/var/lib/${config.services.prometheus.stateDir}" ];
+            timerConfig = {
+              OnCalendar = "daily";
+              # Spread load off the top of the hour; Persistent catches up a
+              # run the VM slept through.
+              RandomizedDelaySec = "1h";
+              Persistent = true;
+            };
+            pruneOpts = [
+              "--keep-daily 7"
+              "--keep-weekly 4"
+              "--keep-monthly 3"
+            ];
+          };
+
           # Syslog → Loki ingest for non-NixOS devices (pfSense today; any
           # appliance that can't run Alloy). pfSense's FreeBSD syslogd emits
           # a non-standard RFC3164 with NO hostname field
