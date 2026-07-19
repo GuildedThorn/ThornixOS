@@ -20,8 +20,8 @@ nixfmt path/to/file.nix                                                    # for
 sops hosts/<host>/secrets.yaml                                             # edit that host's encrypted secrets
 ```
 
-Host names: `firewall`, `mac`, `mitm`, `nixos`, `proxmox-guest`, `proxmox-mitm`,
-`websites`, `scout`, `vmware-guest`, `vmware-test` (must match the CI matrix
+Host names: `firewall`, `mac`, `mitm`, `nixos`, `proxmox-guest`, `websites`,
+`scout`, `soc`, `vmware-guest`, `vmware-test` (must match the CI matrix
 in `.github/workflows/ci.yml` and the `flake.nixosConfigurations.<name>` set
 in `modules/computers/`).
 
