@@ -8,6 +8,7 @@
       # The SIEM host is worth defending too — an attacker who reaches soc
       # can rewrite the record of how they got in.
       config.nixos.modules.services-crowdsec
+      config.nixos.modules.services-canary
       config.nixos.modules.services-ssh
 
       ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
@@ -38,8 +39,24 @@
             "soc"
             "websites"
           ];
+
+          # Hosts running services-canary — i.e. those with
+          # thorn.audit.execScope = "all", where a systemd-timer process is
+          # actually visible to the execve rule. Desktops are deliberately
+          # absent: under the "sessions" scope the canary would never be
+          # recorded, and they generate continuous real user exec activity
+          # anyway, which is its own liveness signal.
+          canaryHosts = [
+            "soc"
+            "websites"
+          ];
         in
         {
+          # Headless: nobody logs in interactively, so the default
+          # "sessions" exec scope would record nothing at all here. See
+          # services-audit for the reasoning and the volume trade.
+          thorn.audit.execScope = "all";
+
           # Trust the LAN CA so Loki's S3 client can verify the SeaweedFS
           # gateway's certificate.
           security.pki.certificates = [
@@ -623,6 +640,44 @@
                           summary = "Prometheus can't scrape Loki on soc — the SIEM may be blind to new logs.";
                         })
                       ]
+                      # Detection canaries. Each canary host runs a uniquely
+                      # named probe every 10 minutes; this asserts the
+                      # resulting execve record actually arrives in Loki.
+                      #
+                      # This is the only rule here that tests the detection
+                      # pipeline rather than the systems being watched. Every
+                      # other rule assumes auditd -> journal -> Alloy -> Loki
+                      # -> query works and reports on what it finds; this one
+                      # fails loudly when that assumption stops holding. It
+                      # exists because the assumption did stop holding once
+                      # already — a wrong LogQL filter left every audit panel
+                      # silently empty for weeks, indistinguishable from a
+                      # quiet fleet.
+                      #
+                      # 30m window against a 10m timer tolerates two
+                      # consecutive misses, so a slow scrape or brief Loki
+                      # blip doesn't page. noDataState = Alerting for the
+                      # same reason as the log-silence rules: total absence
+                      # produces no series to threshold against, and absence
+                      # is exactly the signal.
+                      ++ map (
+                        host:
+                        rule {
+                          uid = "siem-canary-silent-${host}";
+                          title = "Detection canary silent on ${host}";
+                          datasourceUid = "loki";
+                          expr = "sum(count_over_time({job=\"systemd-journal\", host=\"${host}\"} |= \"siem-canary-probe\" [30m]))";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "5m";
+                          window = 1800;
+                          noDataState = "Alerting";
+                          severity = "critical";
+                          summary = "The detection canary on ${host} has not reached Loki in 30 minutes — the audit/log pipeline is broken and this host's security telemetry cannot be trusted.";
+                        }
+                      ) canaryHosts
                       # Per-host log-silence detection, one rule per always-on
                       # host. This replaces a single fleet-wide
                       # sum(count_over_time(...)) rule, which could only ever

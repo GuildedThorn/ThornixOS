@@ -9,6 +9,7 @@
     modules = [
       config.nixos.modules.thorn-core
 
+      config.nixos.modules.services-canary
       config.nixos.modules.services-clamav
       config.nixos.modules.services-crowdsec
       config.nixos.modules.services-ssh
@@ -31,6 +32,13 @@
           ...
         }:
         {
+          # Headless and internet-facing: nobody logs in interactively, so
+          # the default "sessions" exec scope would record nothing here —
+          # leaving the host most likely to be reached through a service
+          # exploit as the one with no execution telemetry at all. See
+          # services-audit for the volume trade.
+          thorn.audit.execScope = "all";
+
           boot = {
             growPartition = true;
             # BIOS boot via GRUB on the whole disk. disko already registers
