@@ -199,6 +199,53 @@
         "overrides": []
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Detection validation",
+      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Canary hosts reporting",
+      "description": "Hosts whose detection canary has reached Loki in the last 30 minutes. Unlike every other tile here, this one tests the pipeline rather than reporting through it: the canary probe writes no log output of its own, so the only way it can appear is if auditd -> journal -> Alloy -> Loki -> query all work. Green at 2 = soc and websites, the hosts running services-canary.",
+      "gridPos": { "x": 0, "y": 24, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "count(sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"siem-canary-probe\" [30m])))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "green", "value": 2 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Canary probes by host",
+      "description": "One probe every 10 minutes per canary host. A flat line at the expected rate means the detection path is provably working end to end; a gap means it is not, regardless of how healthy the ingest panels above look.",
+      "gridPos": { "x": 6, "y": 24, "w": 18, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"siem-canary-probe\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "auto", "pointSize": 6 }, "unit": "short", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
     }
   ]
 }

@@ -50,7 +50,7 @@
       "id": 2,
       "type": "stat",
       "title": "Hosts reporting exec",
-      "description": "Distinct hosts with execve records in the window. Zero means the audit rule is not deployed or auditd is not shipping — a genuine state, so it is coloured.",
+      "description": "Distinct hosts with execve records in the window. Green at 2 because only the headless hosts (soc, websites) run thorn.audit.execScope=\"all\" and therefore report continuously; desktops use the \"sessions\" scope and appear only while someone is actually logged in, so expecting all of them here would show a permanent false fault.",
       "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
@@ -63,7 +63,7 @@
           "thresholds": { "mode": "absolute", "steps": [
             { "color": "red", "value": null },
             { "color": "orange", "value": 1 },
-            { "color": "green", "value": 3 }
+            { "color": "green", "value": 2 }
           ] }
         },
         "overrides": []

@@ -83,8 +83,21 @@ about it is push-based — every host ships to it, and it pulls metrics back.
   `thorn-core`): Grafana Alloy tails the systemd journal and pushes it to
   Loki; `node_exporter` exposes metrics on :9100 for Prometheus to scrape;
   auditd adds a baseline of security rules (identity/sudoers/sshd changes,
-  module loads, privilege exec, and `execve` for real user sessions) whose
-  events ride the same journal stream.
+  module loads, privilege exec, and `execve`) whose events ride the same
+  journal stream. `thorn.audit.execScope` controls how much `execve` is
+  recorded: desktops use `"sessions"` (auid >= 1000 — real user activity
+  only, since unfiltered execve on a desktop is mostly systemd churn),
+  while headless hosts set `"all"`. That distinction matters — under
+  `"sessions"` a server with no interactive logins records *nothing*, which
+  is precisely where a compromised service would run.
+- **soc, websites** (via `services-canary`): a uniquely-named probe runs
+  every 10 minutes, and an alert fires if its `execve` record doesn't reach
+  Loki. This is the only check that tests the detection pipeline instead of
+  reporting through it — the probe emits no log output of its own, so it can
+  only appear if auditd → journal → Alloy → Loki → query all work. It exists
+  because a wrong LogQL filter once left every audit panel silently empty
+  for weeks, indistinguishable from a quiet fleet. Requires
+  `execScope = "all"` (asserted at build time).
 - **nixos, soc, websites**: additionally run CrowdSec (detect-only, no
   bouncer — nothing is ever blocked), reading the journal's syslog
   transport.
