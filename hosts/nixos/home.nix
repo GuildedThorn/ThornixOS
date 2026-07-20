@@ -34,6 +34,7 @@ in
       thorn.desktop.hyprland.enable = true;
       thorn.desktop.rice.enable = true;
       thorn.desktop.wallpaper.enable = true;
+      thorn.desktop.crt.enable = true;
       thorn.programs.vesktop.enable = true;
       thorn.programs.firefox.enable = true;
       thorn.programs.ghostty.enable = true;
@@ -105,7 +106,9 @@ in
           output = "desc:Chrontel Inc TV DISPLAY";
           mode = "720x480@60.0";
           position = "4887x3610";
-          scale = "0.670000";
+          # Native 1:1 for the CRT SOC display — fractional downscaling just
+          # blurs a tube; the eww widget is designed for 720x480 logical.
+          scale = "1.0";
         }
         {
           output = "desc:LG Electronics 24GN50W 0x0006C019";

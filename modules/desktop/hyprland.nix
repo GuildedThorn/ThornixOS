@@ -139,7 +139,6 @@
       #################################
 
       environment.systemPackages = with pkgs; [
-        eww
         gtk-layer-shell
         hyprpaper
         hyprsunset
