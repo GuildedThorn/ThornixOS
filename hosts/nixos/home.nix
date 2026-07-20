@@ -22,6 +22,10 @@ let
       mbsync.enable = true;
       mbsync.flatten = ".";
       mbsync.expunge = "both";
+      # Gmail grows folders over time ([Gmail]/Starred appeared remotely);
+      # without this mbsync refuses to open the missing local side and the
+      # whole sync unit fails.
+      mbsync.create = "maildir";
       msmtp.enable = true;
       notmuch.enable = true;
       neomutt.enable = true;

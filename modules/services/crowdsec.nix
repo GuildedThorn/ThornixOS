@@ -4,8 +4,17 @@
   # but no bouncer is installed, so nothing is ever blocked. Add
   # services.crowdsec-firewall-bouncer later to start enforcing.
   nixos.modules.services-crowdsec =
-    { ... }:
+    { lib, ... }:
     {
+      # Upstream bug (observed with the 2026-07 nixpkgs bump): the module's
+      # crowdsec-update-hub oneshot runs `systemctl reload crowdsec.service`
+      # as its sandboxed DynamicUser, polkit denies it ("requires interactive
+      # authentication"), and the unit fails on every host, every timer run.
+      # "+" runs the reload with full privileges outside the sandbox; "-"
+      # tolerates crowdsec not running yet at boot.
+      systemd.services.crowdsec-update-hub.serviceConfig.ExecStartPost =
+        lib.mkForce "-+/run/current-system/sw/bin/systemctl reload crowdsec.service";
+
       services.crowdsec = {
         enable = true;
         autoUpdateService = true;

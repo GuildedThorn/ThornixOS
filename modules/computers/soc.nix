@@ -457,6 +457,16 @@
                             # is what actually bounds the count.
                             window ? 600,
                           }:
+                          let
+                            # Grafana 13 refuses to threshold a Loki instant
+                            # query directly ("looks like time series data,
+                            # only reduced data can be alerted on") — every
+                            # Loki rule needs an explicit reduce step between
+                            # query and threshold. Prometheus instant vectors
+                            # are accepted as-is, so those rules keep the
+                            # two-node shape.
+                            isLoki = datasourceUid == "loki";
+                          in
                           {
                             inherit
                               uid
@@ -482,6 +492,29 @@
                                   instant = true;
                                 };
                               }
+                            ]
+                            ++ (
+                              if isLoki then
+                                [
+                                  {
+                                    refId = "B";
+                                    datasourceUid = "__expr__";
+                                    relativeTimeRange = {
+                                      from = 0;
+                                      to = 0;
+                                    };
+                                    model = {
+                                      refId = "B";
+                                      type = "reduce";
+                                      expression = "A";
+                                      reducer = "last";
+                                    };
+                                  }
+                                ]
+                              else
+                                [ ]
+                            )
+                            ++ [
                               {
                                 refId = "C";
                                 datasourceUid = "__expr__";
@@ -492,7 +525,7 @@
                                 model = {
                                   refId = "C";
                                   type = "threshold";
-                                  expression = "A";
+                                  expression = if isLoki then "B" else "A";
                                   conditions = [
                                     {
                                       type = "query";
