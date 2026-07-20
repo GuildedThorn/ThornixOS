@@ -80,27 +80,61 @@
           tag_tail() {
             local tag="$1" query="$2"
             while true; do
-              logcli query --tail --no-labels --output=raw --limit=5 \
+              logcli query --tail --limit=5 --output=jsonl \
                 --addr="${lokiUrl}" "$query" 2>/dev/null \
-                | sed -u "s/^/$tag|/" || true
+                | jq --unbuffered -r --arg tag "$tag" \
+                    '"\($tag)|\(.labels.host // "?")|\(.line)"' || true
               sleep 15
             done
+          }
+
+          # Render a raw kernel audit record down to the fields a human scans
+          # for — otherwise the line is all arch=/syscall=/exit= preamble and
+          # the interesting part is truncated off the right edge.
+          fmt_audit() {
+            local line="$1" key comm exe auid argv
+            case "$line" in
+              EXECVE*)
+                argv="$(printf '%s' "$line" | grep -o 'a[0-9]*="[^"]*"' | cut -d'"' -f2 | paste -sd' ' -)"
+                printf 'exec %s' "''${argv:-$line}"
+                ;;
+              SYSCALL*)
+                key="$(printf '%s' "$line" | sed -n 's/.*key="\([^"]*\)".*/\1/p')"
+                comm="$(printf '%s' "$line" | sed -n 's/.*comm="\([^"]*\)".*/\1/p')"
+                exe="$(printf '%s' "$line" | sed -n 's/.* exe="\([^"]*\)".*/\1/p')"
+                auid="$(printf '%s' "$line" | sed -n 's/.*auid=\([0-9]*\).*/\1/p')"
+                if [ "$auid" = "4294967295" ]; then auid="sys"; fi
+                printf '[%s] %s %s uid=%s' "''${key:-?}" "''${comm:-?}" "''${exe:-?}" "''${auid:-?}"
+                ;;
+              *)
+                printf '%s' "$line"
+                ;;
+            esac
           }
 
           {
             tag_tail AUD '{job="systemd-journal", unit!~"loki.service|grafana.service"} |~ "key=.?(priv-exec|identity|privilege|modules|time-change)"' &
             tag_tail SSH '{job="systemd-journal", unit="sshd.service"} |~ "Failed password|Invalid user|authentication failure"' &
             tag_tail IDS '{job="suricata"} | json | event_type = "alert" | alert_severity <= 2 | line_format "[sev{{.alert_severity}}] {{.alert_signature}} {{.src_ip}} -> {{.dest_ip}}"' &
-            tag_tail CNY '{job="systemd-journal", unit!~"loki.service|grafana.service"} |= "siem-canary-probe"' &
+            # ^EXECVE keeps the feed to the actual probe execution — the
+            # probe's path also appears in audit PATH/SYSCALL records and in
+            # nix build output when a deploy rebuilds the probe derivation.
+            tag_tail CNY '{job="systemd-journal", unit!~"loki.service|grafana.service"} |= "siem-canary-probe" |~ "^EXECVE"' &
             wait
           } | {
             lines=()
             while IFS= read -r raw; do
               tag="''${raw%%|*}"
-              text="''${raw#*|}"
-              text="''${text:0:220}"
-              entry="$(jq -cn --arg tag "$tag" --arg ts "$(date +%H:%M:%S)" --arg text "$text" \
-                '{tag: $tag, ts: $ts, text: $text}')"
+              rest="''${raw#*|}"
+              host="''${rest%%|*}"
+              text="''${rest#*|}"
+              case "$tag" in
+                # Store-path hashes are 32 chars of noise on a 720px display.
+                AUD | CNY) text="$(fmt_audit "$text" | sed 's|/nix/store/[a-z0-9]*-|…/|g')" ;;
+              esac
+              text="''${text:0:200}"
+              entry="$(jq -cn --arg tag "$tag" --arg ts "$(date +%H:%M:%S)" --arg host "$host" --arg text "$text" \
+                '{tag: $tag, ts: $ts, host: $host, text: $text}')"
               lines+=("$entry")
               if (( ''${#lines[@]} > 12 )); then
                 lines=("''${lines[@]: -12}")
@@ -129,7 +163,7 @@
           (box :class "feed" :orientation "v" :space-evenly false :vexpand true :valign "end"
             (for entry in feed
               (label :class "feed-line tag-''${entry.tag}" :halign "start" :xalign 0 :truncate true
-                     :text "''${entry.ts} ''${entry.text}"))))
+                     :text "''${entry.ts} ''${entry.host} ''${entry.text}"))))
 
         (defwidget display []
           (box :class "root" :orientation "v" :space-evenly false
@@ -170,7 +204,7 @@
         .root {
           background-color: #030503;
           color: #46f07d;
-          padding: 14px 38px;
+          padding: 32px 52px;
         }
 
         .title {
