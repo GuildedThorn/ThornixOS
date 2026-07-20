@@ -34,7 +34,7 @@ in
       thorn.desktop.hyprland.enable = true;
       thorn.desktop.rice.enable = true;
       thorn.desktop.wallpaper.enable = true;
-      thorn.programs.vesktop.enable = false;
+      thorn.programs.vesktop.enable = true;
       thorn.programs.firefox.enable = true;
       thorn.programs.ghostty.enable = true;
       thorn.programs.obsidian.enable = true;
