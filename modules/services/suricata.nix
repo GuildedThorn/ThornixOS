@@ -5,7 +5,12 @@
   # this composes with the fleet-wide journal config from
   # services-observability, which this module assumes is present).
   nixos.modules.services-suricata =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.thorn.suricata;
     in
@@ -98,7 +103,46 @@
           # whole load (crash-looping the service). `re:` matches by pattern.
           "re:modbus"
           "re:dnp3"
+          # ET INFO DNS Query to Cloudflare Tunneling Domain (argotunnel).
+          # The rule detects attacker-run Cloudflare tunnels — but this
+          # host's ingress IS a legitimate cloudflared tunnel, so it fires
+          # on our own housekeeping forever and can never distinguish. If a
+          # span-port LAN sensor is ever added, keep the rule enabled there:
+          # that's where a surprise argotunnel lookup means something.
+          "2047122"
+          # ET INFO Commonly Abused Github-like Site (codeberg.org in DNS).
+          # The flake pulls the awww input from Codeberg, so every comin
+          # deploy on this host resolves it.
+          "2035173"
         ];
+
+        # Disable NIC offloads on the physical capture interfaces so the
+        # engine sees real wire-sized segments: GRO/GSO hand af-packet
+        # kernel-merged super-frames, which distort stream reassembly and
+        # overflow any fixed capture size. "lo" is skipped — loopback
+        # packets are genuinely 64KB (that's what default-packet-size is
+        # for), and there is no wire to be faithful to.
+        systemd.services.suricata-nic-offload = {
+          description = "Disable NIC offloads on Suricata capture interfaces";
+          wantedBy = [ "suricata.service" ];
+          before = [ "suricata.service" ];
+          after = [ "network.target" ];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+          };
+          script = lib.concatMapStringsSep "\n" (
+            interface:
+            lib.concatMapStringsSep "\n"
+              (feature: "${pkgs.ethtool}/bin/ethtool -K ${interface} ${feature} off || true")
+              [
+                "gro"
+                "gso"
+                "tso"
+                "lro"
+              ]
+          ) (lib.filter (i: i != "lo") cfg.interfaces);
+        };
 
         # Suricata only reads rules at startup, and the nixpkgs module never
         # tells it otherwise — so the daily suricata-update timer rewrote
