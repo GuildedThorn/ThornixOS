@@ -26,6 +26,11 @@ let
       # without this mbsync refuses to open the missing local side and the
       # whole sync unit fails.
       mbsync.create = "maildir";
+      # Without this, neomutt's default trash is a local "Trash" folder that
+      # has no Gmail counterpart — deletions pile up locally and mbsync
+      # fails on the missing far side. Point it at Gmail's actual trash
+      # (dot-name because of mbsync.flatten above).
+      folders.trash = "[Gmail].Trash";
       msmtp.enable = true;
       notmuch.enable = true;
       neomutt.enable = true;
