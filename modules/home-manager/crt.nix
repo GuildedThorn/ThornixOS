@@ -170,7 +170,7 @@
         .root {
           background-color: #030503;
           color: #46f07d;
-          padding: 8px 32px;
+          padding: 14px 38px;
         }
 
         .title {
