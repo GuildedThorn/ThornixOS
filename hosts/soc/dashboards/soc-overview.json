@@ -230,7 +230,7 @@
       "gridPos": { "x": 0, "y": 22, "w": 12, "h": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |~ \"SYSCALL|EXECVE|AVC|USER_AUTH|CRED_|SERVICE_\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\", unit!~\"loki.service|grafana.service\"} |~ \"SYSCALL|EXECVE|AVC|USER_AUTH|CRED_|SERVICE_\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
       ],
       "fieldConfig": {
         "defaults": { "custom": { "lineWidth": 1, "fillOpacity": 8, "showPoints": "never" }, "unit": "short", "min": 0 },

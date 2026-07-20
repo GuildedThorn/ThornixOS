@@ -666,7 +666,12 @@
                           uid = "siem-canary-silent-${host}";
                           title = "Detection canary silent on ${host}";
                           datasourceUid = "loki";
-                          expr = "sum(count_over_time({job=\"systemd-journal\", host=\"${host}\"} |= \"siem-canary-probe\" [30m]))";
+                          # unit exclusion: Loki logs every query it executes
+                          # (msg="executing query"), and this rule's own query
+                          # text contains the probe string — without it, the
+                          # rule for the host Loki runs on is pacified by the
+                          # echo of its own evaluation and can never fire.
+                          expr = "sum(count_over_time({job=\"systemd-journal\", host=\"${host}\", unit!~\"loki.service|grafana.service\"} |= \"siem-canary-probe\" [30m]))";
                           evaluator = {
                             type = "lt";
                             params = [ 1 ];

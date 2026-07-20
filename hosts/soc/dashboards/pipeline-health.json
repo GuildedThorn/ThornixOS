@@ -215,7 +215,7 @@
       "gridPos": { "x": 0, "y": 24, "w": 6, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "count(sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"siem-canary-probe\" [30m])))", "instant": true }
+        { "refId": "A", "expr": "count(sum by (host) (count_over_time({job=\"systemd-journal\", unit!~\"loki.service|grafana.service\"} |= \"siem-canary-probe\" [30m])))", "instant": true }
       ],
       "fieldConfig": {
         "defaults": {
@@ -239,7 +239,7 @@
       "gridPos": { "x": 6, "y": 24, "w": 18, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |= \"siem-canary-probe\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\", unit!~\"loki.service|grafana.service\"} |= \"siem-canary-probe\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
       ],
       "fieldConfig": {
         "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "auto", "pointSize": 6 }, "unit": "short", "min": 0 },
