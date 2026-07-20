@@ -233,11 +233,6 @@
             memoryPercent = 25;
           };
 
-          system.autoUpgrade = {
-            enable = true;
-            allowReboot = false;
-          };
-
           security.polkit.enable = true;
           security.rtkit.enable = true;
 
