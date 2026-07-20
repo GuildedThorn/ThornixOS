@@ -1,6 +1,0 @@
-;; define a reusable button
-(defwidget my-button [label command]
-  (button
-    :label label
-    :onclick command
-    :class "my-button"))

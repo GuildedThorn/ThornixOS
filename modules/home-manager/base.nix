@@ -8,7 +8,6 @@
     {
 
       imports = [
-        inputs.ags.homeManagerModules.default
         inputs.nixvim.homeModules.nixvim
       ];
 
