@@ -49,6 +49,15 @@
             # stream engine drop everything as invalid.
             stream.checksum-validation = "no";
 
+            # Loopback's MTU is 64KB and the default capture size is ~1514,
+            # so every large lo packet arrived truncated — the engine was
+            # silently payload-blind on exactly the interface carrying the
+            # decrypted HTTP (surfaced as an IPv4/AF-PACKET truncated-packet
+            # alert storm the moment fresh decoder rules went live). Size the
+            # capture to fit the whole packet instead of suppressing the
+            # rules that reported it.
+            default-packet-size = 65549;
+
             outputs = [
               {
                 eve-log = {
