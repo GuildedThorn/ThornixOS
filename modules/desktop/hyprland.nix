@@ -138,6 +138,14 @@
       # Packages
       #################################
 
+      # swayosd's privileged libinput backend as the dbus-activated system
+      # service the package ships (with its polkit and udev rules), replacing
+      # the old `pkexec swayosd-libinput-backend` autostart and its polkit
+      # prompt at every login.
+      systemd.packages = [ pkgs.swayosd ];
+      services.dbus.packages = [ pkgs.swayosd ];
+      services.udev.packages = [ pkgs.swayosd ];
+
       environment.systemPackages = with pkgs; [
         gtk-layer-shell
         hyprpaper
