@@ -105,7 +105,10 @@ in
         {
           output = "desc:Chrontel Inc TV DISPLAY";
           mode = "720x480@60.0";
-          position = "4887x3610";
+          # Flush against the HP's right edge (2409+1920) and bottom-aligned
+          # with both 1080p panels (3250+1080-480), so a full-desktop grab is
+          # one contiguous strip.
+          position = "4329x3850";
           # Native 1:1 for the CRT SOC display — fractional downscaling just
           # blurs a tube; the eww widget is designed for 720x480 logical.
           scale = "1.0";

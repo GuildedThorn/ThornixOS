@@ -136,6 +136,12 @@
           # Screenshots
           (bind "PRINT" (hypr.exec "hyprshot -m output -o /home/thorn/Pictures/screenshots"))
 
+          # Full desktop, all three monitors as one strip (grim with no
+          # output argument captures the whole layout)
+          (bind "SUPER + CTRL + PRINT" (
+            hypr.exec "grim /home/thorn/Pictures/screenshots/desktop-$(date +%Y%m%d-%H%M%S).png"
+          ))
+
           (bind "SUPER + PRINT" (hypr.exec "hyprshot -m window -c -o /home/thorn/Pictures/screenshots"))
 
           (bind "SUPER + SHIFT + PRINT" (hypr.exec "hyprshot -m region -o /home/thorn/Pictures/screenshots"))
