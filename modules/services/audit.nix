@@ -36,6 +36,18 @@
       };
 
       config = {
+        # The priv-exec rules below watch /run/wrappers/bin/*, and a -w rule
+        # on a path that doesn't exist yet fails the whole rule load. Both
+        # audit-rules-nixos and suid-sgid-wrappers are pre-sysinit oneshots
+        # with DefaultDependencies=false, and upstream orders neither against
+        # the other — so whether the wrappers exist when the rules load is a
+        # boot race (scout lost it consistently; the rest of the fleet
+        # happened to win). Make the ordering explicit.
+        systemd.services.audit-rules-nixos = {
+          after = [ "suid-sgid-wrappers.service" ];
+          wants = [ "suid-sgid-wrappers.service" ];
+        };
+
         security.auditd.enable = true;
         security.audit = {
           enable = true;
