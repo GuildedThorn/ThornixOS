@@ -81,6 +81,11 @@
             "eth0"
           ];
 
+          # A web host is attacked over IP; the switch's L2 chatter (STP
+          # BPDUs every 2s reaching the VM bridge) is not this sensor's
+          # problem and was 99% of its alert volume.
+          thorn.suricata.bpfFilter = "ip or ip6 or arp";
+
           services.owncast = {
             enable = true;
             listen = "127.0.0.1";

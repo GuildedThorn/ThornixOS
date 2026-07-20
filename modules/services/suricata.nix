@@ -20,12 +20,29 @@
         '';
       };
 
+      options.thorn.suricata.bpfFilter = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "ip or ip6 or arp";
+        description = ''
+          Optional BPF capture filter applied to every af-packet interface.
+          Scopes the sensor to the traffic it exists to inspect — e.g. a web
+          host's IDS has no business decoding the switch's STP/LLDP chatter,
+          which otherwise reaches the VM bridge and trips L2 decoder events.
+          This is scoping, not alert suppression: filtered frames are never
+          captured, which also saves CPU.
+        '';
+      };
+
       config = {
         services.suricata = {
           enable = true;
           settings = {
             vars.address-groups.HOME_NET = "[172.16.25.0/24,127.0.0.0/8]";
-            af-packet = map (interface: { inherit interface; }) cfg.interfaces;
+            af-packet = map (
+              interface:
+              { inherit interface; } // lib.optionalAttrs (cfg.bpfFilter != null) { bpf-filter = cfg.bpfFilter; }
+            ) cfg.interfaces;
 
             # Locally-originated and loopback packets carry no valid
             # checksums (offloading), which would otherwise make the
@@ -73,6 +90,18 @@
           "re:modbus"
           "re:dnp3"
         ];
+
+        # Suricata only reads rules at startup, and the nixpkgs module never
+        # tells it otherwise — so the daily suricata-update timer rewrote
+        # rules on disk while the engine kept detecting with whatever was in
+        # memory at its last restart (observed weeks stale: disabledRules
+        # ignored, rule thresholds missing, and — the part that matters —
+        # new ET Open signatures never reaching the engine). SIGUSR2 is
+        # Suricata's live ruleset-reload. "+" runs it outside the update
+        # unit's DynamicUser sandbox; "-" tolerates the sensor not running
+        # yet (at boot the update completes before suricata starts).
+        systemd.services.suricata-update.serviceConfig.ExecStartPost =
+          "-+/run/current-system/sw/bin/systemctl kill --signal=SIGUSR2 suricata.service";
 
         # Ship EVE events to Loki. Alloy runs with DynamicUser; group
         # access is what lets it read Suricata's log directory.
