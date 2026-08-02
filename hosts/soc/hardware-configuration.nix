@@ -22,5 +22,7 @@
   boot.kernelModules = [ ];
   boot.extraModulePackages = [ ];
 
+  fileSystems."/".autoResize = true;
+
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 }
