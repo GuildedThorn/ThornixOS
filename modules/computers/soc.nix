@@ -19,7 +19,12 @@
       "${inputs.self}/hosts/soc/secrets.nix"
 
       (
-        { config, lib, ... }:
+        {
+          config,
+          lib,
+          pkgs,
+          ...
+        }:
         let
           # SeaweedFS S3 gateway on the NAS. Loki keeps only its WAL and
           # caches on the VM disk; all chunk/index storage lives in the
@@ -246,6 +251,62 @@
               "--keep-weekly 4"
               "--keep-monthly 3"
             ];
+          };
+
+          # An external dead-man switch for the monitoring host itself. A
+          # success ping is sent only after the local SOC services and their
+          # HTTP readiness endpoints pass. Local failures are reported
+          # immediately; loss of the VM, hypervisor, power, LAN, or internet
+          # is detected by Healthchecks when the success pings stop.
+          systemd.services.soc-deadman = {
+            description = "Verify SOC health and send external heartbeat";
+            wants = [ "network-online.target" ];
+            after = [ "network-online.target" ];
+            path = [
+              pkgs.curl
+              pkgs.systemd
+            ];
+            script = ''
+              set -u
+              source ${config.sops.templates."healthchecks.env".path}
+
+              failed=0
+
+              systemctl is-active --quiet \\
+                loki prometheus grafana alloy syslog || failed=1
+
+              curl -fsS --max-time 5 \\
+                http://127.0.0.1:3100/ready >/dev/null || failed=1
+
+              curl -fsS --max-time 5 \\
+                http://127.0.0.1:9090/-/ready >/dev/null || failed=1
+
+              curl -fsS --max-time 5 \\
+                --resolve soc.guildedthorn.arpa:3000:127.0.0.1 \\
+                https://soc.guildedthorn.arpa:3000/api/health \\
+                >/dev/null || failed=1
+
+              if (( failed != 0 )); then
+                curl -fsS --retry 2 --max-time 10 \\
+                  "$HEALTHCHECKS_URL/fail" >/dev/null || true
+                exit 1
+              fi
+
+              curl -fsS --retry 2 --max-time 10 \\
+                "$HEALTHCHECKS_URL" >/dev/null
+            '';
+            serviceConfig.Type = "oneshot";
+          };
+
+          systemd.timers.soc-deadman = {
+            description = "Run SOC external heartbeat";
+            wantedBy = [ "timers.target" ];
+            timerConfig = {
+              OnBootSec = "2m";
+              OnUnitActiveSec = "5m";
+              RandomizedDelaySec = "15s";
+              Unit = "soc-deadman.service";
+            };
           };
 
           # Syslog → Loki ingest for non-NixOS devices (pfSense today; any

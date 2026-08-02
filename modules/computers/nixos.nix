@@ -75,6 +75,8 @@
             osu-lazer-bin
             clonehero
 
+            openvpn
+
             retroarch
             libretro.pcsx-rearmed
             libretro.pcsx2

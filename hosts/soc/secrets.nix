@@ -3,6 +3,13 @@
   sops.defaultSopsFile = ./secrets.yaml;
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
 
+  # Outbound dead-man heartbeat. The URL contains the check UUID, so keep it
+  # out of the Nix store and expose it only to the root-owned oneshot service.
+  sops.secrets.healthchecks_ping_url = { };
+  sops.templates."healthchecks.env".content = ''
+    HEALTHCHECKS_URL=${config.sops.placeholder.healthchecks_ping_url}
+  '';
+
   # SeaweedFS S3 credentials for the `loki` bucket, exposed to Loki as an
   # EnvironmentFile so the config can use ${...} via --config.expand-env.
   sops.secrets.loki_s3_access_key_id = { };
