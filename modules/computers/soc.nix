@@ -273,27 +273,27 @@
 
               failed=0
 
-              systemctl is-active --quiet \\
+              systemctl is-active --quiet \
                 loki prometheus grafana alloy syslog || failed=1
 
-              curl -fsS --max-time 5 \\
+              curl -fsS --max-time 5 \
                 http://127.0.0.1:3100/ready >/dev/null || failed=1
 
-              curl -fsS --max-time 5 \\
+              curl -fsS --max-time 5 \
                 http://127.0.0.1:9090/-/ready >/dev/null || failed=1
 
-              curl -fsS --max-time 5 \\
-                --resolve soc.guildedthorn.arpa:3000:127.0.0.1 \\
-                https://soc.guildedthorn.arpa:3000/api/health \\
+              curl -fsS --max-time 5 \
+                --resolve soc.guildedthorn.arpa:3000:127.0.0.1 \
+                https://soc.guildedthorn.arpa:3000/api/health \
                 >/dev/null || failed=1
 
               if (( failed != 0 )); then
-                curl -fsS --retry 2 --max-time 10 \\
+                curl -fsS --retry 2 --max-time 10 \
                   "$HEALTHCHECKS_URL/fail" >/dev/null || true
                 exit 1
               fi
 
-              curl -fsS --retry 2 --max-time 10 \\
+              curl -fsS --retry 2 --max-time 10 \
                 "$HEALTHCHECKS_URL" >/dev/null
             '';
             serviceConfig.Type = "oneshot";
