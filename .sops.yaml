@@ -7,7 +7,7 @@ keys:
   # /etc/ssh/ssh_host_ed25519_key - no YubiKey needed on the host itself.
   - &host_nixos age1sgl6wmc0uxew0hvfsdzpcy5fpftxlny4zssvfv84hwj75j65q9asd84nf2
   - &host_websites age1k3jvm08n7p5yyptjlsuz7mhk0smdg6lh9etgtxdssuzn08v0wysql3wjk2
-  - &host_soc age1qa4pxzkg0csgpryasx3xxnvvdrclksxm0s5zg70zemq663ucsq0qale0xx
+  - &host_soc age10zuunep3aw3j760st7yz9wydnlmgwr0p30w2wvqyw9kdg8xu5pnq0fpyrh
   - &host_scout age1sn6hvafu0vh97lp6d67m6ee35j0twg6nysswr6k29q3wt90ezefsmewj4d
 
 creation_rules:
