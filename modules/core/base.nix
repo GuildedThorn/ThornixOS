@@ -21,11 +21,21 @@
       # -------------------------
       # Experimental Features
       # -------------------------
-      nix.settings.experimental-features = [
-        "nix-command"
-        "flakes"
-        "pipe-operators"
-      ];
+      nix.settings = {
+        experimental-features = [
+          "nix-command"
+          "flakes"
+          "pipe-operators"
+        ];
+
+        # CI uploads every successful host closure to this public cache.
+        # Consume those artifacts on the fleet instead of rebuilding the
+        # same packages locally during each comin deployment.
+        extra-substituters = [ "https://guildedthorn.cachix.org" ];
+        extra-trusted-public-keys = [
+          "guildedthorn.cachix.org-1:xBlJbEHPcUXnI4D261WqjlM1/WgPqn2yWH6c5BMOxHc="
+        ];
+      };
 
       # -------------------------
       # DNS Resolver
