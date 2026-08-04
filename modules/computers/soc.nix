@@ -978,6 +978,62 @@
                           summary = "Suricata raised at least one IDS alert.";
                         })
                         (rule {
+                          # stats.log is emitted every five minutes even when
+                          # the protected network is quiet. Its absence tests
+                          # Zeek -> file -> Alloy -> Loki, rather than merely
+                          # whether the systemd process claims to be active.
+                          uid = "siem-zeek-silent";
+                          title = "Zeek network sensor is silent";
+                          datasourceUid = "loki";
+                          expr = "sum(count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"stats\"} [20m]))";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "15m";
+                          window = 1200;
+                          noDataState = "Alerting";
+                          severity = "critical";
+                          category = "pipeline";
+                          summary = "No Zeek stats heartbeat has reached Loki in 20 minutes — OPT1 network visibility is unavailable.";
+                        })
+                        (rule {
+                          uid = "siem-zeek-capture-loss";
+                          title = "Zeek estimates packet capture loss";
+                          datasourceUid = "loki";
+                          expr = ''
+                            max_over_time({job="zeek", host="mac", zeek_log="capture_loss"}
+                              | json | unwrap percent_lost | __error__="" [20m])
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 1 ];
+                          };
+                          for = "0s";
+                          window = 1200;
+                          category = "network";
+                          summary = "Zeek estimates that more than 1% of TCP data was missed; investigations may have incomplete network evidence.";
+                        })
+                        (rule {
+                          # stats.log reports the number dropped during each
+                          # five-minute sample, rather than a lifetime total.
+                          uid = "siem-zeek-kernel-drops";
+                          title = "Zeek capture socket dropped packets";
+                          datasourceUid = "loki";
+                          expr = ''
+                            sum_over_time({job="zeek", host="mac", zeek_log="stats"}
+                              | json | unwrap pkts_dropped | __error__="" [15m])
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          window = 900;
+                          category = "network";
+                          summary = "The kernel dropped packets before Zeek could inspect them; sensor CPU or capture buffering may need tuning.";
+                        })
+                        (rule {
                           # pfSense's perimeter Suricata arrives as raw syslog
                           # (job=syslog), not EVE JSON, so match the priority
                           # tag in the text. Only 1-2 (high/critical) alert,

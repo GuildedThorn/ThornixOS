@@ -1,0 +1,478 @@
+{
+  "uid": "network-visibility",
+  "title": "Network Visibility — Zeek",
+  "description": "Passive OPT1 visibility from Zeek on mac's vmbr0. This covers traffic traversing the Proxmox bridge, including VM-to-VM flows; it does not claim visibility into physical-to-physical traffic that never reaches mac.",
+  "tags": ["siem", "zeek", "network"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "range",
+        "type": "interval",
+        "label": "Summary window",
+        "query": "15m,1h,6h,24h",
+        "current": { "text": "1h", "value": "1h" },
+        "auto": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Sensor status",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Stats heartbeats (20m)",
+      "description": "Zeek emits stats.log every five minutes. Zero means the sensor, file tail, or Loki path is unavailable—not merely that the network is quiet.",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"stats\"} [20m]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "green", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Connections ($range)",
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "text" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "DNS transactions ($range)",
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"dns\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "TLS sessions ($range)",
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"ssl\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "purple" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Zeek notices ($range)",
+      "description": "Protocol anomalies and policy notices raised by Zeek. A notice is evidence to investigate, not automatically a confirmed compromise.",
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"notice\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "red", "value": 20 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Kernel drops ($range)",
+      "description": "Packets the capture socket dropped before Zeek could inspect them. This should remain zero.",
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"stats\"} | json | unwrap pkts_dropped | __error__=\"\" [$range])", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "red", "value": 1 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Traffic over time",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Connection rate by transport",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (proto) (rate({job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | proto != \"\" [$__auto]))", "queryType": "range", "legendFormat": "{{proto}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 15, "showPoints": "never", "stacking": { "mode": "normal" } }, "unit": "cps", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Completed-connection payload rate",
+      "description": "Payload bytes are recorded when a connection log closes, so this is evidence volume by log-arrival time rather than a packet-perfect wire-rate graph.",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate({job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | unwrap orig_bytes | __error__=\"\" [$__auto]))", "queryType": "range", "legendFormat": "originator → responder" },
+        { "refId": "B", "expr": "sum(rate({job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | unwrap resp_bytes | __error__=\"\" [$__auto]))", "queryType": "range", "legendFormat": "responder → originator" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never" }, "unit": "Bps", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Conversations",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "Top originators ($range)",
+      "gridPos": { "x": 0, "y": 15, "w": 6, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(10, sum by (id_orig_h) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | id_orig_h != \"\" [$range])))", "instant": true, "legendFormat": "{{id_orig_h}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "continuous-GrYlRd" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Top responders ($range)",
+      "gridPos": { "x": 6, "y": 15, "w": 6, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(10, sum by (id_resp_h) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | id_resp_h != \"\" [$range])))", "instant": true, "legendFormat": "{{id_resp_h}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "continuous-BlPu" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "Detected services ($range)",
+      "description": "Zeek identifies protocols from traffic behavior; this is not merely a destination-port mapping.",
+      "gridPos": { "x": 12, "y": 15, "w": 6, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(10, sum by (service) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | service != \"\" [$range])))", "instant": true, "legendFormat": "{{service}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "continuous-YlBl" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 12,
+      "type": "bargauge",
+      "title": "Destination ports ($range)",
+      "gridPos": { "x": 18, "y": 15, "w": 6, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(10, sum by (id_resp_p) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | id_resp_p != \"\" [$range])))", "instant": true, "legendFormat": "{{id_resp_p}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "continuous-PuRd" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "DNS and TLS",
+      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "title": "Top DNS queries ($range)",
+      "gridPos": { "x": 0, "y": 24, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(12, sum by (query) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"dns\"} | json | query != \"\" [$range])))", "instant": true, "legendFormat": "{{query}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "continuous-BlPu" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "DNS response codes ($range)",
+      "gridPos": { "x": 8, "y": 24, "w": 4, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (rcode_name) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"dns\"} | json | rcode_name != \"\" [$range]))", "instant": true, "legendFormat": "{{rcode_name}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "continuous-GrYlRd" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 15,
+      "type": "bargauge",
+      "title": "Top TLS server names ($range)",
+      "description": "SNI is visible during the TLS handshake even though application payloads remain encrypted.",
+      "gridPos": { "x": 12, "y": 24, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(12, sum by (server_name) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"ssl\"} | json | server_name != \"\" [$range])))", "instant": true, "legendFormat": "{{server_name}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "continuous-PuRd" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 16,
+      "type": "bargauge",
+      "title": "TLS versions ($range)",
+      "gridPos": { "x": 20, "y": 24, "w": 4, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (version) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"ssl\"} | json | version != \"\" [$range]))", "instant": true, "legendFormat": "{{version}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "continuous-BlPu" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 104,
+      "type": "row",
+      "title": "Sensor quality and load",
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Captured traffic rate",
+      "description": "A 15-minute moving average derived from Zeek's five-minute stats samples.",
+      "gridPos": { "x": 0, "y": 33, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"stats\"} | json | unwrap bytes_recv | __error__=\"\" [15m]) / 900", "queryType": "range", "legendFormat": "captured bytes/s" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 15, "showPoints": "never" }, "unit": "Bps", "min": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Packet processing and capture drops",
+      "description": "A non-zero red series means the kernel dropped packets before Zeek could analyze them.",
+      "gridPos": { "x": 8, "y": 33, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"stats\"} | json | unwrap pkts_proc | __error__=\"\" [15m]) / 900", "queryType": "range", "legendFormat": "processed packets/s" },
+        { "refId": "B", "expr": "sum_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"stats\"} | json | unwrap pkts_dropped | __error__=\"\" [15m]) / 900", "queryType": "range", "legendFormat": "capture drops/s" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" }, "unit": "pps", "min": 0 },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Zeek memory, lag, and estimated loss",
+      "gridPos": { "x": 16, "y": 33, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "max_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"stats\"} | json | unwrap mem | __error__=\"\" [15m])", "queryType": "range", "legendFormat": "memory MiB" },
+        { "refId": "B", "expr": "max_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"stats\"} | json | unwrap pkt_lag | __error__=\"\" [15m])", "queryType": "range", "legendFormat": "packet lag seconds" },
+        { "refId": "C", "expr": "max_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"capture_loss\"} | json | unwrap percent_lost | __error__=\"\" [20m])", "queryType": "range", "legendFormat": "estimated capture loss %" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 8, "showPoints": "never" }, "min": 0 },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [{ "id": "unit", "value": "decmbytes" }] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [{ "id": "unit", "value": "s" }] },
+          { "matcher": { "id": "byFrameRefID", "options": "C" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 105,
+      "type": "row",
+      "title": "Recent evidence",
+      "gridPos": { "x": 0, "y": 41, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 20,
+      "type": "logs",
+      "title": "Zeek notices",
+      "gridPos": { "x": 0, "y": 42, "w": 24, "h": 7 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"notice\"} | json | line_format \"{{.note}} — {{.msg}}  {{.src}} → {{.dst}}:{{.p}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 21,
+      "type": "logs",
+      "title": "Connections",
+      "gridPos": { "x": 0, "y": 49, "w": 24, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | line_format \"{{.id_orig_h}}:{{.id_orig_p}} → {{.id_resp_h}}:{{.id_resp_p}}  {{.proto}}/{{.service}}  state={{.conn_state}}  bytes={{.orig_bytes}}↑ {{.resp_bytes}}↓  uid={{.uid}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": false, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 22,
+      "type": "logs",
+      "title": "DNS activity",
+      "gridPos": { "x": 0, "y": 58, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"dns\"} | json | line_format \"{{.id_orig_h}} → {{.query}}  {{.qtype_name}} {{.rcode_name}}  answers={{.answers}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 23,
+      "type": "logs",
+      "title": "TLS activity",
+      "gridPos": { "x": 12, "y": 58, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"ssl\"} | json | line_format \"{{.id_orig_h}} → {{.server_name}}  {{.version}} {{.cipher}}  established={{.established}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 106,
+      "type": "row",
+      "title": "Application protocols",
+      "gridPos": { "x": 0, "y": 67, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 24,
+      "type": "logs",
+      "title": "HTTP activity",
+      "description": "Plain HTTP metadata only. Zeek cannot read HTTP content protected inside TLS.",
+      "gridPos": { "x": 0, "y": 68, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"http\"} | json | line_format \"{{.id_orig_h}} → {{.method}} {{.host}}{{.uri}}  status={{.status_code}}  {{.user_agent}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 25,
+      "type": "logs",
+      "title": "SSH activity",
+      "description": "Handshake/client/server/auth-result metadata; credentials and encrypted session contents remain private.",
+      "gridPos": { "x": 12, "y": 68, "w": 12, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"ssh\"} | json | line_format \"{{.id_orig_h}} → {{.id_resp_h}}  auth={{.auth_success}}  {{.client}} → {{.server}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    }
+  ]
+}

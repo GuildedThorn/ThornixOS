@@ -105,6 +105,13 @@ about it is push-based — every host ships to it, and it pulls metrics back.
   `lo` because real ingress is the Cloudflare tunnel, readable only on
   loopback). Suricata's EVE JSON ships to Loki via a second Alloy file
   source.
+- **mac**: additionally runs Zeek as a passive sensor on the Proxmox `vmbr0`
+  bridge. This sees guest-to-guest traffic that never reaches pfSense and
+  records connection, DNS, HTTP, TLS, SSH, asset, capture-loss, and sensor
+  health metadata as JSON. Alloy ships the current logs to Loki; Zeek rotates
+  them daily and keeps seven local days for recovery. The sensor is capped at
+  two CPUs and 4 GiB and is not inline, so stopping it cannot interrupt VM
+  networking.
 
 **How a log becomes a graph:** journal line → Alloy (`loki.source.journal`)
 → Loki on soc → Grafana panel / alert rule. Metrics are the reverse pull:
@@ -118,15 +125,15 @@ rebuilds and aren't hand-clicked:
 
 - Dashboards: `hosts/soc/dashboards/*.json` (SOC Overview, Fleet Health,
   Fleet Capacity & Performance, Service & Monitoring Health, Authentication
-  & Access, Endpoint Activity, Log Pipeline Health, Fleet Deploys), wired in via
-  `services.grafana.provision.dashboards` — the whole directory is
-  provisioned, so a new file needs no other edit.
+  & Access, Endpoint Activity, Network Visibility, Log Pipeline Health, Fleet
+  Deploys), wired in via `services.grafana.provision.dashboards` — the whole
+  directory is provisioned, so a new file needs no other edit.
 - Alert rules: inline in `modules/computers/soc.nix` under
   `provision.alerting` (host down, unit failed, SSH brute force, Suricata
   alert, CrowdSec scenario, Loki down, disk/inode pressure, read-only roots,
   OOM kills, clock sync, stale backups, endpoint/TLS failures, comin state,
-  plus one log-silence rule generated per always-on host). All deliver to
-  Discord via a webhook held in sops.
+  Zeek sensor silence/capture loss, plus one log-silence rule generated per
+  always-on host). All deliver to Discord via a webhook held in sops.
 - Each rule carries a `severity` label (`critical` / `warning`). The
   notification policy routes both to the same Discord webhook but gives
   `critical` faster grouping and hourly re-notification, so an IDS hit

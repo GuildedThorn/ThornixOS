@@ -13,6 +13,7 @@
       config.nixos.modules.services-clamav
       config.nixos.modules.services-proxmox
       config.nixos.modules.services-ssh
+      config.nixos.modules.services-zeek
 
       "${inputs.self}/hosts/mac/disko.nix"
       "${inputs.self}/hosts/mac/networking.nix"
@@ -29,6 +30,21 @@
           # through pveproxy/pvedaemon have no loginuid, so the workstation
           # default would miss execution after a service compromise.
           thorn.audit.execScope = "all";
+
+          # vmbr0 is the point at which Proxmox guest-to-guest and
+          # guest-to-physical traffic converges. The bridge capture was
+          # verified live with websites (172.16.25.50) talking directly to
+          # soc (172.16.25.51), with no kernel packet drops.
+          thorn.zeek = {
+            enable = true;
+            interface = "vmbr0";
+            localNetworks = [ "172.16.25.0/24" ];
+            # Do not let Zeek observe the HTTP requests Alloy creates while
+            # shipping Zeek's own logs. Excluding both directions of only
+            # this host-to-Loki flow prevents recursion without hiding other
+            # hosts' use of Loki or other traffic to the SOC.
+            captureFilter = "not (host 172.16.25.3 and host 172.16.25.51 and tcp port 3100)";
+          };
 
           # Hardware discovered from the running Proxmox installation.
           boot = {
