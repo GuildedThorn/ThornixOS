@@ -5,7 +5,7 @@
     modules = [
       config.nixos.modules.thorn-core
 
-      config.nixos.modules.desktop-hyprland
+      config.nixos.modules.desktop-xfce-i3
       config.nixos.modules.processor-intel
       config.nixos.modules.graphics-amd
 
