@@ -81,8 +81,6 @@
             libretro.pcsx-rearmed
             libretro.pcsx2
 
-            modrinth-app
-
             chirp
 
             arduino

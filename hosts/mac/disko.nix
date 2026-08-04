@@ -3,13 +3,16 @@
     disk = {
       main = {
         type = "disk";
-        device = "/dev/nvme0n1";
+        # The Mac Pro has one internal system disk. Use its stable WWN rather
+        # than /dev/sda so Disko cannot select a different disk if enumeration
+        # changes during the nixos-anywhere kexec environment.
+        device = "/dev/disk/by-id/wwn-0x5002538f5590522d";
         content = {
           type = "gpt";
           partitions = {
 
             ESP = {
-              size = "487M";
+              size = "1G";
               type = "EF00";
               content = {
                 type = "filesystem";
@@ -30,7 +33,6 @@
               size = "8G";
               content = {
                 type = "swap";
-                resumeDevice = true;
                 extraArgs = [
                   "-L"
                   "swap"
