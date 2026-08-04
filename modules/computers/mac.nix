@@ -15,6 +15,7 @@
 
       "${inputs.self}/hosts/mac/disko.nix"
       "${inputs.self}/hosts/mac/networking.nix"
+      "${inputs.self}/hosts/mac/secrets.nix"
 
       { home-manager.users.thorn = import "${inputs.self}/hosts/mac/home.nix"; }
 
