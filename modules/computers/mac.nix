@@ -9,6 +9,7 @@
       config.nixos.modules.processor-intel
       config.nixos.modules.graphics-amd
 
+      config.nixos.modules.services-canary
       config.nixos.modules.services-clamav
       config.nixos.modules.services-proxmox
       config.nixos.modules.services-ssh
@@ -23,6 +24,11 @@
         { lib, modulesPath, ... }:
         {
           imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
+
+          # This machine is now the always-on hypervisor. Processes spawned
+          # through pveproxy/pvedaemon have no loginuid, so the workstation
+          # default would miss execution after a service compromise.
+          thorn.audit.execScope = "all";
 
           # Hardware discovered from the running Proxmox installation.
           boot = {

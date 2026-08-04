@@ -33,17 +33,35 @@
 
           # Hosts Prometheus scrapes for node metrics (port 9100, opened
           # fleet-wide by services-observability). Only the always-on hosts:
-          # the laptops (mac, scout) and lab VMs (mitm, proxmox-guest) are
-          # intermittent, so scraping them just yields a permanent "down"
-          # and noisy host-down alerts. They still ship LOGS (Alloy pushes
-          # whenever they're up); add one back here if it becomes always-on.
+          # scout and the lab VMs (mitm, proxmox-guest) are intermittent, so
+          # scraping them just yields permanent "down" noise. They still ship
+          # logs whenever they are up.
+          #
+          # journalHost is the machine's kernel hostname and therefore its
+          # Loki label. metricsHost is its LAN DNS identity; they differ for
+          # mac now that it is the Proxmox host.
           # "firewall" is in the flake but not deployed — pfSense fills that
           # role for now.
           fleet = [
-            "nixos"
-            "soc"
-            "websites"
+            {
+              journalHost = "nixos";
+              metricsHost = "nixos.guildedthorn.arpa";
+            }
+            {
+              journalHost = "mac";
+              metricsHost = "proxmox.guildedthorn.arpa";
+            }
+            {
+              journalHost = "soc";
+              metricsHost = "soc.guildedthorn.arpa";
+            }
+            {
+              journalHost = "websites";
+              metricsHost = "websites.guildedthorn.arpa";
+            }
           ];
+          fleetJournalHosts = map (host: host.journalHost) fleet;
+          fleetMetricsTargets = port: map (host: "${host.metricsHost}:${port}") fleet;
 
           # Hosts running services-canary — i.e. those with
           # thorn.audit.execScope = "all", where a systemd-timer process is
@@ -52,6 +70,7 @@
           # recorded, and they generate continuous real user exec activity
           # anyway, which is its own liveness signal.
           canaryHosts = [
+            "mac"
             "soc"
             "websites"
           ];
@@ -171,7 +190,7 @@
               {
                 job_name = "node";
                 static_configs = [
-                  { targets = map (host: "${host}.guildedthorn.arpa:9100") fleet; }
+                  { targets = fleetMetricsTargets "9100"; }
                 ];
               }
               # pfSense (node_exporter package). Kept in its own job with an
@@ -210,7 +229,7 @@
                 # samples that can't differ.
                 scrape_interval = "60s";
                 static_configs = [
-                  { targets = map (host: "${host}.guildedthorn.arpa:4243") fleet; }
+                  { targets = fleetMetricsTargets "4243"; }
                 ];
               }
             ];
@@ -816,7 +835,7 @@
                           severity = "critical";
                           summary = "No journal lines have reached Loki from ${host} in 15 minutes — either the host is down or its log shipping has stopped.";
                         }
-                      ) fleet;
+                      ) fleetJournalHosts;
                   }
                 ];
               };
