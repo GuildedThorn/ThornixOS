@@ -1,0 +1,238 @@
+{
+  "uid": "pfsense-firewall",
+  "title": "pfSense Firewall — Filterlog",
+  "description": "Parsed pfSense packet-filter decisions. ix0 is WAN, igb0 is LAN (192.168.1.0/24), and igb1 is OPT1 (172.16.25.0/24). Addresses, ports, rule IDs, and packet details remain Loki structured metadata.",
+  "tags": ["siem", "pfsense", "firewall", "network"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "range",
+        "type": "interval",
+        "label": "Summary window",
+        "query": "15m,1h,6h,24h,7d,30d",
+        "current": { "text": "6h", "value": "6h" },
+        "auto": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Firewall posture",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Logged packets ($range)",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\",pfsense_log=\"firewall\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Blocked ($range)",
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\",pfsense_log=\"firewall\",firewall_action=\"block\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 100 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "WAN inbound blocks ($range)",
+      "description": "IPv4 traffic blocked while entering the WAN interface. These source IPs also receive local City/ASN enrichment for the Threat Geography dashboard.",
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\",pfsense_log=\"firewall\",firewall_interface=\"ix0\",firewall_action=\"block\",firewall_direction=\"in\",firewall_ip_version=\"4\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Internal ingress blocks ($range)",
+      "description": "Blocked IPv4 packets entering pfSense on LAN or OPT1. This is the population watched by the per-client burst alert.",
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\",pfsense_log=\"firewall\",firewall_interface=~\"igb0|igb1\",firewall_action=\"block\",firewall_direction=\"in\",firewall_ip_version=\"4\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 10 }, { "color": "red", "value": 100 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Distinct WAN sources ($range)",
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "count(sum by (firewall_source_ip) (count_over_time({job=\"syslog\",pfsense_log=\"firewall\",firewall_interface=\"ix0\",firewall_action=\"block\",firewall_direction=\"in\",firewall_ip_version=\"4\"} | firewall_source_ip != \"\" | keep firewall_source_ip [$range])))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Passed ($range)",
+      "description": "Only pass rules configured for logging appear here; this is not the total forwarded packet count.",
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\",pfsense_log=\"firewall\",firewall_action=\"pass\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Decisions over time",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Block rate by interface",
+      "gridPos": { "x": 0, "y": 6, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (firewall_interface) (rate({job=\"syslog\",pfsense_log=\"firewall\",firewall_action=\"block\"} [$__auto]))", "queryType": "range", "legendFormat": "{{firewall_interface}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "pps", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "stacking": { "mode": "normal", "group": "A" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Logged decision rate",
+      "gridPos": { "x": 8, "y": 6, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (firewall_action) (rate({job=\"syslog\",pfsense_log=\"firewall\"} [$__auto]))", "queryType": "range", "legendFormat": "{{firewall_action}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "pps", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Block rate by protocol",
+      "gridPos": { "x": 16, "y": 6, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (firewall_protocol) (rate({job=\"syslog\",pfsense_log=\"firewall\",firewall_action=\"block\"} [$__auto]))", "queryType": "range", "legendFormat": "{{firewall_protocol}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "pps", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "stacking": { "mode": "normal", "group": "A" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Blocked-flow investigation",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Top blocked WAN sources ($range)",
+      "gridPos": { "x": 0, "y": 15, "w": 8, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(15, sum by (firewall_source_ip) (count_over_time({job=\"syslog\",pfsense_log=\"firewall\",firewall_interface=\"ix0\",firewall_action=\"block\",firewall_direction=\"in\",firewall_ip_version=\"4\"} | firewall_source_ip != \"\" | keep firewall_source_ip [$range])))", "instant": true, "legendFormat": "{{firewall_source_ip}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-YlRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "minVizWidth": 0, "minVizHeight": 10, "reduceOptions": { "calcs": ["lastNotNull"], "values": false } }
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "Top blocked destination ports ($range)",
+      "gridPos": { "x": 8, "y": 15, "w": 8, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(15, sum by (firewall_destination_port) (count_over_time({job=\"syslog\",pfsense_log=\"firewall\",firewall_action=\"block\"} | firewall_destination_port != \"\" | keep firewall_destination_port [$range])))", "instant": true, "legendFormat": "{{firewall_destination_port}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-OrRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "minVizWidth": 0, "minVizHeight": 10, "reduceOptions": { "calcs": ["lastNotNull"], "values": false } }
+    },
+    {
+      "id": 12,
+      "type": "bargauge",
+      "title": "Top blocked internal clients ($range)",
+      "gridPos": { "x": 16, "y": 15, "w": 8, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(15, sum by (firewall_source_ip) (count_over_time({job=\"syslog\",pfsense_log=\"firewall\",firewall_interface=~\"igb0|igb1\",firewall_action=\"block\",firewall_direction=\"in\",firewall_ip_version=\"4\"} | firewall_source_ip != \"\" | keep firewall_source_ip [$range])))", "instant": true, "legendFormat": "{{firewall_source_ip}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-BlYlRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "minVizWidth": 0, "minVizHeight": 10, "reduceOptions": { "calcs": ["lastNotNull"], "values": false } }
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Packet-filter evidence",
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 13,
+      "type": "logs",
+      "title": "Blocked WAN ingress",
+      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 11 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"syslog\",pfsense_log=\"firewall\",firewall_interface=\"ix0\",firewall_action=\"block\",firewall_direction=\"in\"} | line_format \"IPv{{.firewall_ip_version}} {{.firewall_protocol}}  {{.firewall_source_ip}}:{{.firewall_source_port}} → {{.firewall_destination_ip}}:{{.firewall_destination_port}}  rule={{.firewall_tracker}}  flags={{.firewall_tcp_flags}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 14,
+      "type": "logs",
+      "title": "Blocked internal ingress",
+      "gridPos": { "x": 12, "y": 25, "w": 12, "h": 11 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"syslog\",pfsense_log=\"firewall\",firewall_interface=~\"igb0|igb1\",firewall_action=\"block\",firewall_direction=\"in\"} | line_format \"{{.firewall_interface}} IPv{{.firewall_ip_version}} {{.firewall_protocol}}  {{.firewall_source_ip}}:{{.firewall_source_port}} → {{.firewall_destination_ip}}:{{.firewall_destination_port}}  rule={{.firewall_tracker}}  flags={{.firewall_tcp_flags}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 104,
+      "type": "row",
+      "title": "Semantics and pivots",
+      "gridPos": { "x": 0, "y": 36, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 15,
+      "type": "text",
+      "title": "How to read pfSense filter decisions",
+      "gridPos": { "x": 0, "y": 37, "w": 24, "h": 6 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Interface direction is relative to pfSense.** `in` on `ix0` is WAN ingress; `in` on `igb0` or `igb1` is traffic sent by a LAN/OPT1 client into the firewall. A block is evidence of policy enforcement, not by itself proof of compromise.\n\nWAN IPv4 block sources are enriched locally and appear in [Threat Geography](/d/threat-geography/threat-geography). No external lookup API is used, and dynamic addresses/ports never become Loki index labels."
+      }
+    }
+  ]
+}

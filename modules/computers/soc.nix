@@ -601,6 +601,26 @@
               }
             '';
           };
+
+          # DNS query/reply logging is intentionally detailed and can be
+          # substantially busier than the earlier IDS-only feed. Loki is the
+          # durable searchable copy; keep one week of compressed raw files as
+          # a short local recovery buffer instead of allowing the rsyslog
+          # spool to grow without bound. HUP makes rsyslog reopen each file
+          # after logrotate renames it.
+          services.logrotate.settings."remote-pfsense-syslog" = {
+            files = "/var/log/remote/*.log";
+            frequency = "daily";
+            rotate = 7;
+            compress = true;
+            delaycompress = true;
+            dateext = true;
+            missingok = true;
+            notifempty = true;
+            create = "0644 root root";
+            postrotate = "systemctl kill --signal=HUP syslog.service >/dev/null 2>&1 || true";
+          };
+
           environment.etc."alloy/syslog.alloy".text = ''
             // loki.source.file tails exact paths only, so discover the
             // per-source files under /var/log/remote via a glob first.
@@ -618,12 +638,286 @@
             }
 
             loki.process "remote_syslog" {
-              // The parser is grounded in pfSense's observed Suricata line:
-              //   ... [Priority: N] {TCP} source:port -> destination:port
-              // Only priorities 1/2 enter the hostile-source map. Priority 3
-              // decoder/stream diagnostics remain searchable in raw syslog.
+              // Use the event time preserved by rsyslog. If parsing ever
+              // fails, keep the entry and fall back to its file-read time.
+              stage.regex {
+                expression = "^(?P<pfsense_event_ts>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]+(?:\\.[0-9]+)?[+-][0-9]{2}:[0-9]{2})"
+              }
+
+              stage.timestamp {
+                source            = "pfsense_event_ts"
+                format            = "RFC3339Nano"
+                action_on_failure = "skip"
+              }
+
+              // Unbound query records:
+              //   query: CLIENT QNAME QTYPE QCLASS
+              // Client addresses, names, and qtypes are metadata. Although
+              // qtype is protocol-defined, its 16-bit space is large enough
+              // for a compromised client to churn Loki streams. Only the
+              // fixed event kind becomes a label.
               stage.match {
-                selector      = "{job=\"syslog\"} |~ \"suricata.*\\[Priority: [12]\\]\""
+                selector      = "{job=\"syslog\"} |= \" unbound[\" |= \" query: \""
+                pipeline_name = "pfsense_unbound_query"
+
+                stage.regex {
+                  expression = "unbound\\[[0-9]+\\]: \\[[^]]+\\] query: (?P<dns_client_ip>\\S+) (?P<dns_qname>\\S+) (?P<dns_qtype_value>[A-Z0-9-]+) (?P<dns_qclass>\\S+)$"
+                }
+
+                stage.static_labels {
+                  values = {
+                    pfsense_log = "dns",
+                    dns_event   = "query",
+                  }
+                }
+
+                stage.structured_metadata {
+                  values = {
+                    dns_client_ip = "",
+                    dns_qname     = "",
+                    dns_qtype     = "dns_qtype_value",
+                    dns_qclass    = "",
+                  }
+                }
+              }
+
+              // Unbound reply records append rcode, resolution seconds,
+              // cache status (0/1), and response bytes to the query fields.
+              stage.match {
+                selector      = "{job=\"syslog\"} |= \" unbound[\" |= \" reply: \""
+                pipeline_name = "pfsense_unbound_reply"
+
+                stage.regex {
+                  expression = "unbound\\[[0-9]+\\]: \\[[^]]+\\] reply: (?P<dns_client_ip>\\S+) (?P<dns_qname>\\S+) (?P<dns_qtype_value>[A-Z0-9-]+) (?P<dns_qclass>\\S+) (?P<dns_rcode_value>[A-Z0-9-]+) (?P<dns_response_seconds>[0-9.]+) (?P<dns_cached_value>[01]) (?P<dns_response_bytes>[0-9]+)$"
+                }
+
+                stage.static_labels {
+                  values = {
+                    pfsense_log = "dns",
+                    dns_event   = "reply",
+                  }
+                }
+
+                stage.labels {
+                  values = {
+                    dns_rcode  = "dns_rcode_value",
+                    dns_cached = "dns_cached_value",
+                  }
+                }
+
+                stage.structured_metadata {
+                  values = {
+                    dns_client_ip       = "",
+                    dns_qname           = "",
+                    dns_qtype           = "dns_qtype_value",
+                    dns_qclass          = "",
+                    dns_response_seconds = "",
+                    dns_response_bytes   = "",
+                  }
+                }
+              }
+
+              // pfSense filterlog is a documented CSV-like format. Parse
+              // the common prefix once; these labels all have bounded local
+              // or protocol-defined value sets. Rule identifiers, addresses,
+              // ports, lengths, and header details remain metadata.
+              stage.match {
+                selector      = "{job=\"syslog\"} |= \" filterlog[\""
+                pipeline_name = "pfsense_filterlog"
+
+                stage.regex {
+                  expression = "filterlog\\[[0-9]+\\]: (?P<firewall_rule>[^,]*),(?P<firewall_subrule>[^,]*),(?P<firewall_anchor>[^,]*),(?P<firewall_tracker>[^,]*),(?P<firewall_interface_value>[^,]*),(?P<firewall_reason>[^,]*),(?P<firewall_action_value>[^,]*),(?P<firewall_direction_value>[^,]*),(?P<firewall_ip_version_value>[46]),(?P<firewall_ip_payload>.*)$"
+                }
+
+                stage.static_labels {
+                  values = { pfsense_log = "firewall" }
+                }
+
+                stage.labels {
+                  values = {
+                    firewall_interface  = "firewall_interface_value",
+                    firewall_action     = "firewall_action_value",
+                    firewall_direction  = "firewall_direction_value",
+                    firewall_ip_version = "firewall_ip_version_value",
+                  }
+                }
+
+                stage.structured_metadata {
+                  values = {
+                    firewall_rule    = "",
+                    firewall_subrule = "",
+                    firewall_anchor  = "",
+                    firewall_tracker = "",
+                    firewall_reason  = "",
+                  }
+                }
+
+                // IPv4 payload: TOS, ECN, TTL, ID, fragment offset/flags,
+                // protocol, packet length, source, destination, then the
+                // protocol-specific tail.
+                stage.match {
+                  selector      = "{pfsense_log=\"firewall\", firewall_ip_version=\"4\"}"
+                  pipeline_name = "pfsense_filterlog_ipv4"
+
+                  stage.regex {
+                    source     = "firewall_ip_payload"
+                    expression = "(?P<firewall_tos>[^,]*),(?P<firewall_ecn>[^,]*),(?P<firewall_ttl>[^,]*),(?P<firewall_ip_id>[^,]*),(?P<firewall_fragment_offset>[^,]*),(?P<firewall_ip_flags>[^,]*),(?P<firewall_protocol_id>[^,]*),(?P<firewall_protocol_value>[^,]*),(?P<firewall_packet_length>[^,]*),(?P<geoip_src_ip>[^,]*),(?P<firewall_destination_ip>[^,]*)(?:,(?P<firewall_transport_payload>.*))?$"
+                  }
+
+                  stage.template {
+                    source   = "firewall_protocol_value"
+                    template = "{{ ToLower .Value }}"
+                  }
+
+                  stage.labels {
+                    values = { firewall_protocol = "firewall_protocol_value" }
+                  }
+
+                  stage.structured_metadata {
+                    values = {
+                      firewall_tos             = "",
+                      firewall_ecn             = "",
+                      firewall_ttl             = "",
+                      firewall_ip_id           = "",
+                      firewall_fragment_offset = "",
+                      firewall_ip_flags        = "",
+                      firewall_protocol_id     = "",
+                      firewall_packet_length   = "",
+                      firewall_source_ip       = "geoip_src_ip",
+                      firewall_destination_ip  = "",
+                    }
+                  }
+
+                  // ix0 is this firewall's WAN. Only blocked packets entering
+                  // there represent hostile external sources; enriching LAN
+                  // traffic would turn the threat map into ordinary usage.
+                  stage.match {
+                    selector      = "{pfsense_log=\"firewall\", firewall_interface=\"ix0\", firewall_action=\"block\", firewall_direction=\"in\"}"
+                    pipeline_name = "geoip_pfsense_wan_block_source"
+
+                    stage.geoip {
+                      source  = "geoip_src_ip"
+                      db      = "/etc/GeoIP/DBIP-City-Lite.mmdb"
+                      db_type = "city"
+                    }
+
+                    stage.geoip {
+                      source  = "geoip_src_ip"
+                      db      = "/etc/GeoIP/DBIP-ASN-Lite.mmdb"
+                      db_type = "asn"
+                    }
+
+                    stage.static_labels {
+                      values = { geoip_enriched = "true" }
+                    }
+
+                    stage.structured_metadata {
+                      values = {
+                        geoip_src_ip                         = "",
+                        geoip_city_name                      = "",
+                        geoip_country_name                   = "",
+                        geoip_country_code                   = "",
+                        geoip_continent_code                 = "",
+                        geoip_location_latitude              = "",
+                        geoip_location_longitude             = "",
+                        geoip_timezone                       = "",
+                        geoip_autonomous_system_number       = "",
+                        geoip_autonomous_system_organization = "",
+                      }
+                    }
+                  }
+                }
+
+                // IPv6 replaces the IPv4 header fields with traffic class,
+                // flow label, and hop limit. Normalize its observed uppercase
+                // protocol text before making the bounded protocol label.
+                stage.match {
+                  selector      = "{pfsense_log=\"firewall\", firewall_ip_version=\"6\"}"
+                  pipeline_name = "pfsense_filterlog_ipv6"
+
+                  stage.regex {
+                    source     = "firewall_ip_payload"
+                    expression = "(?P<firewall_traffic_class>[^,]*),(?P<firewall_flow_label>[^,]*),(?P<firewall_hop_limit>[^,]*),(?P<firewall_protocol_value>[^,]*),(?P<firewall_protocol_id>[^,]*),(?P<firewall_packet_length>[^,]*),(?P<geoip_src_ip>[^,]*),(?P<firewall_destination_ip>[^,]*)(?:,(?P<firewall_transport_payload>.*))?$"
+                  }
+
+                  stage.template {
+                    source   = "firewall_protocol_value"
+                    template = "{{ ToLower .Value }}"
+                  }
+
+                  stage.labels {
+                    values = { firewall_protocol = "firewall_protocol_value" }
+                  }
+
+                  stage.structured_metadata {
+                    values = {
+                      firewall_traffic_class = "",
+                      firewall_flow_label    = "",
+                      firewall_hop_limit     = "",
+                      firewall_protocol_id   = "",
+                      firewall_packet_length = "",
+                      firewall_source_ip     = "geoip_src_ip",
+                      firewall_destination_ip = "",
+                    }
+                  }
+                }
+
+                // TCP and UDP share the first three transport fields. TCP's
+                // remaining details are parsed separately below.
+                stage.match {
+                  selector      = "{pfsense_log=\"firewall\", firewall_protocol=~\"tcp|udp\"}"
+                  pipeline_name = "pfsense_filterlog_transport"
+
+                  stage.regex {
+                    source     = "firewall_transport_payload"
+                    expression = "(?P<firewall_source_port>[^,]*),(?P<firewall_destination_port>[^,]*),(?P<firewall_data_length>[^,]*)(?:,(?P<firewall_tcp_payload>.*))?$"
+                  }
+
+                  stage.structured_metadata {
+                    values = {
+                      firewall_source_port      = "",
+                      firewall_destination_port = "",
+                      firewall_data_length      = "",
+                    }
+                  }
+
+                  stage.match {
+                    selector      = "{pfsense_log=\"firewall\", firewall_protocol=\"tcp\"}"
+                    pipeline_name = "pfsense_filterlog_tcp"
+
+                    stage.regex {
+                      source     = "firewall_tcp_payload"
+                      expression = "(?P<firewall_tcp_flags>[^,]*),(?P<firewall_tcp_sequence>[^,]*),(?P<firewall_tcp_ack>[^,]*),(?P<firewall_tcp_window>[^,]*),(?P<firewall_tcp_urg>[^,]*),(?P<firewall_tcp_options>.*)$"
+                    }
+
+                    stage.structured_metadata {
+                      values = {
+                        firewall_tcp_flags    = "",
+                        firewall_tcp_sequence = "",
+                        firewall_tcp_ack      = "",
+                        firewall_tcp_window   = "",
+                        firewall_tcp_urg      = "",
+                        firewall_tcp_options  = "",
+                      }
+                    }
+                  }
+                }
+              }
+
+              // Give every pfSense Suricata entry a bounded source-type
+              // label, while leaving low-priority diagnostics searchable.
+              stage.match {
+                selector      = "{job=\"syslog\"} |= \" suricata\" |= \"[Priority: \""
+                pipeline_name = "pfsense_suricata"
+
+                stage.static_labels {
+                  values = { pfsense_log = "suricata" }
+                }
+              }
+
+              // Only Suricata priorities 1/2 enter the hostile-source map.
+              stage.match {
+                selector      = "{job=\"syslog\"} |= \"suricata\" |~ \"Priority: [12]\""
                 pipeline_name = "geoip_pfsense_ids_source"
 
                 stage.regex {
@@ -1372,6 +1666,81 @@
                           severity = "critical";
                           category = "security";
                           summary = "pfSense's perimeter Suricata raised a high-severity (priority 1-2) alert.";
+                        })
+                        (rule {
+                          # Unlike DNS alone, the combined pfSense stream has
+                          # near-constant WAN filter activity. Its absence is
+                          # therefore a useful end-to-end receiver check.
+                          uid = "siem-pfsense-syslog-silent";
+                          title = "pfSense syslog feed is silent";
+                          datasourceUid = "loki";
+                          expr = "sum(count_over_time({job=\"syslog\", host=\"pfsense\"} [20m]))";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "15m";
+                          window = 1200;
+                          noDataState = "Alerting";
+                          severity = "critical";
+                          category = "pipeline";
+                          summary = "No pfSense DNS, firewall, or IDS syslog has reached Loki in 20 minutes.";
+                        })
+                        (rule {
+                          # Group on structured metadata at query time rather
+                          # than indexing client addresses as stream labels.
+                          uid = "siem-pfsense-nxdomain-burst";
+                          title = "Client generated an NXDOMAIN burst";
+                          datasourceUid = "loki";
+                          expr = ''
+                            sum by (dns_client_ip) (count_over_time(
+                              {job="syslog", pfsense_log="dns", dns_event="reply", dns_rcode="NXDOMAIN"}
+                                | dns_client_ip != ""
+                                | keep dns_client_ip [10m]
+                            ))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 50 ];
+                          };
+                          for = "0s";
+                          category = "security";
+                          summary = "One resolver client received more than 50 NXDOMAIN replies in 10 minutes; investigate mistyped automation, scanning, or DGA-like behavior.";
+                        })
+                        (rule {
+                          uid = "siem-pfsense-dns-servfail";
+                          title = "pfSense DNS SERVFAIL spike";
+                          datasourceUid = "loki";
+                          expr = "sum(count_over_time({job=\"syslog\", pfsense_log=\"dns\", dns_event=\"reply\", dns_rcode=\"SERVFAIL\"} [10m]))";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 10 ];
+                          };
+                          for = "0s";
+                          category = "dns";
+                          summary = "Unbound returned more than 10 SERVFAIL responses in 10 minutes; upstream DNS, DNSSEC, or local resolver health may be degraded.";
+                        })
+                        (rule {
+                          # `in` on an internal interface means a client sent
+                          # the packet into pfSense. Restrict to IPv4 to avoid
+                          # routine link-local IPv6 multicast block noise.
+                          uid = "siem-pfsense-internal-block-burst";
+                          title = "Internal client repeatedly blocked by pfSense";
+                          datasourceUid = "loki";
+                          expr = ''
+                            sum by (firewall_source_ip) (count_over_time(
+                              {job="syslog", pfsense_log="firewall", firewall_interface=~"igb0|igb1", firewall_action="block", firewall_direction="in", firewall_ip_version="4"}
+                                | firewall_source_ip != ""
+                                | keep firewall_source_ip [10m]
+                            ))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 25 ];
+                          };
+                          for = "0s";
+                          category = "network";
+                          summary = "One LAN or OPT1 client hit pfSense block rules more than 25 times in 10 minutes.";
                         })
                         (rule {
                           uid = "siem-crowdsec-alert";

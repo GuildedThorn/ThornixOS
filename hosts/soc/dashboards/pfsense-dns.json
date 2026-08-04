@@ -1,0 +1,209 @@
+{
+  "uid": "pfsense-dns",
+  "title": "pfSense DNS — Unbound",
+  "description": "Resolver activity from pfSense Unbound query/reply syslog. Client addresses and query names are retained as Loki structured metadata rather than indexed labels.",
+  "tags": ["siem", "pfsense", "dns", "unbound"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "range",
+        "type": "interval",
+        "label": "Summary window",
+        "query": "15m,1h,6h,24h,7d,30d",
+        "current": { "text": "6h", "value": "6h" },
+        "auto": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Resolver health and volume",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Queries ($range)",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"query\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Replies ($range)",
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "NXDOMAIN ($range)",
+      "description": "A burst from one client can indicate broken automation, scanning, or DGA-like behavior; the provisioned alert fires above 50 in 10 minutes per client.",
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\",dns_rcode=\"NXDOMAIN\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 25 }, { "color": "red", "value": 100 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "SERVFAIL ($range)",
+      "description": "Resolver failures can indicate upstream DNS trouble, DNSSEC validation failures, or local Unbound degradation.",
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\",dns_rcode=\"SERVFAIL\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 10 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Cache hit ratio ($range)",
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "100 * sum(count_over_time({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\",dns_cached=\"1\"} [$range])) / sum(count_over_time({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\"} [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "decimals": 1, "noValue": "0", "color": { "mode": "continuous-RdYlGr" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Worst p95 latency ($range)",
+      "description": "Maximum per-stream p95 observed across reply qtype/rcode/cache streams in the selected window.",
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "max(quantile_over_time(0.95, {job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\"} | unwrap dns_response_seconds | __error__=\"\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0, "decimals": 3, "noValue": "0", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 0.25 }, { "color": "red", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Traffic and outcomes",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Query rate by type",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (dns_qtype) (rate({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"query\"} | dns_qtype != \"\" | keep dns_qtype [$__auto]))", "queryType": "range", "legendFormat": "{{dns_qtype}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "stacking": { "mode": "normal", "group": "A" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Reply rate by result",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (dns_rcode) (rate({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\"} [$__auto]))", "queryType": "range", "legendFormat": "{{dns_rcode}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ops", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "stacking": { "mode": "normal", "group": "A" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Client and domain investigation",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "Top resolver clients ($range)",
+      "gridPos": { "x": 0, "y": 15, "w": 8, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(15, sum by (dns_client_ip) (count_over_time({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"query\"} | dns_client_ip != \"\" | keep dns_client_ip [$range])))", "instant": true, "legendFormat": "{{dns_client_ip}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-BlPu" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "minVizWidth": 0, "minVizHeight": 10, "reduceOptions": { "calcs": ["lastNotNull"], "values": false } }
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Top queried names ($range)",
+      "gridPos": { "x": 8, "y": 15, "w": 8, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(15, sum by (dns_qname) (count_over_time({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"query\"} | dns_qname != \"\" | keep dns_qname [$range])))", "instant": true, "legendFormat": "{{dns_qname}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-GnYlRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "minVizWidth": 0, "minVizHeight": 10, "reduceOptions": { "calcs": ["lastNotNull"], "values": false } }
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "Top nonexistent names ($range)",
+      "gridPos": { "x": 16, "y": 15, "w": 8, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(15, sum by (dns_qname) (count_over_time({job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\",dns_rcode=\"NXDOMAIN\"} | dns_qname != \"\" | keep dns_qname [$range])))", "instant": true, "legendFormat": "{{dns_qname}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-YlRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "minVizWidth": 0, "minVizHeight": 10, "reduceOptions": { "calcs": ["lastNotNull"], "values": false } }
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Resolver evidence",
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 12,
+      "type": "logs",
+      "title": "NXDOMAIN replies",
+      "gridPos": { "x": 0, "y": 25, "w": 12, "h": 11 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\",dns_rcode=\"NXDOMAIN\"} | line_format \"{{.dns_client_ip}}  {{.dns_qname}}  {{.dns_qtype}}  cached={{.dns_cached}}  {{.dns_response_seconds}}s\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    },
+    {
+      "id": 13,
+      "type": "logs",
+      "title": "Recent DNS replies",
+      "gridPos": { "x": 12, "y": 25, "w": 12, "h": 11 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"syslog\",pfsense_log=\"dns\",dns_event=\"reply\"} | line_format \"{{.dns_client_ip}}  {{.dns_qname}}  {{.dns_qtype}} → {{.dns_rcode}}  cached={{.dns_cached}}  {{.dns_response_seconds}}s  {{.dns_response_bytes}}B\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+    }
+  ]
+}

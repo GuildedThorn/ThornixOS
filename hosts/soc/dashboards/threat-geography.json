@@ -1,7 +1,7 @@
 {
   "uid": "threat-geography",
   "title": "Threat Geography — GeoIP & ASN",
-  "description": "Locally enriched source geography for Zeek notices, websites Suricata alerts, and pfSense priority-1/2 Suricata findings. GeoIP is approximate context, not proof that an address or location is malicious. Only events ingested after this pipeline is deployed carry the structured metadata.",
+  "description": "Locally enriched source geography for Zeek notices, websites Suricata alerts, pfSense priority-1/2 Suricata findings, and blocked inbound WAN traffic. GeoIP is approximate context, not proof that an address or location is malicious. Only events ingested after each pipeline deployment carry the structured metadata.",
   "tags": ["siem", "security", "geoip", "asn", "network"],
   "timezone": "browser",
   "schemaVersion": 39,
