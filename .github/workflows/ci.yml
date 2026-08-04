@@ -80,6 +80,10 @@ jobs:
       # modules/users/thorn.nix) — only fast-forward it here, once this
       # host's own build has actually passed, so a broken commit for one
       # host can never get deployed just because main advanced.
+      #
+      # Do not force this update. If main was rewritten, a rejected push is
+      # the safety signal: force-moving the branch strands hosts on the old
+      # history, where comin fetches forever without scheduling a build.
       - name: Promote deploy-${{ matrix.host }}
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: git push origin HEAD:refs/heads/deploy-${{ matrix.host }} --force
+        run: git push origin HEAD:refs/heads/deploy-${{ matrix.host }}
