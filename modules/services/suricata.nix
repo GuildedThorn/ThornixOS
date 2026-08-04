@@ -116,6 +116,12 @@
           "2035173"
         ];
 
+        # The pinned nixpkgs Suricata module currently emits
+        # `ProtectProc=true`, which is not a valid systemd mode and is
+        # therefore ignored. Preserve the intended process isolation with a
+        # supported value until the upstream module is corrected.
+        systemd.services.suricata.serviceConfig.ProtectProc = lib.mkForce "invisible";
+
         # Disable NIC offloads on the physical capture interfaces so the
         # engine sees real wire-sized segments: GRO/GSO hand af-packet
         # kernel-merged super-frames, which distort stream reassembly and

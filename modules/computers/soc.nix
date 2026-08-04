@@ -199,6 +199,11 @@
               };
 
               common = {
+                # In single-binary mode the query frontend advertises this
+                # address to the colocated querier. Keep it aligned with the
+                # loopback-only gRPC listener above; otherwise queries are
+                # sent to 172.16.25.51:9095 and fail with connection refused.
+                instance_addr = "127.0.0.1";
                 path_prefix = "/var/lib/loki";
                 replication_factor = 1;
                 ring = {
