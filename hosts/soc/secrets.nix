@@ -2,6 +2,12 @@
 {
   sops.defaultSopsFile = ./secrets.yaml;
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+  thorn.telemetry.enable = true;
+
+  # Grafana and nginx share the SOC server certificate. Keep its private key
+  # root-owned and grant only those two services read access through a
+  # dedicated supplementary group.
+  users.groups.telemetry-tls = { };
 
   # Outbound dead-man heartbeat. The URL contains the check UUID, so keep it
   # out of the Nix store and expose it only to the root-owned oneshot service.
@@ -55,5 +61,15 @@
   # TLS private key for Grafana's HTTPS listener. The matching cert
   # (ThornCloud_CA-signed) lives in the repo at certs/; only the key is
   # secret. Add the PEM to secrets.yaml before deploying the https block.
-  sops.secrets.grafana_tls_key.owner = "grafana";
+  sops.secrets.grafana_tls_key = {
+    owner = "root";
+    group = "telemetry-tls";
+    mode = "0440";
+    restartUnits = [
+      "grafana.service"
+      "nginx.service"
+    ];
+  };
+  systemd.services.grafana.serviceConfig.SupplementaryGroups = [ "telemetry-tls" ];
+  systemd.services.nginx.serviceConfig.SupplementaryGroups = [ "telemetry-tls" ];
 }

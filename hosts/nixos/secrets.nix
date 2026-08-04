@@ -2,6 +2,7 @@
 {
   sops.defaultSopsFile = ./secrets.yaml;
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+  thorn.telemetry.enable = true;
 
   sops.secrets.wakatime_api_key = { };
 
@@ -19,6 +20,13 @@
   # NickServ after rebuild (`/msg NickServ CERT ADD`, once connected with
   # the cert loaded).
   sops.secrets.oftc_client_cert.owner = "thorn";
+
+  # Read-only mTLS identity for the CRT's direct Loki/Prometheus queries.
+  # The matching public certificate lives in certs/; nginx on soc grants
+  # this CN query endpoints only (never push, remote-write, or admin APIs).
+  sops.secrets.telemetry_reader_key = {
+    owner = "thorn";
+  };
 
   sops.templates."wakatime.cfg" = {
     content = ''

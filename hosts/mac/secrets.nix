@@ -11,6 +11,7 @@ in
 {
   sops.defaultSopsFile = ./secrets.yaml;
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+  thorn.telemetry.enable = true;
 
   # Private key for the Proxmox web panel's custom TLS certificate.
   sops.secrets.proxmox_tls_key = {

@@ -2,6 +2,7 @@
 {
   sops.defaultSopsFile = ./secrets.yaml;
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+  thorn.telemetry.enable = true;
 
   # The app's whole dotenv as one opaque secret (Jwt__Key,
   # MongoDB__ConnectionString, RabbitMQ__Password, Spotify__ClientSecret, ...).

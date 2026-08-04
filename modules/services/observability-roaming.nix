@@ -2,6 +2,16 @@
   nixos.modules.services-observability-roaming =
     { config, ... }:
     {
+      assertions = [
+        {
+          assertion = config.thorn.telemetry.enable;
+          message = ''
+            services-observability-roaming requires thorn.telemetry.enable
+            and an enrolled writer identity.
+          '';
+        }
+      ];
+
       # Push-based metrics for hosts Prometheus can't scrape (roaming
       # laptops: intermittently online, reachable only over the WireGuard
       # tunnel, deliberately absent from soc's `fleet` scrape list). Alloy
@@ -42,7 +52,15 @@
 
         prometheus.remote_write "soc" {
           endpoint {
-            url = "http://soc.guildedthorn.arpa:9090/api/v1/write"
+            url = "https://soc.guildedthorn.arpa:9090/api/v1/write"
+
+            tls_config {
+              ca_file     = "${config.security.pki.caBundle}"
+              cert_file   = "/run/credentials/alloy.service/telemetry-writer.crt"
+              key_file    = "/run/credentials/alloy.service/telemetry-writer.key"
+              server_name = "soc.guildedthorn.arpa"
+              min_version = "TLS12"
+            }
           }
         }
       '';

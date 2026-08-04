@@ -1,18 +1,24 @@
+{ inputs, ... }:
 {
   homeManager.modules.thorn =
     {
       config,
       lib,
+      osConfig,
       pkgs,
       ...
     }:
     let
       cfg = config.thorn.desktop.crt;
 
-      # SOC stack endpoints (see modules/computers/soc.nix); Loki is what
-      # every host's promtail already pushes to, Prometheus is LAN-reachable.
-      lokiUrl = "http://soc.guildedthorn.arpa:3100";
-      promUrl = "http://soc.guildedthorn.arpa:9090";
+      # nginx exposes only the read APIs to this ThornCloud_CA client
+      # identity. The key is workstation-scoped in sops; it cannot push or
+      # delete telemetry even if one of these helpers is abused.
+      lokiUrl = "https://soc.guildedthorn.arpa:3100";
+      promUrl = "https://soc.guildedthorn.arpa:9090";
+      telemetryReaderCertificate = "${inputs.self}/certs/telemetry-reader.crt";
+      telemetryReaderKey = osConfig.sops.secrets.telemetry_reader_key.path;
+      telemetryCaBundle = osConfig.security.pki.caBundle;
 
       # One-shot poller: instant queries against Prometheus + Loki, emits a
       # single JSON object for eww's defpoll. Any unreachable backend turns
@@ -25,12 +31,20 @@
         ];
         text = ''
           prom_q() {
-            curl -sf --max-time 6 "${promUrl}/api/v1/query" --data-urlencode "query=$1" \
+            curl -sf --max-time 6 \
+              --cacert "${telemetryCaBundle}" \
+              --cert "${telemetryReaderCertificate}" \
+              --key "${telemetryReaderKey}" \
+              "${promUrl}/api/v1/query" --data-urlencode "query=$1" \
               | jq -r '.data.result[0].value[1] // "0"' || echo "?"
           }
 
           loki_q() {
-            curl -sf --max-time 6 -G "${lokiUrl}/loki/api/v1/query" --data-urlencode "query=$1" \
+            curl -sf --max-time 6 -G \
+              --cacert "${telemetryCaBundle}" \
+              --cert "${telemetryReaderCertificate}" \
+              --key "${telemetryReaderKey}" \
+              "${lokiUrl}/loki/api/v1/query" --data-urlencode "query=$1" \
               | jq -r '.data.result[0].value[1] // "0"' || echo "?"
           }
 
@@ -81,7 +95,11 @@
             local tag="$1" query="$2"
             while true; do
               logcli query --tail --limit=5 --output=jsonl \
-                --addr="${lokiUrl}" "$query" 2>/dev/null \
+                --addr="${lokiUrl}" \
+                --ca-cert="${telemetryCaBundle}" \
+                --cert="${telemetryReaderCertificate}" \
+                --key="${telemetryReaderKey}" \
+                "$query" 2>/dev/null \
                 | jq --unbuffered -r --arg tag "$tag" \
                     '"\($tag)|\(.labels.host // "?")|\(.line)"' || true
               sleep 15
@@ -286,6 +304,16 @@
       };
 
       config = lib.mkIf cfg.enable {
+        assertions = [
+          {
+            assertion = builtins.pathExists telemetryReaderCertificate;
+            message = ''
+              certs/telemetry-reader.crt is missing. Sign the workstation
+              reader CSR with ThornCloud_CA before enabling the CRT client.
+            '';
+          }
+        ];
+
         programs.eww = {
           enable = true;
           yuckConfig = ewwYuck;

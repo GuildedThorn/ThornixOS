@@ -71,20 +71,28 @@ VM are untouched.
 
 ## SOC / observability
 
-The `soc` VM (172.16.25.51) is the fleet's monitoring and SIEM hub. Nothing
-about it is push-based — every host ships to it, and it pulls metrics back.
+The `soc` VM (172.16.25.51) is the fleet's monitoring and SIEM hub. Every
+installed/enrolled host ships logs to it, and it pulls metrics back.
 
 **What runs where:**
 
 - **soc**: Loki (logs, chunks in the NAS's SeaweedFS S3 `loki` bucket, 90d
   retention), Prometheus (metrics, 90d local, backed up nightly to the NAS
-  via restic), and Grafana (`https://soc.guildedthorn.arpa:3000`).
+  via restic), and Grafana (`https://soc.guildedthorn.arpa:3000`). Loki and
+  Prometheus listen on loopback only. nginx preserves the external `:3100`
+  and `:9090` endpoints behind ThornCloud_CA mTLS, source-network ACLs, and
+  an exact API allowlist: the fleet certificate can only ingest, while the
+  workstation certificate can only query.
 - **every host** (via `services-observability` + `services-audit`, both in
-  `thorn-core`): Grafana Alloy tails the systemd journal and pushes it to
-  Loki; `node_exporter` exposes metrics on :9100 for Prometheus to scrape;
-  auditd adds a baseline of security rules (identity/sudoers/sshd changes,
-  module loads, privilege exec, and `execve`) whose events ride the same
-  journal stream. `thorn.audit.execScope` controls how much `execve` is
+  `thorn-core`): `node_exporter` exposes metrics on :9100 only to the SOC,
+  and auditd adds a baseline of security rules (identity/sudoers/sshd
+  changes, module loads, privilege exec, and `execve`).
+- **nixos, mac, scout, soc, websites** (`thorn.telemetry.enable = true`):
+  Grafana Alloy tails the systemd journal and pushes it to Loki using the
+  fleet writer certificate. Enrollment is explicit because a host must be a
+  recipient of `hosts/shared/telemetry-secrets.yaml`; there is no plaintext
+  fallback for lab configurations that lack an age identity.
+  `thorn.audit.execScope` controls how much `execve` is
   recorded: desktops use `"sessions"` (auid >= 1000 — real user activity
   only, since unfiltered execve on a desktop is mostly systemd churn),
   while headless hosts set `"all"`. That distinction matters — under
@@ -123,6 +131,20 @@ Prometheus on soc scrapes each host's `:9100`. Both directions depend on
 `<host>.guildedthorn.arpa` resolving — static hosts are pinned in
 `modules/core/lan-hosts.nix`; DHCP hosts (the laptops) need a pfSense static
 reservation or their Prometheus target shows down.
+
+The two telemetry client private keys are separate from the SOC server key:
+
+- `thornix-telemetry-writer` is shared by Alloy through
+  `hosts/shared/telemetry-secrets.yaml`, encrypted to every installed host.
+- `thornix-telemetry-reader` exists only in `hosts/nixos/secrets.yaml` for the
+  CRT's direct read-only queries.
+
+Both certificates must use the `clientAuth` EKU from
+`certs/telemetry-client.ext`. Public certificates live at
+`certs/telemetry-{writer,reader}.crt`; plaintext private keys never enter Git.
+Before enrolling another host, add its age recipient to the shared creation
+rule in `.sops.yaml`, run `sops updatekeys` on the shared file, and only then
+set `thorn.telemetry.enable = true` in that host's secrets module.
 
 **Dashboards & alerts** are provisioned from the repo, so they survive
 rebuilds and aren't hand-clicked:

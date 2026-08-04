@@ -48,6 +48,57 @@
                     ca_file: ${config.security.pki.caBundle}
           '';
 
+          telemetryServerCertificate = "${inputs.self}/certs/soc.guildedthorn.arpa.crt";
+          telemetryServerKey = config.sops.secrets.grafana_tls_key.path;
+
+          # Both public telemetry ports use the same server identity and
+          # ThornCloud_CA client trust. The per-location CN checks below
+          # reduce each certificate to its intended read or write role.
+          telemetryVhost = port: {
+            serverName = "soc.guildedthorn.arpa";
+            # `onlySSL` also tells the NixOS nginx module to emit the
+            # certificate directives when an explicit SSL listen is used.
+            onlySSL = true;
+            listen = [
+              {
+                addr = "0.0.0.0";
+                inherit port;
+                ssl = true;
+              }
+            ];
+            sslCertificate = telemetryServerCertificate;
+            sslCertificateKey = telemetryServerKey;
+            extraConfig = ''
+              ssl_client_certificate ${inputs.self}/certs/ThornCloud_CA.crt;
+              ssl_verify_client on;
+              ssl_verify_depth 1;
+
+              client_max_body_size 32m;
+
+              allow 172.16.25.0/24;
+              allow 10.10.10.3;
+              deny all;
+            '';
+          };
+
+          writerOnly = ''
+            if ($ssl_client_s_dn !~ "(^|,)CN=thornix-telemetry-writer(,|$)") {
+              return 403;
+            }
+            if ($request_method != POST) {
+              return 405;
+            }
+          '';
+
+          readerOnly = ''
+            if ($ssl_client_s_dn !~ "(^|,)CN=thornix-telemetry-reader(,|$)") {
+              return 403;
+            }
+            if ($request_method !~ "^(GET|POST)$") {
+              return 405;
+            }
+          '';
+
           # Hosts Prometheus scrapes for node metrics (port 9100, opened
           # fleet-wide by services-observability). Only the always-on hosts:
           # scout and the lab VMs (mitm, proxmox-guest) are intermittent, so
@@ -138,7 +189,14 @@
             configuration = {
               auth_enabled = false;
 
-              server.http_listen_port = 3100;
+              # No network client can reach Loki directly. nginx owns the
+              # familiar :3100 port and proxies only explicitly allowed API
+              # paths after client-certificate authorization.
+              server = {
+                http_listen_address = "127.0.0.1";
+                http_listen_port = 3101;
+                grpc_listen_address = "127.0.0.1";
+              };
 
               common = {
                 path_prefix = "/var/lib/loki";
@@ -207,6 +265,8 @@
           # that isn't worth it yet.
           services.prometheus = {
             enable = true;
+            listenAddress = "127.0.0.1";
+            port = 9091;
             retentionTime = "90d";
             # Accept pushed metrics from roaming hosts (scout via
             # services-observability-roaming) that can't be scraped.
@@ -237,7 +297,7 @@
               # host going down, since it's the thing that would tell us).
               {
                 job_name = "loki";
-                static_configs = [ { targets = [ "127.0.0.1:3100" ]; } ];
+                static_configs = [ { targets = [ "127.0.0.1:3101" ]; } ];
               }
               # Monitor the monitoring stack itself. Without these jobs a
               # memory leak, query storm, or failed config reload remains
@@ -245,7 +305,7 @@
               {
                 job_name = "prometheus";
                 scrape_interval = "60s";
-                static_configs = [ { targets = [ "127.0.0.1:9090" ]; } ];
+                static_configs = [ { targets = [ "127.0.0.1:9091" ]; } ];
               }
               {
                 job_name = "grafana";
@@ -268,8 +328,8 @@
                     targets = [
                       "https://guildedthorn.com/"
                       "https://soc.guildedthorn.arpa:3000/api/health"
-                      "http://soc.guildedthorn.arpa:3100/ready"
-                      "http://soc.guildedthorn.arpa:9090/-/ready"
+                      "http://127.0.0.1:3101/ready"
+                      "http://127.0.0.1:9091/-/ready"
                       "https://proxmox.guildedthorn.arpa:8006/"
                       "https://truenas.guildedthorn.arpa/"
                       "https://truenas.guildedthorn.arpa:30304/"
@@ -314,18 +374,81 @@
             ];
           };
 
+          # Authenticated ingress for the two telemetry backends. Loki and
+          # Prometheus remain unauthenticated internally because their only
+          # listener is loopback; nginx is the network security boundary.
+          # Deliberately enumerate APIs instead of proxying broad prefixes:
+          # neither identity can reach delete, admin, status, or lifecycle
+          # endpoints over the network.
+          services.nginx = {
+            enable = true;
+            recommendedProxySettings = true;
+            recommendedTlsSettings = true;
+            virtualHosts = {
+              loki-telemetry = (telemetryVhost 3100) // {
+                locations = {
+                  "= /loki/api/v1/push" = {
+                    proxyPass = "http://127.0.0.1:3101";
+                    extraConfig = writerOnly;
+                  };
+                  "= /loki/api/v1/query" = {
+                    proxyPass = "http://127.0.0.1:3101";
+                    extraConfig = readerOnly;
+                  };
+                  "= /loki/api/v1/tail" = {
+                    proxyPass = "http://127.0.0.1:3101";
+                    proxyWebsockets = true;
+                    extraConfig = ''
+                      if ($ssl_client_s_dn !~ "(^|,)CN=thornix-telemetry-reader(,|$)") {
+                        return 403;
+                      }
+                      if ($request_method != GET) {
+                        return 405;
+                      }
+                    '';
+                  };
+                  "/".return = 404;
+                };
+              };
+
+              prometheus-telemetry = (telemetryVhost 9090) // {
+                locations = {
+                  "= /api/v1/write" = {
+                    proxyPass = "http://127.0.0.1:9091";
+                    extraConfig = writerOnly;
+                  };
+                  "= /api/v1/query" = {
+                    proxyPass = "http://127.0.0.1:9091";
+                    extraConfig = readerOnly;
+                  };
+                  "/".return = 404;
+                };
+              };
+            };
+          };
+
+          # Avoid a first-deploy bind race: the old backends must release
+          # :3100/:9090 and come back on loopback before nginx claims them.
+          systemd.services.nginx = {
+            wants = [
+              "loki.service"
+              "prometheus.service"
+            ];
+            after = [
+              "loki.service"
+              "prometheus.service"
+            ];
+          };
+
           # Prometheus TSDB backup to the NAS. Loki's chunks already live in
           # object storage, so soc has always been "rebuildable without data
           # loss" for LOGS only — metrics sat on the VM disk with no copy
           # anywhere, and a rebuild silently took 90 days of history with it.
           #
-          # Backing up the data directory directly rather than going through
-          # Prometheus's snapshot API: the API route needs
-          # --web.enable-admin-api, and 9090 is reachable from the whole LAN
-          # (it has to be, for scout's remote-write). That admin surface
-          # includes delete-series, so enabling it would hand every host on
-          # the subnet a way to erase the metrics this backup exists to
-          # protect. Not a good trade for a cleaner snapshot.
+          # Backing up the data directory directly rather than enabling
+          # Prometheus's admin API solely for snapshots. nginx would keep the
+          # route off the network, but an unnecessary destructive API is still
+          # avoidable local attack surface.
           #
           # The cost of that choice: TSDB blocks are immutable once written,
           # but the in-memory head is flushed through a live WAL, so a
@@ -372,13 +495,13 @@
               failed=0
 
               systemctl is-active --quiet \
-                loki prometheus grafana alloy syslog || failed=1
+                loki prometheus grafana alloy nginx syslog || failed=1
 
               curl -fsS --max-time 5 \
-                http://127.0.0.1:3100/ready >/dev/null || failed=1
+                http://127.0.0.1:3101/ready >/dev/null || failed=1
 
               curl -fsS --max-time 5 \
-                http://127.0.0.1:9090/-/ready >/dev/null || failed=1
+                http://127.0.0.1:9091/-/ready >/dev/null || failed=1
 
               curl -fsS --max-time 5 \
                 --resolve soc.guildedthorn.arpa:3000:127.0.0.1 \
@@ -419,7 +542,9 @@
           # Files are 0644 so Alloy's DynamicUser can read them. When the
           # firewall becomes a NixOS host it ships via journal instead and
           # this stays for other appliances.
-          networking.firewall.allowedUDPPorts = [ 5514 ];
+          # hosts/soc/networking.nix admits this port only from pfSense's
+          # fixed 172.16.25.1 address; arbitrary LAN hosts cannot inject
+          # records into the appliance log stream.
           services.rsyslogd = {
             enable = true;
             extraConfig = ''
@@ -468,7 +593,7 @@
                 http_port = 3000;
                 domain = "soc.guildedthorn.arpa";
                 root_url = "https://soc.guildedthorn.arpa:3000";
-                cert_file = "${inputs.self}/certs/soc.guildedthorn.arpa.crt";
+                cert_file = telemetryServerCertificate;
                 cert_key = config.sops.secrets.grafana_tls_key.path;
                 enable_gzip = true;
               };
@@ -512,7 +637,7 @@
                   name = "Loki";
                   type = "loki";
                   uid = "loki";
-                  url = "http://127.0.0.1:3100";
+                  url = "http://127.0.0.1:3101";
                   jsonData.derivedFields = [
                     {
                       # Both Suricata EVE and Zeek JSON use this field. The
@@ -531,7 +656,7 @@
                   name = "Prometheus";
                   type = "prometheus";
                   uid = "prometheus";
-                  url = "http://127.0.0.1:9090";
+                  url = "http://127.0.0.1:9091";
                   isDefault = true;
                 }
               ];

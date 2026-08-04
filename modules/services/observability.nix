@@ -1,72 +1,113 @@
+{ inputs, ... }:
 {
   nixos.modules.services-observability =
-    { ... }:
+    {
+      config,
+      lib,
+      ...
+    }:
 
     let
-      # Loki on the soc VM — every host ships its journal here.
-      lokiUrl = "http://soc.guildedthorn.arpa:3100";
+      cfg = config.thorn.telemetry;
+      # nginx terminates ThornCloud_CA mTLS on soc. Loki itself is bound to
+      # loopback, so this is the only network path into its write API.
+      lokiUrl = "https://soc.guildedthorn.arpa:3100";
+      telemetryCredentialDirectory = "/run/credentials/alloy.service";
+      telemetryWriterCertificate = "${inputs.self}/certs/telemetry-writer.crt";
+      telemetryWriterSecrets = "${inputs.self}/hosts/shared/telemetry-secrets.yaml";
     in
     {
-      # Grafana Alloy: tail the systemd journal and push it to Loki on soc.
-      # If soc is unreachable Alloy buffers and retries; nothing on the host
-      # breaks, logs just arrive late.
-      services.alloy.enable = true;
+      options.thorn.telemetry.enable = lib.mkEnableOption "authenticated fleet telemetry shipping";
 
-      # Alloy runs with DynamicUser and can't read the journal without this.
-      systemd.services.alloy.serviceConfig.SupplementaryGroups = [ "systemd-journal" ];
+      config = lib.mkMerge [
+        {
+          # Node metrics for Prometheus on soc. Do not use the exporter's
+          # broad openFirewall switch: the explicit rule below admits only
+          # the SOC VM.
+          services.prometheus.exporters.node = {
+            enable = true;
+            enabledCollectors = [ "systemd" ];
+            openFirewall = false;
+          };
 
-      environment.etc."alloy/config.alloy".text = ''
-        loki.relabel "journal" {
-          forward_to = []
-
-          rule {
-            source_labels = ["__journal__systemd_unit"]
-            target_label  = "unit"
-          }
-          rule {
-            source_labels = ["__journal__hostname"]
-            target_label  = "host"
-          }
+          # comin's metrics endpoint is similarly visible only to the SOC.
+          # Loopback remains available for scout's local Alloy scrape.
+          networking.firewall.extraCommands = ''
+            iptables -w -A nixos-fw -p tcp -s 172.16.25.51/32 \
+              -m multiport --dports 9100,4243 -j nixos-fw-accept
+          '';
         }
 
-        loki.source.journal "journal" {
-          forward_to    = [loki.write.soc.receiver]
-          relabel_rules = loki.relabel.journal.rules
-          labels        = { job = "systemd-journal" }
-          max_age       = "24h"
-        }
+        (lib.mkIf cfg.enable {
+          assertions = [
+            {
+              assertion = builtins.pathExists telemetryWriterCertificate;
+              message = ''
+                certs/telemetry-writer.crt is missing. Sign the fleet writer
+                CSR with ThornCloud_CA before enabling telemetry.
+              '';
+            }
+            {
+              assertion = builtins.pathExists telemetryWriterSecrets;
+              message = ''
+                hosts/shared/telemetry-secrets.yaml is missing. Create it
+                with sops and add telemetry_writer_key before enabling telemetry.
+              '';
+            }
+          ];
 
-        loki.write "soc" {
-          endpoint {
-            url = "${lokiUrl}/loki/api/v1/push"
-          }
-        }
-      '';
+          # One write-only client identity is shared by the enrolled fleet.
+          # systemd exposes it only inside Alloy's credential directory.
+          sops.secrets.telemetry_writer_key = {
+            sopsFile = telemetryWriterSecrets;
+            restartUnits = [ "alloy.service" ];
+          };
 
-      # Node metrics for Prometheus on soc. 9100 is only exposed on the LAN;
-      # nothing routes it further.
-      services.prometheus.exporters.node = {
-        enable = true;
-        enabledCollectors = [ "systemd" ];
-        openFirewall = true;
-      };
+          services.alloy.enable = true;
+          systemd.services.alloy.serviceConfig = {
+            SupplementaryGroups = [ "systemd-journal" ];
+            LoadCredential = [
+              "telemetry-writer.crt:${telemetryWriterCertificate}"
+              "telemetry-writer.key:${config.sops.secrets.telemetry_writer_key.path}"
+            ];
+          };
 
-      # comin's metrics endpoint. comin already listens on 0.0.0.0:4243 on
-      # every host (it's on by default); this only opens the port so soc can
-      # scrape it.
-      #
-      # Worth the exposure because it closes the fleet's one structural
-      # monitoring gap: everything else here reports whether a host is alive
-      # and talking, but nothing reports whether it is running the config
-      # that was pushed. comin_deployment_info carries the deployed commit
-      # id, so "did my change actually land" becomes a query instead of an
-      # SSH session. On a repo whose entire deployment model is GitOps, that
-      # is the layer most worth seeing.
-      #
-      # Same trust assumption 9100 already makes: LAN-reachable, unauthenticated,
-      # read-only. It exposes commit ids and deploy/build/eval status — no
-      # secrets, but it does tell a LAN observer exactly what version each
-      # host runs.
-      networking.firewall.allowedTCPPorts = [ 4243 ];
+          environment.etc."alloy/config.alloy".text = ''
+            loki.relabel "journal" {
+              forward_to = []
+
+              rule {
+                source_labels = ["__journal__systemd_unit"]
+                target_label  = "unit"
+              }
+              rule {
+                source_labels = ["__journal__hostname"]
+                target_label  = "host"
+              }
+            }
+
+            loki.source.journal "journal" {
+              forward_to    = [loki.write.soc.receiver]
+              relabel_rules = loki.relabel.journal.rules
+              labels        = { job = "systemd-journal" }
+              max_age       = "24h"
+            }
+
+            loki.write "soc" {
+              endpoint {
+                url = "${lokiUrl}/loki/api/v1/push"
+
+                tls_config {
+                  ca_file     = "${config.security.pki.caBundle}"
+                  cert_file   = "${telemetryCredentialDirectory}/telemetry-writer.crt"
+                  key_file    = "${telemetryCredentialDirectory}/telemetry-writer.key"
+                  server_name = "soc.guildedthorn.arpa"
+                  min_version = "TLS12"
+                }
+              }
+            }
+          '';
+        })
+      ];
     };
 }
