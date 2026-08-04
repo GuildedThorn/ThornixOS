@@ -149,6 +149,10 @@
           # services-audit for the reasoning and the volume trade.
           thorn.audit.execScope = "all";
 
+          # pfSense cannot run Alloy itself, so its high-priority IDS source
+          # addresses are enriched here after rsyslog receives them.
+          thorn.geoip.enable = true;
+
           # Trust the LAN CA so Loki's S3 client can verify the SeaweedFS
           # gateway's certificate.
           security.pki.certificates = [
@@ -248,6 +252,10 @@
               };
 
               limits_config = {
+                # GeoIP values are intentionally structured metadata instead
+                # of indexed labels. Schema v13 above stores that metadata in
+                # chunk format v4 without exploding stream cardinality.
+                allow_structured_metadata = true;
                 retention_period = "90d";
                 reject_old_samples = true;
                 reject_old_samples_max_age = "168h";
@@ -606,6 +614,56 @@
 
             loki.source.file "remote_syslog" {
               targets    = local.file_match.remote_syslog.targets
+              forward_to = [loki.process.remote_syslog.receiver]
+            }
+
+            loki.process "remote_syslog" {
+              // The parser is grounded in pfSense's observed Suricata line:
+              //   ... [Priority: N] {TCP} source:port -> destination:port
+              // Only priorities 1/2 enter the hostile-source map. Priority 3
+              // decoder/stream diagnostics remain searchable in raw syslog.
+              stage.match {
+                selector      = "{job=\"syslog\"} |~ \"suricata.*\\[Priority: [12]\\]\""
+                pipeline_name = "geoip_pfsense_ids_source"
+
+                stage.regex {
+                  expression = "\\{[A-Z0-9]+\\}\\s+(?P<geoip_src_ip>(?:[0-9]{1,3}\\.){3}[0-9]{1,3})(?::[0-9]+)?\\s+->"
+                }
+
+                stage.geoip {
+                  source  = "geoip_src_ip"
+                  db      = "/etc/GeoIP/DBIP-City-Lite.mmdb"
+                  db_type = "city"
+                }
+
+                stage.geoip {
+                  source  = "geoip_src_ip"
+                  db      = "/etc/GeoIP/DBIP-ASN-Lite.mmdb"
+                  db_type = "asn"
+                }
+
+                // A single constant stream label lets dashboards select only
+                // enriched findings without indexing any dynamic GeoIP data.
+                stage.static_labels {
+                  values = { geoip_enriched = "true" }
+                }
+
+                stage.structured_metadata {
+                  values = {
+                    geoip_src_ip                         = "",
+                    geoip_city_name                      = "",
+                    geoip_country_name                   = "",
+                    geoip_country_code                   = "",
+                    geoip_continent_code                 = "",
+                    geoip_location_latitude              = "",
+                    geoip_location_longitude             = "",
+                    geoip_timezone                       = "",
+                    geoip_autonomous_system_number       = "",
+                    geoip_autonomous_system_organization = "",
+                  }
+                }
+              }
+
               forward_to = [loki.write.soc.receiver]
             }
           '';

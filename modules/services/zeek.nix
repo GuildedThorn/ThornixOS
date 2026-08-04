@@ -281,6 +281,11 @@
       };
 
       config = lib.mkIf cfg.enable {
+        # Notice sources are enriched locally before they leave this host.
+        # services-geoip installs immutable City/ASN MMDBs; no address is
+        # disclosed to a runtime lookup service.
+        thorn.geoip.enable = true;
+
         assertions = [
           {
             assertion = cfg.interface != "";
@@ -490,6 +495,56 @@
               source            = "event_ts"
               format            = "Unix"
               action_on_failure = "skip"
+            }
+
+            // Only notice.log represents Zeek's security findings. Keep
+            // ordinary connection/DNS/TLS telemetry out of the threat map,
+            // and require a source field before attempting an MMDB lookup.
+            stage.match {
+              selector      = "{job=\"zeek\", zeek_log=\"notice\"} |~ \"\\\"src\\\":\\\"[^\\\"]+\\\"\""
+              pipeline_name = "geoip_notice_source"
+
+              stage.json {
+                expressions = { geoip_src_ip = "src" }
+              }
+
+              stage.geoip {
+                source  = "geoip_src_ip"
+                db      = "/etc/GeoIP/DBIP-City-Lite.mmdb"
+                db_type = "city"
+              }
+
+              stage.geoip {
+                source  = "geoip_src_ip"
+                db      = "/etc/GeoIP/DBIP-ASN-Lite.mmdb"
+                db_type = "asn"
+              }
+
+              // One constant label gives Loki an efficient index selector
+              // for this sparse subset. None of the dynamic GeoIP values
+              // enter the index.
+              stage.static_labels {
+                values = { geoip_enriched = "true" }
+              }
+
+              // IPs, coordinates, cities, and ASNs are deliberately not
+              // Loki index labels. Structured metadata remains queryable
+              // per event without allowing hostile addresses to create an
+              // unbounded number of streams.
+              stage.structured_metadata {
+                values = {
+                  geoip_src_ip                         = "",
+                  geoip_city_name                      = "",
+                  geoip_country_name                   = "",
+                  geoip_country_code                   = "",
+                  geoip_continent_code                 = "",
+                  geoip_location_latitude              = "",
+                  geoip_location_longitude             = "",
+                  geoip_timezone                       = "",
+                  geoip_autonomous_system_number       = "",
+                  geoip_autonomous_system_organization = "",
+                }
+              }
             }
 
             forward_to = [loki.write.soc.receiver]

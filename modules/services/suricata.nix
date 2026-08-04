@@ -40,6 +40,10 @@
       };
 
       config = {
+        # Alert source addresses are enriched by Alloy from immutable local
+        # databases; there is no runtime GeoIP API or third-party disclosure.
+        thorn.geoip.enable = true;
+
         services.suricata = {
           enable = true;
           settings = {
@@ -172,6 +176,58 @@
               "job"      = "suricata",
               "host"     = "${config.networking.hostName}",
             }]
+            forward_to = [loki.process.suricata.receiver]
+          }
+
+          loki.process "suricata" {
+            // EVE also carries anomaly and SSH protocol records. Enrich only
+            // actual IDS alerts so the map is a security finding view rather
+            // than a map of every Internet service the host contacts.
+            stage.match {
+              selector      = "{job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" |= \"\\\"src_ip\\\":\\\"\""
+              pipeline_name = "geoip_alert_source"
+
+              stage.json {
+                expressions    = { geoip_src_ip = "src_ip" }
+                drop_malformed = true
+              }
+
+              stage.geoip {
+                source  = "geoip_src_ip"
+                db      = "/etc/GeoIP/DBIP-City-Lite.mmdb"
+                db_type = "city"
+              }
+
+              stage.geoip {
+                source  = "geoip_src_ip"
+                db      = "/etc/GeoIP/DBIP-ASN-Lite.mmdb"
+                db_type = "asn"
+              }
+
+              // This bounded boolean is the only indexed enrichment field;
+              // all address- and location-specific values stay metadata.
+              stage.static_labels {
+                values = { geoip_enriched = "true" }
+              }
+
+              // Keep high-cardinality enrichment out of Loki's index while
+              // retaining it as typed, queryable per-entry metadata.
+              stage.structured_metadata {
+                values = {
+                  geoip_src_ip                         = "",
+                  geoip_city_name                      = "",
+                  geoip_country_name                   = "",
+                  geoip_country_code                   = "",
+                  geoip_continent_code                 = "",
+                  geoip_location_latitude              = "",
+                  geoip_location_longitude             = "",
+                  geoip_timezone                       = "",
+                  geoip_autonomous_system_number       = "",
+                  geoip_autonomous_system_organization = "",
+                }
+              }
+            }
+
             forward_to = [loki.write.soc.receiver]
           }
         '';

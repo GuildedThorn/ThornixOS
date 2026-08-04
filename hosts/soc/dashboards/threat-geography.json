@@ -1,0 +1,336 @@
+{
+  "uid": "threat-geography",
+  "title": "Threat Geography — GeoIP & ASN",
+  "description": "Locally enriched source geography for Zeek notices, websites Suricata alerts, and pfSense priority-1/2 Suricata findings. GeoIP is approximate context, not proof that an address or location is malicious. Only events ingested after this pipeline is deployed carry the structured metadata.",
+  "tags": ["siem", "security", "geoip", "asn", "network"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "range",
+        "type": "interval",
+        "label": "Summary window",
+        "query": "15m,1h,6h,24h,7d,30d",
+        "current": { "text": "24h", "value": "24h" },
+        "auto": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Locally enriched findings",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Enriched findings ($range)",
+      "description": "Security findings with a parsed source address and local City/ASN enrichment metadata.",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({geoip_enriched=\"true\"} | geoip_src_ip != \"\" | keep job [$range]))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "red", "value": 25 }
+          ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Distinct source IPs",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(sum by (geoip_src_ip) (count_over_time({geoip_enriched=\"true\"} | geoip_src_ip != \"\" | keep geoip_src_ip [$range])))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "fixed", "fixedColor": "orange" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Countries observed",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(sum by (geoip_country_code) (count_over_time({geoip_enriched=\"true\"} | geoip_country_code != \"\" | keep geoip_country_code [$range])))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Origin ASNs",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(sum by (geoip_autonomous_system_number) (count_over_time({geoip_enriched=\"true\"} | geoip_autonomous_system_number != \"\" | keep geoip_autonomous_system_number [$range])))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "noValue": "0", "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "geomap",
+      "title": "Observed security-event sources ($range)",
+      "description": "Marker position comes from local MMDB structured metadata. Marker size and color follow finding count; hover for source IP, city, country, ASN, sensor, and host. At most 200 source/location series are rendered.",
+      "gridPos": { "x": 0, "y": 5, "w": 16, "h": 18 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(200, sum by (geoip_src_ip, geoip_location_latitude, geoip_location_longitude, geoip_city_name, geoip_country_name, geoip_country_code, geoip_autonomous_system_number, geoip_autonomous_system_organization, job, host) (count_over_time({geoip_enriched=\"true\"} | geoip_src_ip != \"\" | geoip_location_latitude != \"\" | geoip_location_longitude != \"\" | keep job, host, geoip_src_ip, geoip_location_latitude, geoip_location_longitude, geoip_city_name, geoip_country_name, geoip_country_code, geoip_autonomous_system_number, geoip_autonomous_system_organization [$range])))",
+          "instant": true,
+          "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "Value": "Hits",
+              "geoip_src_ip": "Source IP",
+              "geoip_location_latitude": "latitude",
+              "geoip_location_longitude": "longitude",
+              "geoip_city_name": "City",
+              "geoip_country_name": "Country",
+              "geoip_country_code": "Country code",
+              "geoip_autonomous_system_number": "ASN",
+              "geoip_autonomous_system_organization": "AS organization",
+              "job": "Sensor",
+              "host": "Observed by"
+            },
+            "indexByName": {
+              "geoip_src_ip": 0,
+              "geoip_location_latitude": 1,
+              "geoip_location_longitude": 2,
+              "Value": 3,
+              "geoip_city_name": 4,
+              "geoip_country_name": 5,
+              "geoip_country_code": 6,
+              "geoip_autonomous_system_number": 7,
+              "geoip_autonomous_system_organization": 8,
+              "job": 9,
+              "host": 10
+            }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              { "targetField": "latitude", "destinationType": "number" },
+              { "targetField": "longitude", "destinationType": "number" }
+            ],
+            "fields": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "yellow", "value": null },
+            { "color": "orange", "value": 5 },
+            { "color": "red", "value": 20 },
+            { "color": "dark-red", "value": 100 }
+          ] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "latitude" }, "properties": [{ "id": "unit", "value": "degree" }] },
+          { "matcher": { "id": "byName", "options": "longitude" }, "properties": [{ "id": "unit", "value": "degree" }] },
+          { "matcher": { "id": "byName", "options": "Hits" }, "properties": [{ "id": "unit", "value": "short" }] }
+        ]
+      },
+      "options": {
+        "basemap": { "config": {}, "name": "Basemap", "type": "default" },
+        "controls": { "mouseWheelZoom": true, "showAttribution": true, "showDebug": false, "showScale": true, "showZoom": true },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Security-event sources",
+            "tooltip": true,
+            "location": { "mode": "coords", "latitude": "latitude", "longitude": "longitude" },
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": { "field": "Hits", "fixed": "red" },
+                "opacity": 0.75,
+                "rotation": { "fixed": 0, "max": 360, "min": -360, "mode": "mod" },
+                "size": { "field": "Hits", "fixed": 8, "max": 30, "min": 5 },
+                "symbol": { "fixed": "img/icons/marker/circle.svg", "mode": "fixed" },
+                "symbolAlign": { "horizontal": "center", "vertical": "center" },
+                "textConfig": { "fontSize": 12, "offsetX": 0, "offsetY": 0, "textAlign": "center", "textBaseline": "middle" }
+              }
+            }
+          }
+        ],
+        "tooltip": { "mode": "details" },
+        "view": { "id": "fit", "allLayers": true, "padding": 10, "maxZoom": 8, "noRepeat": true }
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Top enriched sources",
+      "description": "Highest-volume source/location tuples in the selected window. One IP can have more than one row if it was observed by multiple sensors.",
+      "gridPos": { "x": 16, "y": 5, "w": 8, "h": 18 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(50, sum by (geoip_src_ip, geoip_city_name, geoip_country_name, geoip_country_code, geoip_autonomous_system_number, geoip_autonomous_system_organization, job, host) (count_over_time({geoip_enriched=\"true\"} | geoip_src_ip != \"\" | keep job, host, geoip_src_ip, geoip_city_name, geoip_country_name, geoip_country_code, geoip_autonomous_system_number, geoip_autonomous_system_organization [$range])))",
+          "instant": true,
+          "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "Value": "Hits",
+              "geoip_src_ip": "Source IP",
+              "geoip_city_name": "City",
+              "geoip_country_name": "Country",
+              "geoip_country_code": "CC",
+              "geoip_autonomous_system_number": "ASN",
+              "geoip_autonomous_system_organization": "Organization",
+              "job": "Sensor",
+              "host": "Host"
+            },
+            "indexByName": { "geoip_src_ip": 0, "Value": 1, "geoip_country_name": 2, "geoip_country_code": 3, "geoip_city_name": 4, "geoip_autonomous_system_number": 5, "geoip_autonomous_system_organization": 6, "job": 7, "host": 8 }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Hits" }, "properties": [{ "id": "unit", "value": "short" }, { "id": "custom.align", "value": "right" }, { "id": "custom.cellOptions", "value": { "type": "color-background" } }] }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "sm", "sortBy": [{ "displayName": "Hits", "desc": true }] }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Country and network ownership",
+      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "Top countries ($range)",
+      "gridPos": { "x": 0, "y": 24, "w": 8, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(12, sum by (geoip_country_name, geoip_country_code) (count_over_time({geoip_enriched=\"true\"} | geoip_country_code != \"\" | keep geoip_country_name, geoip_country_code [$range])))",
+          "instant": true,
+          "legendFormat": "{{geoip_country_name}} ({{geoip_country_code}})"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-YlRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "minVizWidth": 0, "minVizHeight": 10, "reduceOptions": { "calcs": ["lastNotNull"], "values": false } }
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "Top origin networks / ASNs ($range)",
+      "gridPos": { "x": 8, "y": 24, "w": 10, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(12, sum by (geoip_autonomous_system_number, geoip_autonomous_system_organization) (count_over_time({geoip_enriched=\"true\"} | geoip_autonomous_system_number != \"\" | keep geoip_autonomous_system_number, geoip_autonomous_system_organization [$range])))",
+          "instant": true,
+          "legendFormat": "AS{{geoip_autonomous_system_number}} — {{geoip_autonomous_system_organization}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-YlOrRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "minVizWidth": 0, "minVizHeight": 10, "reduceOptions": { "calcs": ["lastNotNull"], "values": false } }
+    },
+    {
+      "id": 9,
+      "type": "text",
+      "title": "Local enrichment and attribution",
+      "gridPos": { "x": 18, "y": 24, "w": 6, "h": 9 },
+      "options": {
+        "mode": "markdown",
+        "content": "**No external IP lookup API is used.** Alloy resolves source addresses before Loki ingestion using immutable local DB-IP Lite City and ASN MMDB files pinned to the **2026-08** release. IPs, coordinates, cities, and ASNs are stored as Loki structured metadata rather than indexed labels.\n\nGeolocation is approximate and VPNs, proxies, CDNs, NAT, and anycast can move the apparent source away from a person or device. Treat the map as investigation context—not attribution.\n\n[IP Geolocation by DB-IP](https://db-ip.com/db/lite.php) · DB-IP Lite data is licensed under CC BY 4.0."
+      }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Event evidence",
+      "gridPos": { "x": 0, "y": 33, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "Enriched security events",
+      "description": "Raw evidence is unchanged. Expand a line to see its GeoIP/ASN structured metadata and original indexed stream labels.",
+      "gridPos": { "x": 0, "y": 34, "w": 24, "h": 12 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{geoip_enriched=\"true\"} | geoip_src_ip != \"\" | keep job, host, geoip_src_ip, geoip_city_name, geoip_country_name, geoip_country_code, geoip_autonomous_system_number, geoip_autonomous_system_organization",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      }
+    }
+  ]
+}
