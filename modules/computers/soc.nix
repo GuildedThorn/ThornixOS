@@ -31,6 +31,23 @@
           # `loki` bucket, so this VM is rebuildable without data loss.
           seaweedfsS3 = "truenas.guildedthorn.arpa:30304";
 
+          # Probe the services users and the monitoring stack actually depend
+          # on, from the same network vantage point as soc. `http_alive`
+          # deliberately accepts auth responses: a 401/403 from S3 proves the
+          # TLS listener and application are alive, while a 5xx still fails.
+          blackboxConfig = pkgs.writeText "blackbox-exporter.yml" ''
+            modules:
+              http_alive:
+                prober: http
+                timeout: 10s
+                http:
+                  preferred_ip_protocol: ip4
+                  follow_redirects: true
+                  valid_status_codes: [200, 204, 301, 302, 401, 403]
+                  tls_config:
+                    ca_file: ${config.security.pki.caBundle}
+          '';
+
           # Hosts Prometheus scrapes for node metrics (port 9100, opened
           # fleet-wide by services-observability). Only the always-on hosts:
           # scout and the lab VMs (mitm, proxmox-guest) are intermittent, so
@@ -176,6 +193,15 @@
           };
           systemd.services.loki.serviceConfig.EnvironmentFile = config.sops.templates."loki-s3.env".path;
 
+          # HTTP/TLS reachability and certificate telemetry for the public
+          # site and the LAN services the SOC itself depends on. It listens
+          # only on loopback; Prometheus is its sole caller.
+          services.prometheus.exporters.blackbox = {
+            enable = true;
+            listenAddress = "127.0.0.1";
+            configFile = blackboxConfig;
+          };
+
           # Metrics stay on the VM disk — small at this fleet size, and
           # object storage for Prometheus means Thanos/Mimir complexity
           # that isn't worth it yet.
@@ -212,6 +238,59 @@
               {
                 job_name = "loki";
                 static_configs = [ { targets = [ "127.0.0.1:3100" ]; } ];
+              }
+              # Monitor the monitoring stack itself. Without these jobs a
+              # memory leak, query storm, or failed config reload remains
+              # invisible until the service falls over completely.
+              {
+                job_name = "prometheus";
+                scrape_interval = "60s";
+                static_configs = [ { targets = [ "127.0.0.1:9090" ]; } ];
+              }
+              {
+                job_name = "grafana";
+                # Grafana exposes several thousand internal series; minute
+                # resolution is ample and halves their 90-day TSDB cost.
+                scrape_interval = "60s";
+                scheme = "https";
+                tls_config.ca_file = config.security.pki.caBundle;
+                static_configs = [ { targets = [ "soc.guildedthorn.arpa:3000" ]; } ];
+              }
+              # Multi-target exporter pattern: retain the URL as `instance`,
+              # pass it to blackbox as `target`, and scrape the local probe.
+              {
+                job_name = "blackbox-http";
+                scrape_interval = "60s";
+                metrics_path = "/probe";
+                params.module = [ "http_alive" ];
+                static_configs = [
+                  {
+                    targets = [
+                      "https://guildedthorn.com/"
+                      "https://soc.guildedthorn.arpa:3000/api/health"
+                      "http://soc.guildedthorn.arpa:3100/ready"
+                      "http://soc.guildedthorn.arpa:9090/-/ready"
+                      "https://proxmox.guildedthorn.arpa:8006/"
+                      "https://truenas.guildedthorn.arpa/"
+                      "https://truenas.guildedthorn.arpa:30304/"
+                      "https://pfsense.guildedthorn.arpa/"
+                    ];
+                  }
+                ];
+                relabel_configs = [
+                  {
+                    source_labels = [ "__address__" ];
+                    target_label = "__param_target";
+                  }
+                  {
+                    source_labels = [ "__param_target" ];
+                    target_label = "instance";
+                  }
+                  {
+                    target_label = "__address__";
+                    replacement = "127.0.0.1:9115";
+                  }
+                ];
               }
               # comin — the deploy layer. Everything else scraped here says
               # whether a host is alive; this says whether it's running the
@@ -393,9 +472,25 @@
                 cert_key = config.sops.secrets.grafana_tls_key.path;
                 enable_gzip = true;
               };
-              security.admin_password = "$__file{${config.sops.secrets.grafana_admin_password.path}}";
-              security.secret_key = "$__file{${config.sops.secrets.grafana_secret_key.path}}";
+              security = {
+                admin_password = "$__file{${config.sops.secrets.grafana_admin_password.path}}";
+                secret_key = "$__file{${config.sops.secrets.grafana_secret_key.path}}";
+                cookie_secure = true;
+                cookie_samesite = "strict";
+                disable_gravatar = true;
+                strict_transport_security = true;
+              };
               analytics.reporting_enabled = false;
+              analytics.check_for_updates = false;
+              analytics.check_for_plugin_updates = false;
+              dashboards = {
+                default_home_dashboard_path = "${inputs.self}/hosts/soc/dashboards/soc-overview.json";
+                min_refresh_interval = "10s";
+              };
+              metrics.enabled = true;
+              snapshots.external_enabled = false;
+              users.default_theme = "dark";
+              "auth.anonymous".enabled = false;
             };
             provision = {
               enable = true;
@@ -478,6 +573,7 @@
                     group_by = [
                       "alertname"
                       "host"
+                      "instance"
                     ];
                     group_wait = "30s";
                     group_interval = "5m";
@@ -531,6 +627,9 @@
                             # policy split below, and is a label you can
                             # filter/silence on in Grafana.
                             severity ? "warning",
+                            # Broad routing/search label shared by Discord
+                            # notifications and Grafana's alert list.
+                            category ? "operations",
                             noDataState ? "OK",
                             # Lookback the rule evaluates over, in seconds.
                             # Keep in sync with the range selector in `expr`
@@ -557,8 +656,13 @@
                               ;
                             condition = "C";
                             execErrState = "Error";
-                            annotations.summary = summary;
-                            labels.severity = severity;
+                            annotations = {
+                              inherit summary;
+                              description = summary;
+                            };
+                            labels = {
+                              inherit severity category;
+                            };
                             data = [
                               {
                                 refId = "A";
@@ -651,6 +755,201 @@
                           summary = "A systemd unit has been in the failed state for 10 minutes.";
                         })
                         (rule {
+                          # Keep the warning and critical bands mutually
+                          # exclusive so a nearly-full disk produces one
+                          # notification, not two differently-coloured copies.
+                          uid = "fleet-root-disk-warning";
+                          title = "Root filesystem low on space";
+                          datasourceUid = "prometheus";
+                          expr = ''
+                            (100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) > 85)
+                            unless
+                            (100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) > 95)
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 85 ];
+                          };
+                          for = "15m";
+                          summary = "A host has less than 15% free space on its root filesystem.";
+                        })
+                        (rule {
+                          uid = "fleet-root-disk-critical";
+                          title = "Root filesystem critically full";
+                          datasourceUid = "prometheus";
+                          expr = ''
+                            100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 95 ];
+                          };
+                          for = "5m";
+                          severity = "critical";
+                          summary = "A host has less than 5% free space on its root filesystem; writes may fail imminently.";
+                        })
+                        (rule {
+                          uid = "fleet-root-inodes-low";
+                          title = "Root filesystem low on inodes";
+                          datasourceUid = "prometheus";
+                          expr = ''
+                            100 * node_filesystem_files_free{mountpoint="/"} / node_filesystem_files{mountpoint="/"}
+                          '';
+                          evaluator = {
+                            type = "lt";
+                            params = [ 10 ];
+                          };
+                          for = "15m";
+                          summary = "A host has fewer than 10% of its root filesystem inodes free.";
+                        })
+                        (rule {
+                          uid = "fleet-root-readonly";
+                          title = "Root filesystem became read-only";
+                          datasourceUid = "prometheus";
+                          expr = ''node_filesystem_readonly{mountpoint="/"}'';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "2m";
+                          severity = "critical";
+                          summary = "A host's root filesystem is mounted read-only, usually following a storage or filesystem failure.";
+                        })
+                        (rule {
+                          uid = "fleet-memory-stall";
+                          title = "Sustained memory pressure";
+                          datasourceUid = "prometheus";
+                          expr = "100 * rate(node_pressure_memory_stalled_seconds_total[10m])";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 10 ];
+                          };
+                          for = "15m";
+                          summary = "Processes have been fully stalled by memory pressure for over 10% of wall time.";
+                        })
+                        (rule {
+                          uid = "fleet-oom-kill";
+                          title = "Kernel OOM kill";
+                          datasourceUid = "prometheus";
+                          expr = "increase(node_vmstat_oom_kill[15m])";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          severity = "critical";
+                          summary = "The kernel killed at least one process because the host ran out of memory.";
+                        })
+                        (rule {
+                          uid = "fleet-clock-unsynced";
+                          title = "System clock is not synchronized";
+                          datasourceUid = "prometheus";
+                          expr = "node_timex_sync_status";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "15m";
+                          summary = "A host's clock is unsynchronized; log correlation and certificate validation may become unreliable.";
+                        })
+                        (rule {
+                          uid = "soc-prometheus-backup-stale";
+                          title = "Prometheus backup is stale";
+                          datasourceUid = "prometheus";
+                          expr = ''time() - node_systemd_timer_last_trigger_seconds{name="restic-backups-prometheus.timer"}'';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 129600 ];
+                          };
+                          for = "15m";
+                          noDataState = "Alerting";
+                          summary = "The Prometheus restic backup timer has not triggered in more than 36 hours.";
+                        })
+                        (rule {
+                          uid = "fleet-service-probe-down";
+                          title = "Critical service endpoint unreachable";
+                          datasourceUid = "prometheus";
+                          expr = "probe_success";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "3m";
+                          noDataState = "Alerting";
+                          severity = "critical";
+                          summary = "A blackbox-monitored public or infrastructure endpoint is unreachable or returning an unexpected status.";
+                        })
+                        (rule {
+                          uid = "fleet-service-probe-slow";
+                          title = "Service endpoint is persistently slow";
+                          datasourceUid = "prometheus";
+                          expr = "probe_duration_seconds";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 5 ];
+                          };
+                          for = "10m";
+                          summary = "A monitored endpoint has taken more than five seconds to answer for ten minutes.";
+                        })
+                        (rule {
+                          uid = "fleet-tls-expiry-warning";
+                          title = "TLS certificate expires within 21 days";
+                          datasourceUid = "prometheus";
+                          expr = ''
+                            (probe_ssl_earliest_cert_expiry - time() < 1814400)
+                            unless
+                            (probe_ssl_earliest_cert_expiry - time() < 604800)
+                          '';
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1814400 ];
+                          };
+                          for = "15m";
+                          summary = "A monitored HTTPS endpoint's certificate expires within 21 days.";
+                        })
+                        (rule {
+                          uid = "fleet-tls-expiry-critical";
+                          title = "TLS certificate expires within 7 days";
+                          datasourceUid = "prometheus";
+                          expr = "probe_ssl_earliest_cert_expiry - time()";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 604800 ];
+                          };
+                          for = "5m";
+                          severity = "critical";
+                          summary = "A monitored HTTPS endpoint's certificate expires within seven days or has already expired.";
+                        })
+                        (rule {
+                          uid = "soc-prometheus-config-reload";
+                          title = "Prometheus configuration reload failed";
+                          datasourceUid = "prometheus";
+                          expr = "prometheus_config_last_reload_successful";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "5m";
+                          noDataState = "Alerting";
+                          severity = "critical";
+                          category = "pipeline";
+                          summary = "Prometheus rejected its latest configuration and may be running stale scrape settings.";
+                        })
+                        (rule {
+                          uid = "soc-loki-wal-disk-full";
+                          title = "Loki WAL hit a full disk";
+                          datasourceUid = "prometheus";
+                          expr = "increase(loki_ingester_wal_disk_full_failures_total[10m])";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          severity = "critical";
+                          category = "pipeline";
+                          summary = "Loki could not write its WAL because the local filesystem was full; log loss is possible.";
+                        })
+                        (rule {
                           uid = "siem-ssh-bruteforce";
                           title = "SSH brute force";
                           datasourceUid = "loki";
@@ -661,6 +960,7 @@
                           };
                           for = "0s";
                           severity = "critical";
+                          category = "security";
                           summary = "More than 10 failed SSH logins on one host in 10 minutes.";
                         })
                         (rule {
@@ -674,6 +974,7 @@
                           };
                           for = "0s";
                           severity = "critical";
+                          category = "security";
                           summary = "Suricata raised at least one IDS alert.";
                         })
                         (rule {
@@ -691,6 +992,7 @@
                           };
                           for = "0s";
                           severity = "critical";
+                          category = "security";
                           summary = "pfSense's perimeter Suricata raised a high-severity (priority 1-2) alert.";
                         })
                         (rule {
@@ -703,6 +1005,7 @@
                             params = [ 0 ];
                           };
                           for = "0s";
+                          category = "security";
                           summary = "CrowdSec detected an attack scenario (detect-only, nothing was blocked).";
                         })
                         (rule {
@@ -720,6 +1023,7 @@
                             params = [ 0 ];
                           };
                           for = "5m";
+                          category = "deployment";
                           summary = "A host's last comin deployment failed — it is still running its previous configuration.";
                         })
                         (rule {
@@ -737,7 +1041,34 @@
                             params = [ 0 ];
                           };
                           for = "5m";
+                          category = "deployment";
                           summary = "A host failed to build or evaluate its configuration — the pushed commit never became a system.";
+                        })
+                        (rule {
+                          uid = "siem-comin-fetch-failed";
+                          title = "comin cannot fetch on an always-on host";
+                          datasourceUid = "prometheus";
+                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites)[.]guildedthorn[.]arpa:4243"}'';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "15m";
+                          category = "deployment";
+                          summary = "An always-on host has been unable to fetch its deployment branch for 15 minutes.";
+                        })
+                        (rule {
+                          uid = "siem-comin-reboot-pending";
+                          title = "Deployed generation needs a reboot";
+                          datasourceUid = "prometheus";
+                          expr = "comin_need_to_reboot";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "30m";
+                          category = "deployment";
+                          summary = "A host deployed successfully but still needs a reboot for its kernel or initrd change to take effect.";
                         })
                         (rule {
                           uid = "siem-loki-down";
@@ -751,6 +1082,7 @@
                           for = "5m";
                           noDataState = "Alerting";
                           severity = "critical";
+                          category = "pipeline";
                           summary = "Prometheus can't scrape Loki on soc — the SIEM may be blind to new logs.";
                         })
                       ]
@@ -794,6 +1126,7 @@
                           window = 1800;
                           noDataState = "Alerting";
                           severity = "critical";
+                          category = "pipeline";
                           summary = "The detection canary on ${host} has not reached Loki in 30 minutes — the audit/log pipeline is broken and this host's security telemetry cannot be trusted.";
                         }
                       ) canaryHosts
@@ -833,6 +1166,7 @@
                           window = 900;
                           noDataState = "Alerting";
                           severity = "critical";
+                          category = "pipeline";
                           summary = "No journal lines have reached Loki from ${host} in 15 minutes — either the host is down or its log shipping has stopped.";
                         }
                       ) fleetJournalHosts;

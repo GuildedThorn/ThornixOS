@@ -1,0 +1,219 @@
+{
+  "uid": "authentication-access",
+  "title": "Authentication & Access",
+  "description": "SSH outcomes, remote sources, privileged execution, and audit-backed identity or security configuration changes.",
+  "tags": ["siem", "security", "authentication", "audit"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "range",
+        "type": "interval",
+        "label": "Summary window",
+        "query": "1h,6h,12h,24h,7d",
+        "current": { "text": "24h", "value": "24h" },
+        "auto": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Access posture",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Failed SSH ($range)",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\",unit=\"sshd.service\"} |~ \"Failed password|Invalid user|authentication failure\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "orange", "value": 10 }, { "color": "red", "value": 50 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Accepted SSH ($range)",
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\",unit=\"sshd.service\"} |= \"Accepted \" [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "green" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Invalid users ($range)",
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\",unit=\"sshd.service\"} |= \"Invalid user\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 20 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Accepted root SSH ($range)",
+      "description": "Root key access is allowed on headless hosts, so non-zero is not automatically hostile—but it deserves attribution.",
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\",unit=\"sshd.service\"} |~ \"Accepted .* for root\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Privileged exec ($range)",
+      "description": "Executions through the fleet's audited sudo/su wrappers.",
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |~ \"key=.?priv-exec\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "text" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Security config changes ($range)",
+      "description": "Account, sudoers, SSH configuration, kernel module, or system-clock audit events.",
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\"} |~ \"key=.?(identity|privilege|sshd-config|modules|time-change)\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 10 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "SSH activity",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "SSH outcomes by host",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\",unit=\"sshd.service\"} |~ \"Failed password|Invalid user|authentication failure\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}} failed" },
+        { "refId": "B", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\",unit=\"sshd.service\"} |= \"Accepted \" [$__auto]))", "queryType": "range", "legendFormat": "{{host}} accepted" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "auto" } }, "overrides": [
+        { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+        { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] }
+      ] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["sum", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "Failed SSH by source address ($range)",
+      "description": "Top remote addresses parsed from OpenSSH failure lines; useful for distinguishing one scanner from distributed attempts.",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(20, sum by (remote_ip) (count_over_time({job=\"systemd-journal\",unit=\"sshd.service\"} |~ \"Failed password|Invalid user\" | regexp \"from (?P<remote_ip>[0-9a-fA-F:.]+) port\" [$range])))", "instant": true, "legendFormat": "{{remote_ip}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-RdYlGr" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "Accepted SSH by source address ($range)",
+      "description": "Every accepted source should be recognizable as your workstation, VPN, or another deliberate management path.",
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(20, sum by (remote_ip) (count_over_time({job=\"systemd-journal\",unit=\"sshd.service\"} |= \"Accepted \" | regexp \"from (?P<remote_ip>[0-9a-fA-F:.]+) port\" [$range])))", "instant": true, "legendFormat": "{{remote_ip}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "Live SSH authentication",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\",unit=\"sshd.service\"} |~ \"Accepted |Failed password|Invalid user|authentication failure\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Privilege and security state",
+      "gridPos": { "x": 0, "y": 22, "w": 24, "h": 1 }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Privileged execution by host",
+      "gridPos": { "x": 0, "y": 23, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |~ \"key=.?priv-exec\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "auto" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["sum", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Security-sensitive changes",
+      "gridPos": { "x": 12, "y": 23, "w": 12, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |~ \"key=.?(identity|privilege)\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}} identity/privilege" },
+        { "refId": "B", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |~ \"key=.?sshd-config\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}} sshd config" },
+        { "refId": "C", "expr": "sum by (host) (count_over_time({job=\"systemd-journal\"} |~ \"key=.?(modules|time-change)\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}} kernel/time" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "auto" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["sum", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 13,
+      "type": "logs",
+      "title": "Privilege escalation evidence",
+      "description": "Audit metadata and command records associated with sudo/su wrapper execution.",
+      "gridPos": { "x": 0, "y": 31, "w": 12, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\"} |~ \"key=.?priv-exec|sudo.*COMMAND=|COMMAND=\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 14,
+      "type": "logs",
+      "title": "Identity, SSH, module, and clock changes",
+      "gridPos": { "x": 12, "y": 31, "w": 12, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\"} |~ \"key=.?(identity|privilege|sshd-config|modules|time-change)\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    }
+  ]
+}

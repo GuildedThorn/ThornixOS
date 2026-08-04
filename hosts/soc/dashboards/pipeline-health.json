@@ -59,7 +59,7 @@
       "id": 2,
       "type": "stat",
       "title": "Hosts shipping ($range)",
-      "description": "Distinct hosts with journal lines in the window. Green at 3+ matches the always-on `fleet` list in soc.nix; laptops push this higher when they are up.",
+      "description": "Distinct hosts with journal lines in the window. Green at 4 matches the always-on `fleet` list in soc.nix; laptops push this higher when they are up.",
       "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
@@ -72,7 +72,8 @@
           "thresholds": { "mode": "absolute", "steps": [
             { "color": "red", "value": null },
             { "color": "orange", "value": 1 },
-            { "color": "green", "value": 3 }
+            { "color": "yellow", "value": 3 },
+            { "color": "green", "value": 4 }
           ] }
         },
         "overrides": []
@@ -211,7 +212,7 @@
       "id": 9,
       "type": "stat",
       "title": "Canary hosts reporting",
-      "description": "Hosts whose detection canary has reached Loki in the last 30 minutes. Unlike every other tile here, this one tests the pipeline rather than reporting through it: the canary probe writes no log output of its own, so the only way it can appear is if auditd -> journal -> Alloy -> Loki -> query all work. Green at 2 = soc and websites, the hosts running services-canary.",
+      "description": "Hosts whose detection canary has reached Loki in the last 30 minutes. Unlike every other tile here, this one tests the pipeline rather than reporting through it: the canary probe writes no log output of its own, so the only way it can appear is if auditd -> journal -> Alloy -> Loki -> query all work. Green at 3 = mac, soc, and websites, the hosts running services-canary.",
       "gridPos": { "x": 0, "y": 24, "w": 6, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
@@ -224,7 +225,8 @@
           "thresholds": { "mode": "absolute", "steps": [
             { "color": "red", "value": null },
             { "color": "orange", "value": 1 },
-            { "color": "green", "value": 2 }
+            { "color": "yellow", "value": 2 },
+            { "color": "green", "value": 3 }
           ] }
         },
         "overrides": []

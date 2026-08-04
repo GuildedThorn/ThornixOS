@@ -30,7 +30,7 @@
       "id": 1,
       "type": "stat",
       "title": "Hosts up",
-      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "gridPos": { "x": 0, "y": 1, "w": 3, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "refId": "A", "expr": "count(up{job=\"node\"} == 1) OR vector(0)", "instant": true, "legendFormat": "up" },
@@ -53,7 +53,7 @@
       "id": 2,
       "type": "stat",
       "title": "Failed SSH ($range)",
-      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "gridPos": { "x": 3, "y": 1, "w": 3, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\", unit=\"sshd.service\"} |~ \"Failed password|Invalid user\" [$range]))", "instant": true }
@@ -76,7 +76,7 @@
       "id": 3,
       "type": "stat",
       "title": "Suricata alerts ($range)",
-      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "gridPos": { "x": 6, "y": 1, "w": 3, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         { "refId": "A", "expr": "sum(count_over_time({job=\"suricata\"} | json | event_type = \"alert\" [$range]))", "instant": true }
@@ -98,7 +98,7 @@
       "id": 4,
       "type": "stat",
       "title": "pfSense IDS ($range)",
-      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "gridPos": { "x": 9, "y": 1, "w": 3, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         { "refId": "A", "expr": "sum(count_over_time({job=\"syslog\"} |= \"[Priority:\" [$range]))", "instant": true }
@@ -120,7 +120,7 @@
       "id": 5,
       "type": "stat",
       "title": "CrowdSec ($range)",
-      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "gridPos": { "x": 12, "y": 1, "w": 3, "h": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         { "refId": "A", "expr": "sum(count_over_time({unit=\"crowdsec.service\"} |~ \"performed\" [$range]))", "instant": true }
@@ -142,7 +142,7 @@
       "id": 6,
       "type": "stat",
       "title": "Failed units",
-      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "gridPos": { "x": 15, "y": 1, "w": 3, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "refId": "A", "expr": "sum(node_systemd_unit_state{state=\"failed\"}) OR vector(0)", "instant": true }
@@ -157,6 +157,41 @@
             { "color": "red", "value": 3 }
           ] }
         },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Endpoints down",
+      "gridPos": { "x": 18, "y": 1, "w": 3, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(1 - probe_success) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "unit": "short", "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "red", "value": 1 }
+        ] } },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Capacity risks",
+      "description": "Hosts above 85% root usage or 90% root inode usage.",
+      "gridPos": { "x": 21, "y": 1, "w": 3, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "count((100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) > 85) or (100 * (1 - node_filesystem_files_free{mountpoint=\"/\"} / node_filesystem_files{mountpoint=\"/\"}) > 90)) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "thresholds" }, "unit": "short", "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 3 }
+        ] } },
         "overrides": []
       },
       "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }

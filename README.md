@@ -90,7 +90,7 @@ about it is push-based — every host ships to it, and it pulls metrics back.
   while headless hosts set `"all"`. That distinction matters — under
   `"sessions"` a server with no interactive logins records *nothing*, which
   is precisely where a compromised service would run.
-- **soc, websites** (via `services-canary`): a uniquely-named probe runs
+- **mac, soc, websites** (via `services-canary`): a uniquely-named probe runs
   every 10 minutes, and an alert fires if its `execve` record doesn't reach
   Loki. This is the only check that tests the detection pipeline instead of
   reporting through it — the probe emits no log output of its own, so it can
@@ -117,13 +117,16 @@ reservation or their Prometheus target shows down.
 rebuilds and aren't hand-clicked:
 
 - Dashboards: `hosts/soc/dashboards/*.json` (SOC Overview, Fleet Health,
-  Endpoint Activity, Log Pipeline Health, Fleet Deploys), wired in via
+  Fleet Capacity & Performance, Service & Monitoring Health, Authentication
+  & Access, Endpoint Activity, Log Pipeline Health, Fleet Deploys), wired in via
   `services.grafana.provision.dashboards` — the whole directory is
   provisioned, so a new file needs no other edit.
 - Alert rules: inline in `modules/computers/soc.nix` under
   `provision.alerting` (host down, unit failed, SSH brute force, Suricata
-  alert, CrowdSec scenario, Loki down, plus one log-silence rule generated
-  per always-on host). All deliver to Discord via a webhook held in sops.
+  alert, CrowdSec scenario, Loki down, disk/inode pressure, read-only roots,
+  OOM kills, clock sync, stale backups, endpoint/TLS failures, comin state,
+  plus one log-silence rule generated per always-on host). All deliver to
+  Discord via a webhook held in sops.
 - Each rule carries a `severity` label (`critical` / `warning`). The
   notification policy routes both to the same Discord webhook but gives
   `critical` faster grouping and hourly re-notification, so an IDS hit
@@ -138,9 +141,12 @@ This matters because a failed deploy is otherwise invisible — the host
 stays up, keeps shipping logs, and looks healthy on every other panel
 while running its previous generation.
 
-**Known blind spot:** soc monitors itself, so if the VM is down there is
-nothing left to notice or notify. An external dead-man's-switch is the
-missing piece.
+**Outside-in failure detection:** soc cannot report its own outage, so a
+five-minute `soc-deadman` timer verifies Loki, Prometheus, Grafana, Alloy,
+and syslog locally before pinging Healthchecks.io. The absence of that ping
+covers VM, hypervisor, power, LAN, and internet failures that Grafana cannot
+observe from inside the SOC. Blackbox probes complement it with HTTP/TLS and
+certificate-expiry telemetry for the public site and critical LAN services.
 
 **Adding a new detection** is usually two edits: a Loki/Prometheus query as
 a new dashboard panel, and a matching entry in the `alerting` rules list

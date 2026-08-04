@@ -1,0 +1,325 @@
+{
+  "uid": "service-health",
+  "title": "Service & Monitoring Health",
+  "description": "Real HTTP/TLS probes, certificate expiry, scrape health, Prometheus/Grafana/Loki internals, and backup/dead-man freshness.",
+  "tags": ["soc", "infra", "services", "blackbox", "tls"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Service-level view",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Endpoints up",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(probe_success) OR vector(0)", "instant": true, "legendFormat": "up" },
+        { "refId": "B", "expr": "count(probe_success) OR vector(0)", "instant": true, "legendFormat": "total" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [
+        { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [{ "id": "displayName", "value": "Up" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+        { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [{ "id": "displayName", "value": "Total" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "text" } }] }
+      ] },
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value_and_name", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Endpoints down",
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(1 - probe_success) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Shortest TLS lifetime",
+      "description": "Lowest certificate lifetime across every HTTPS blackbox target.",
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "min((probe_ssl_earliest_cert_expiry - time()) / 86400)", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "d", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 7 }, { "color": "yellow", "value": 21 }, { "color": "green", "value": 30 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Prometheus backup age",
+      "description": "Time since the nightly restic backup timer last fired; Discord alerts after 36 hours.",
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "(time() - node_systemd_timer_last_trigger_seconds{name=\"restic-backups-prometheus.timer\"}) / 3600", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "h", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 30 }, { "color": "red", "value": 36 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Dead-man run age",
+      "description": "The external heartbeat timer runs every five minutes; Healthchecks.io remains the authority for receiving the ping.",
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "(time() - node_systemd_timer_last_trigger_seconds{name=\"soc-deadman.timer\"}) / 60", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "m", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 10 }, { "color": "red", "value": 20 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Scrape targets down",
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "count(up == 0) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Endpoint state",
+      "gridPos": { "x": 0, "y": 5, "w": 14, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "probe_success", "instant": true, "format": "table" }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true }, "renameByName": { "Value": "State", "instance": "Endpoint" } } }
+      ],
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red", "index": 1 }, "1": { "text": "UP", "color": "green", "index": 0 } } }] }, "overrides": [
+        { "matcher": { "id": "byName", "options": "State" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-background" } }, { "id": "custom.width", "value": 100 }, { "id": "custom.align", "value": "center" }] }
+      ] },
+      "options": { "showHeader": true, "cellHeight": "md" }
+    },
+    {
+      "id": 8,
+      "type": "alertlist",
+      "title": "Active Grafana alerts",
+      "gridPos": { "x": 14, "y": 5, "w": 10, "h": 9 },
+      "options": { "alertName": "", "dashboardAlerts": false, "dashboardTitle": "", "folder": { "title": "SIEM" }, "groupBy": ["alertname"], "maxItems": 30, "sortOrder": 1, "stateFilter": { "error": true, "firing": true, "noData": true, "normal": false, "pending": true } }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "HTTP and TLS probes",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "End-to-end response time",
+      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "probe_duration_seconds", "legendFormat": "{{instance}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": { "mode": "line" } }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 2 }, { "color": "red", "value": 5 }] } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "HTTP phase timing",
+      "description": "DNS, connect, TLS, server processing, and transfer time from the SOC network vantage point.",
+      "gridPos": { "x": 12, "y": 15, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "probe_http_duration_seconds", "legendFormat": "{{instance}} {{phase}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 7, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "TLS certificate lifetime",
+      "gridPos": { "x": 0, "y": 23, "w": 14, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "(probe_ssl_earliest_cert_expiry - time()) / 86400", "instant": true, "legendFormat": "{{instance}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "d", "decimals": 1, "min": 0, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 7 }, { "color": "yellow", "value": 21 }, { "color": "green", "value": 30 }] } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 12,
+      "type": "bargauge",
+      "title": "HTTP status code",
+      "description": "401/403 is expected for an unauthenticated S3 root request and still proves the application is answering.",
+      "gridPos": { "x": 14, "y": 23, "w": 10, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "probe_http_status_code", "instant": true, "legendFormat": "{{instance}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 100, "max": 599, "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] },
+      "options": { "displayMode": "basic", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Scrape pipeline",
+      "gridPos": { "x": 0, "y": 31, "w": 24, "h": 1 }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Prometheus target state",
+      "gridPos": { "x": 0, "y": 32, "w": 12, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "up", "instant": true, "format": "table" }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true }, "renameByName": { "Value": "State", "instance": "Target", "job": "Job" } } }
+      ],
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "DOWN", "color": "red", "index": 1 }, "1": { "text": "UP", "color": "green", "index": 0 } } }] }, "overrides": [
+        { "matcher": { "id": "byName", "options": "State" }, "properties": [{ "id": "custom.cellOptions", "value": { "type": "color-background" } }, { "id": "custom.width", "value": 90 }] }
+      ] },
+      "options": { "showHeader": true, "cellHeight": "sm" }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Scrape duration",
+      "gridPos": { "x": 12, "y": 32, "w": 12, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "scrape_duration_seconds", "legendFormat": "{{job}} {{instance}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 7, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Samples scraped",
+      "gridPos": { "x": 0, "y": 41, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (job) (scrape_samples_scraped)", "legendFormat": "{{job}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "stacking": { "mode": "normal", "group": "A" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Monitoring process memory",
+      "gridPos": { "x": 12, "y": 41, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "process_resident_memory_bytes{job=~\"loki|prometheus|grafana\"}", "legendFormat": "{{job}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Prometheus and Loki internals",
+      "gridPos": { "x": 0, "y": 49, "w": 24, "h": 1 }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Prometheus active series and ingestion",
+      "gridPos": { "x": 0, "y": 50, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "prometheus_tsdb_head_series", "legendFormat": "head series" },
+        { "refId": "B", "expr": "rate(prometheus_tsdb_head_samples_appended_total[5m])", "legendFormat": "samples/s" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 8, "showPoints": "never" } }, "overrides": [
+        { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [{ "id": "custom.axisPlacement", "value": "right" }, { "id": "unit", "value": "ops" }] }
+      ] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Prometheus WAL size",
+      "gridPos": { "x": 12, "y": 50, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "prometheus_tsdb_wal_storage_size_bytes", "legendFormat": "WAL" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Loki ingest",
+      "gridPos": { "x": 0, "y": 58, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(loki_distributor_lines_received_total[5m]))", "legendFormat": "lines/s" },
+        { "refId": "B", "expr": "sum(rate(loki_distributor_bytes_received_total[5m]))", "legendFormat": "bytes/s" }
+      ],
+      "fieldConfig": { "defaults": { "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" } }, "overrides": [
+        { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [{ "id": "unit", "value": "ops" }] },
+        { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [{ "id": "unit", "value": "Bps" }, { "id": "custom.axisPlacement", "value": "right" }] }
+      ] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Loki WAL disk-full failures",
+      "gridPos": { "x": 12, "y": 58, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "increase(loki_ingester_wal_disk_full_failures_total[$__rate_interval])", "legendFormat": "failures" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 25, "showPoints": "auto", "drawStyle": "bars" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 104,
+      "type": "row",
+      "title": "Operational logs",
+      "gridPos": { "x": 0, "y": 66, "w": 24, "h": 1 }
+    },
+    {
+      "id": 21,
+      "type": "logs",
+      "title": "Monitoring stack errors",
+      "gridPos": { "x": 0, "y": 67, "w": 12, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{host=\"soc\",unit=~\"loki.service|prometheus.service|grafana.service|alloy.service|prometheus-blackbox-exporter.service\"} |~ \"(?i)error|failed|panic|fatal\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 22,
+      "type": "logs",
+      "title": "Prometheus backup activity",
+      "gridPos": { "x": 12, "y": 67, "w": 12, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{host=\"soc\",unit=\"restic-backups-prometheus.service\"}", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "exact" }
+    }
+  ]
+}
