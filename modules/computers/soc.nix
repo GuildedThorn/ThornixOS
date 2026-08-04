@@ -283,6 +283,35 @@
                 static_configs = [
                   { targets = fleetMetricsTargets "9100"; }
                 ];
+                # mac's textfile collector also carries the fast-changing
+                # live topology snapshot. Keep it out of the ordinary 30s
+                # node job so there is only one copy of those series.
+                metric_relabel_configs = [
+                  {
+                    source_labels = [ "__name__" ];
+                    regex = "thorn_topology_.*";
+                    action = "drop";
+                  }
+                ];
+              }
+              # Scrape only node_exporter's textfile collector at dashboard
+              # speed. This reuses the existing SOC-only :9100 firewall path;
+              # no topology HTTP service is exposed from the hypervisor.
+              {
+                job_name = "topology";
+                scrape_interval = "10s";
+                scrape_timeout = "5s";
+                params."collect[]" = [ "textfile" ];
+                static_configs = [
+                  { targets = [ "proxmox.guildedthorn.arpa:9100" ]; }
+                ];
+                metric_relabel_configs = [
+                  {
+                    source_labels = [ "__name__" ];
+                    regex = "thorn_topology_.*|node_textfile_(mtime_seconds|scrape_error)";
+                    action = "keep";
+                  }
+                ];
               }
               # pfSense (node_exporter package). Kept in its own job with an
               # explicit instance label because it's not a flake host, and
@@ -884,6 +913,34 @@
                           for = "5m";
                           noDataState = "NoData";
                           summary = "A fleet host has stopped answering Prometheus scrapes.";
+                        })
+                        (rule {
+                          uid = "siem-topology-stale";
+                          title = "Live network topology is stale";
+                          datasourceUid = "prometheus";
+                          expr = "time() - thorn_topology_last_render_timestamp_seconds{job=\"topology\"}";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 60 ];
+                          };
+                          for = "2m";
+                          noDataState = "Alerting";
+                          category = "pipeline";
+                          summary = "mac's bounded Zeek topology snapshot has not refreshed in 60 seconds; the live graph is stale even if node_exporter itself is still reachable.";
+                        })
+                        (rule {
+                          uid = "siem-topology-input-unavailable";
+                          title = "Live topology cannot read Zeek conn.log";
+                          datasourceUid = "prometheus";
+                          expr = "thorn_topology_conn_log_available{job=\"topology\"}";
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "2m";
+                          noDataState = "OK";
+                          category = "pipeline";
+                          summary = "The topology reducer cannot read Zeek conn.log; its graph may be empty even while the renderer and Prometheus scrape remain healthy.";
                         })
                         (rule {
                           uid = "siem-unit-failed";

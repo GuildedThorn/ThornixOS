@@ -1,0 +1,246 @@
+{
+  "uid": "live-network-topology",
+  "title": "Live Network Topology",
+  "description": "A bounded five-minute active-flow graph built from Zeek conn.log on mac. Current capture coverage is vmbr0: Proxmox guest traffic and traffic traversing that bridge. Physical-to-physical OPT1 traffic that never reaches mac requires a switch mirror/TAP into enp10s0 before it can appear here.",
+  "tags": ["siem", "zeek", "network", "topology"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-15m", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Live pipeline",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Topology scrape",
+      "description": "Prometheus can reach mac's SOC-restricted node_exporter textfile collector.",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "up{job=\"topology\"}", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red", "index": 1 }, "1": { "text": "UP", "color": "green", "index": 0 } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Snapshot age",
+      "description": "Age of the most recently rendered graph snapshot. This should remain below 15 seconds even when the network is quiet.",
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "clamp_min(time() - thorn_topology_last_render_timestamp_seconds{job=\"topology\"}, 0)", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 20 }, { "color": "red", "value": 60 }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active nodes",
+      "description": "Nodes participating in at least one connection during the rolling five-minute window.",
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "thorn_topology_active_nodes{job=\"topology\"}", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Active edges",
+      "description": "Directed host pairs active during the rolling five-minute window.",
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "thorn_topology_active_edges{job=\"topology\"}", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Connections (5m)",
+      "description": "Zeek connections represented by the currently rendered edges.",
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(thorn_topology_edge_connections{job=\"topology\"}) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Observed traffic (5m)",
+      "description": "Connection-level bytes reported by Zeek for the currently rendered edges; encrypted payload content is not stored.",
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(thorn_topology_edge_bytes{job=\"topology\"}) OR vector(0)", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 7,
+      "type": "nodeGraph",
+      "title": "Active network flows — rolling 5 minutes",
+      "description": "Line direction follows Zeek's originator → responder. Edge thickness/stat is connection count. Red means Internet → protected network, blue protected network → Internet, green is OPT1-internal, and orange crosses another zone. Public peers are deliberately aggregated into Internet; use Network Visibility — Zeek for individual connection metadata.",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "edges", "expr": "topk(256, thorn_topology_edge_connections{job=\"topology\"} > 0)", "instant": true, "format": "table" }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true },
+            "renameByName": { "Value": "mainStat" },
+            "indexByName": { "id": 0, "source": 1, "target": 2, "Value": 3, "color": 4, "detail__source_zone": 5, "detail__target_zone": 6 }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "links": [
+            { "title": "Open Zeek network visibility", "url": "/d/network-visibility/network-visibility?orgId=1&from=now-15m&to=now" }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "nodes": { "mainStatUnit": "short", "secondaryStatUnit": "short", "arcs": [] },
+        "edges": { "mainStatUnit": "short", "secondaryStatUnit": "short" }
+      }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Flow detail and capacity guards",
+      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Busiest directed edges",
+      "description": "Current five-minute edges sorted by connection count. Bytes and packets are available in the adjacent time-series panels and the Zeek dashboard.",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "topk(30, thorn_topology_edge_connections{job=\"topology\"})", "instant": true, "format": "table" }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "id": true, "color": true, "detail__source_zone": true, "detail__target_zone": true },
+            "renameByName": { "source": "Originator", "target": "Responder", "Value": "Connections" },
+            "indexByName": { "source": 0, "target": 1, "Value": 2 }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Connections" }, "properties": [{ "id": "unit", "value": "short" }, { "id": "custom.align", "value": "right" }] }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "sm", "sortBy": [{ "displayName": "Connections", "desc": true }] }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Active node inventory",
+      "description": "Known assets use stable role labels; an unknown OPT1 address is shown verbatim. Internet and non-OPT1 private peers are aggregated before collection.",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "topk(128, thorn_topology_node_bytes{job=\"topology\"})", "instant": true, "format": "table" }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "id": true, "color": true },
+            "renameByName": { "title": "Node", "subTitle": "Identity", "detail__role": "Role", "detail__zone": "Zone", "Value": "Traffic" },
+            "indexByName": { "title": 0, "subTitle": 1, "detail__role": 2, "detail__zone": 3, "Value": 4 }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Traffic" }, "properties": [{ "id": "unit", "value": "bytes" }, { "id": "custom.align", "value": "right" }] }
+        ]
+      },
+      "options": { "showHeader": true, "cellHeight": "sm", "sortBy": [{ "displayName": "Traffic", "desc": true }] }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Topology activity",
+      "description": "The exporter processes conn.log locally; this is its accepted connection rate and rendered graph size.",
+      "gridPos": { "x": 0, "y": 34, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "rate(thorn_topology_observed_connections_total{job=\"topology\"}[1m])", "legendFormat": "connections/s" },
+        { "refId": "B", "expr": "thorn_topology_active_nodes{job=\"topology\"}", "legendFormat": "nodes" },
+        { "refId": "C", "expr": "thorn_topology_active_edges{job=\"topology\"}", "legendFormat": "edges" }
+      ],
+      "fieldConfig": { "defaults": { "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 8, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Rolling traffic volume",
+      "description": "The five-minute gauges fall as buckets expire; they are not monotonically increasing counters.",
+      "gridPos": { "x": 12, "y": 34, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(thorn_topology_edge_bytes{job=\"topology\"})", "legendFormat": "bytes in graph" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "single", "sort": "none" } }
+    },
+    {
+      "id": 12,
+      "type": "text",
+      "title": "Coverage and drill-down",
+      "gridPos": { "x": 0, "y": 42, "w": 24, "h": 5 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Live means a rolling five-minute connection graph refreshed every 10 seconds.** Zeek records connection metadata, not packet payloads. The current sensor sees traffic present on `mac:vmbr0`; it cannot see unrelated physical-to-physical OPT1 traffic until a managed-switch mirror or TAP feeds `enp10s0`. Public IPs are collapsed into **Internet** here to bound Prometheus cardinality. Open **Network Visibility — Zeek** for individual IPs, ports, services, DNS, TLS, HTTP, SSH, and Community ID pivots."
+      }
+    }
+  ]
+}

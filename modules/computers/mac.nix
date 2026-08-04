@@ -45,6 +45,41 @@
             # this host-to-Loki flow prevents recursion without hiding other
             # hosts' use of Loki or other traffic to the SOC.
             captureFilter = "not (host 172.16.25.3 and host 172.16.25.51 and tcp port 3100)";
+
+            # Five-minute active-flow graph, rendered every five seconds and
+            # exposed through the existing SOC-only node_exporter listener.
+            # Unknown OPT1 IPs remain individual nodes. Public and non-OPT1
+            # private peers are collapsed upstream so an Internet scan cannot
+            # poison Prometheus with unbounded label cardinality.
+            topology = {
+              enable = true;
+              knownHosts = {
+                "172.16.25.1" = {
+                  title = "pfSense";
+                  role = "firewall";
+                };
+                "172.16.25.2" = {
+                  title = "mitm";
+                  role = "lab";
+                };
+                "172.16.25.3" = {
+                  title = "mac";
+                  role = "hypervisor";
+                };
+                "172.16.25.4" = {
+                  title = "TrueNAS";
+                  role = "storage";
+                };
+                "172.16.25.50" = {
+                  title = "websites";
+                  role = "web";
+                };
+                "172.16.25.51" = {
+                  title = "soc";
+                  role = "siem";
+                };
+              };
+            };
           };
 
           # Hardware discovered from the running Proxmox installation.

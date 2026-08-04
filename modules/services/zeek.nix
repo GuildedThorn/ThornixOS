@@ -138,6 +138,46 @@
       zeekStart = pkgs.writeShellScript "zeek-start" ''
         exec ${lib.getExe pkgs.zeek} ${lib.escapeShellArgs zeekArgs}
       '';
+
+      # conn.log can contain far more individual flows than Prometheus should
+      # retain as time-series labels. This small local process reduces it to
+      # a fixed-size, rolling host graph before node_exporter exposes it.
+      topologyExporter = pkgs.writeTextFile {
+        name = "thorn-zeek-topology-exporter";
+        destination = "/bin/thorn-zeek-topology-exporter";
+        executable = true;
+        text = ''
+          #!${lib.getExe pkgs.python3}
+          ${builtins.readFile ./zeek-topology-exporter.py}
+        '';
+      };
+      topologyKnownHosts = pkgs.writeText "thorn-zeek-topology-known-hosts.json" (
+        builtins.toJSON cfg.topology.knownHosts
+      );
+      topologyMetricsDirectory = "/run/thorn-topology";
+      topologyMetricsFile = "${topologyMetricsDirectory}/topology.prom";
+      topologyArgs = [
+        "--input"
+        "/var/log/zeek/conn.log"
+        "--output"
+        topologyMetricsFile
+        "--known-hosts"
+        topologyKnownHosts
+        "--window-seconds"
+        (toString cfg.topology.windowSeconds)
+        "--bucket-seconds"
+        (toString cfg.topology.bucketSeconds)
+        "--max-nodes"
+        (toString cfg.topology.maxNodes)
+        "--max-edges"
+        (toString cfg.topology.maxEdges)
+        "--render-interval"
+        (toString cfg.topology.renderIntervalSeconds)
+      ]
+      ++ lib.concatMap (network: [
+        "--local-network"
+        network
+      ]) cfg.localNetworks;
     in
     {
       options.thorn.zeek = {
@@ -175,6 +215,69 @@
             HTTP log into another Zeek HTTP log and create an ingestion loop.
           '';
         };
+
+        topology = {
+          enable = lib.mkEnableOption "a bounded live topology export from Zeek conn.log";
+
+          windowSeconds = lib.mkOption {
+            type = lib.types.ints.positive;
+            default = 300;
+            description = "Rolling window represented by the live topology graph.";
+          };
+
+          bucketSeconds = lib.mkOption {
+            type = lib.types.ints.positive;
+            default = 10;
+            description = "Internal aggregation bucket size.";
+          };
+
+          renderIntervalSeconds = lib.mkOption {
+            type = lib.types.ints.positive;
+            default = 5;
+            description = "How often the node_exporter textfile snapshot is replaced.";
+          };
+
+          maxNodes = lib.mkOption {
+            type = lib.types.ints.positive;
+            default = 128;
+            description = "Maximum nodes rendered at once.";
+          };
+
+          maxEdges = lib.mkOption {
+            type = lib.types.ints.positive;
+            default = 256;
+            description = "Maximum directed edges retained and rendered at once.";
+          };
+
+          knownHosts = lib.mkOption {
+            default = { };
+            description = ''
+              Stable labels for known IPs. Unknown addresses inside localNetworks
+              retain their IP; public and non-local private peers are aggregated
+              so hostile traffic cannot create unbounded Prometheus cardinality.
+            '';
+            type = lib.types.attrsOf (
+              lib.types.submodule {
+                options = {
+                  title = lib.mkOption {
+                    type = lib.types.nonEmptyStr;
+                    description = "Unique short node title and graph identifier.";
+                  };
+                  role = lib.mkOption {
+                    type = lib.types.nonEmptyStr;
+                    default = "discovered";
+                    description = "Displayed asset role.";
+                  };
+                  color = lib.mkOption {
+                    type = lib.types.str;
+                    default = "";
+                    description = "Optional Grafana color name; role color is used when empty.";
+                  };
+                };
+              }
+            );
+          };
+        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -187,6 +290,16 @@
             assertion = cfg.localNetworks != [ ];
             message = "thorn.zeek.localNetworks must contain at least one subnet";
           }
+        ]
+        ++ lib.optionals cfg.topology.enable [
+          {
+            assertion = cfg.topology.windowSeconds >= cfg.topology.bucketSeconds * 2;
+            message = "thorn.zeek.topology.windowSeconds must contain at least two buckets";
+          }
+          {
+            assertion = cfg.topology.maxNodes >= 2;
+            message = "thorn.zeek.topology.maxNodes must be at least two";
+          }
         ];
 
         environment.systemPackages = [ pkgs.zeek ];
@@ -196,6 +309,12 @@
           isSystemUser = true;
           group = "zeek";
           description = "Zeek network sensor";
+        };
+        users.groups.zeek-topology = lib.mkIf cfg.topology.enable { };
+        users.users.zeek-topology = lib.mkIf cfg.topology.enable {
+          isSystemUser = true;
+          group = "zeek-topology";
+          description = "Bounded Zeek topology exporter";
         };
 
         systemd.services.zeek = {
@@ -258,6 +377,66 @@
               "AF_NETLINK"
             ];
           };
+        };
+
+        systemd.services.zeek-topology-exporter = lib.mkIf cfg.topology.enable {
+          description = "Bounded live network topology exporter";
+          wantedBy = [ "multi-user.target" ];
+          wants = [ "zeek.service" ];
+          after = [ "zeek.service" ];
+          serviceConfig = {
+            Type = "simple";
+            ExecStart = "${topologyExporter}/bin/thorn-zeek-topology-exporter ${lib.escapeShellArgs topologyArgs}";
+            Restart = "on-failure";
+            RestartSec = "5s";
+            CPUQuota = "25%";
+            MemoryMax = "256M";
+            TasksMax = 32;
+            Nice = 15;
+            IOSchedulingClass = "idle";
+
+            # A separate identity gets read-only group access to Zeek logs and
+            # writes only its node_exporter textfile runtime directory. This is
+            # static rather than DynamicUser because node_exporter must be able
+            # to traverse and read the generated public metrics file.
+            User = "zeek-topology";
+            Group = "zeek-topology";
+            SupplementaryGroups = [ "zeek" ];
+            RuntimeDirectory = "thorn-topology";
+            RuntimeDirectoryMode = "0755";
+            UMask = "0022";
+
+            NoNewPrivileges = true;
+            CapabilityBoundingSet = "";
+            ProtectSystem = "strict";
+            ProtectHome = true;
+            PrivateTmp = true;
+            PrivateDevices = true;
+            PrivateNetwork = true;
+            IPAddressDeny = "any";
+            ProtectKernelTunables = true;
+            ProtectKernelModules = true;
+            ProtectKernelLogs = true;
+            ProtectControlGroups = true;
+            ProtectClock = true;
+            ProtectHostname = true;
+            ProtectProc = "invisible";
+            ProcSubset = "pid";
+            RestrictSUIDSGID = true;
+            RestrictRealtime = true;
+            LockPersonality = true;
+            MemoryDenyWriteExecute = true;
+            SystemCallArchitectures = "native";
+            RestrictAddressFamilies = [ "AF_UNIX" ];
+          };
+        };
+
+        # Reuse the already SOC-restricted node_exporter listener rather than
+        # opening another HTTP port on the hypervisor. The exporter atomically
+        # replaces this file every five seconds.
+        services.prometheus.exporters.node = lib.mkIf cfg.topology.enable {
+          enabledCollectors = [ "textfile" ];
+          extraFlags = [ "--collector.textfile.directory=${topologyMetricsDirectory}" ];
         };
 
         # Rotated files are only a local recovery buffer; Loki remains the
