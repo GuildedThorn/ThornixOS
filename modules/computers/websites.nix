@@ -54,6 +54,10 @@
             kernelParams = [ "net.ifnames=0" ];
           };
 
+          # Complete boot.growPartition by growing the ext4 filesystem to
+          # fill the enlarged partition on boot.
+          fileSystems."/".autoResize = true;
+
           services.openssh = {
             enable = true;
             settings.PermitRootLogin = "prohibit-password";
