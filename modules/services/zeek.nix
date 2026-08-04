@@ -15,6 +15,32 @@
 
       localNetworks = lib.concatMapStringsSep "\n" (network: "  ${network},") cfg.localNetworks;
 
+      # Zeek's X.509 verifier uses a subject -> DER table rather than an
+      # OpenSSL CA bundle path. Convert the configured private trust anchor
+      # into a native policy fragment at build time; the certificate is
+      # public material and is already committed under certs/.
+      trustedCaPolicy =
+        pkgs.runCommand "thorn-zeek-trusted-ca.zeek"
+          {
+            nativeBuildInputs = [ pkgs.openssl ];
+          }
+          ''
+            subject="$(openssl x509 -in ${cfg.tlsTrustAnchor} -noout -subject -nameopt RFC2253 | sed 's/^subject=//')"
+            certificate="$(
+              openssl x509 -in ${cfg.tlsTrustAnchor} -outform DER \
+                | od -An -v -tx1 \
+                | tr -d ' \n' \
+                | sed 's/../\\x&/g'
+            )"
+
+            {
+              printf '@load base/protocols/ssl\n\n'
+              printf 'redef SSL::root_certs += {\n'
+              printf '  ["%s"] = "%s",\n' "$subject" "$certificate"
+              printf '};\n'
+            } > "$out"
+          '';
+
       rawPolicy = pkgs.writeText "thorn-zeek-local.zeek" ''
         # JSON keeps the original typed fields available to LogQL instead of
         # flattening everything into the legacy tab-separated representation.
@@ -25,9 +51,19 @@
         @load policy/misc/stats
         @load policy/misc/capture-loss
 
+        # High-signal protocol policies. They emit notice.log records only;
+        # Grafana decides which site-relevant notice types page Discord.
+        @load policy/protocols/ssh/detect-bruteforcing
+        @load policy/protocols/ssl/expiring-certs
+        @load policy/protocols/ssl/heartbleed
+        @load policy/protocols/ssl/known-certs
+        @load policy/protocols/ssl/validate-certs
+
         # Match Suricata's Community ID so the same flow can be correlated
-        # between signature alerts and Zeek's protocol/connection metadata.
+        # between signature alerts and Zeek's protocol/connection metadata,
+        # including notices that carry an associated connection.
         @load policy/protocols/conn/community-id-logging
+        @load policy/frameworks/notice/community-id
         @load policy/protocols/conn/mac-logging
         @load policy/protocols/conn/known-hosts
         @load policy/protocols/conn/known-services
@@ -50,13 +86,34 @@
         # stats.log is the explicit liveness source, so a traffic-free period
         # should not create a CaptureLoss::Too_Little_Traffic notice.
         redef CaptureLoss::minimum_acks = 0;
+
+        # Thirty failures across thirty minutes is Zeek's conservative
+        # upstream default and avoids paging on ordinary SSH mistakes.
+        redef SSH::password_guesses_limit = 30;
+        redef SSH::guessing_timeout = 30mins;
+
+        # Certificate expiry notices are useful for services inside OPT1.
+        # TLS 1.3 encrypts certificates on the wire, so these policies apply
+        # only when Zeek can actually observe a certificate; blackbox probes
+        # remain the authoritative direct check for known HTTPS endpoints.
+        redef SSL::notify_certs_expiration = LOCAL_HOSTS;
+        redef SSL::notify_when_cert_expiring_in = 30days;
+
+        # A broken remote TLS server should not repeat the same invalid-chain
+        # notice hourly forever. This changes deduplication only; the first
+        # observation is still logged and available to Grafana.
+        redef Notice::type_suppression_intervals += {
+          [SSL::Invalid_Server_Cert] = 1day,
+        };
       '';
+
+      policyFragments = lib.optionals (cfg.tlsTrustAnchor != null) [ trustedCaPolicy ] ++ [ rawPolicy ];
 
       # Make policy syntax a build-time failure rather than discovering it on
       # the live hypervisor when systemd tries to start Zeek.
       checkedPolicy = pkgs.runCommand "thorn-zeek-policy" { } ''
-        ${lib.getExe pkgs.zeek} -a ${rawPolicy}
-        cp ${rawPolicy} "$out"
+        cat ${lib.escapeShellArgs policyFragments} > "$out"
+        ${lib.getExe pkgs.zeek} -a "$out"
       '';
 
       zeekArgs = [
@@ -96,6 +153,16 @@
           type = lib.types.listOf lib.types.str;
           default = [ "172.16.25.0/24" ];
           description = "Networks Zeek classifies as local/protected.";
+        };
+
+        tlsTrustAnchor = lib.mkOption {
+          type = lib.types.nullOr lib.types.path;
+          default = null;
+          description = ''
+            Optional PEM root certificate added to Zeek's native TLS trust
+            table for passive certificate validation. Mozilla roots remain
+            enabled; this adds a private/internal CA alongside them.
+          '';
         };
 
         captureFilter = lib.mkOption {

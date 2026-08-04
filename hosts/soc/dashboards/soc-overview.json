@@ -302,7 +302,7 @@
       "gridPos": { "x": 0, "y": 31, "w": 12, "h": 9 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "{job=\"suricata\"} | json | event_type = \"alert\" | line_format \"[{{.alert_severity}}] {{.alert_signature}}  {{.src_ip}} -> {{.dest_ip}}\"", "queryType": "range" }
+        { "refId": "A", "expr": "{job=\"suricata\"} | json | event_type = \"alert\" | line_format \"[{{.alert_severity}}] {{.alert_signature}}  {{.src_ip}} -> {{.dest_ip}}  community_id={{.community_id}}\"", "queryType": "range" }
       ],
       "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
     },

@@ -39,6 +39,7 @@
             enable = true;
             interface = "vmbr0";
             localNetworks = [ "172.16.25.0/24" ];
+            tlsTrustAnchor = "${inputs.self}/certs/ThornCloud_CA.crt";
             # Do not let Zeek observe the HTTP requests Alloy creates while
             # shipping Zeek's own logs. Excluding both directions of only
             # this host-to-Loki flow prevents recursion without hiding other

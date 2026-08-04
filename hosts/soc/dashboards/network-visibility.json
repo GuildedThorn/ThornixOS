@@ -16,6 +16,13 @@
         "query": "15m,1h,6h,24h",
         "current": { "text": "1h", "value": "1h" },
         "auto": false
+      },
+      {
+        "name": "community_id",
+        "type": "textbox",
+        "label": "Community ID pivot",
+        "query": "__paste_community_id__",
+        "current": { "text": "__paste_community_id__", "value": "__paste_community_id__" }
       }
     ]
   },
@@ -406,7 +413,7 @@
       "gridPos": { "x": 0, "y": 42, "w": 24, "h": 7 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"notice\"} | json | line_format \"{{.note}} — {{.msg}}  {{.src}} → {{.dst}}:{{.p}}\"", "queryType": "range" }
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"notice\"} | json | line_format \"{{.note}} — {{.msg}}  {{.src}} → {{.dst}}:{{.p}}  community_id={{.community_id}}\"", "queryType": "range" }
       ],
       "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
     },
@@ -417,7 +424,7 @@
       "gridPos": { "x": 0, "y": 49, "w": 24, "h": 9 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
-        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | line_format \"{{.id_orig_h}}:{{.id_orig_p}} → {{.id_resp_h}}:{{.id_resp_p}}  {{.proto}}/{{.service}}  state={{.conn_state}}  bytes={{.orig_bytes}}↑ {{.resp_bytes}}↓  uid={{.uid}}\"", "queryType": "range" }
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | line_format \"{{.id_orig_h}}:{{.id_orig_p}} → {{.id_resp_h}}:{{.id_resp_p}}  {{.proto}}/{{.service}}  state={{.conn_state}}  bytes={{.orig_bytes}}↑ {{.resp_bytes}}↓  uid={{.uid}}  community_id={{.community_id}}\"", "queryType": "range" }
       ],
       "options": { "showTime": true, "wrapLogMessage": false, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
     },
@@ -473,6 +480,107 @@
         { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"ssh\"} | json | line_format \"{{.id_orig_h}} → {{.id_resp_h}}  auth={{.auth_success}}  {{.client}} → {{.server}}\"", "queryType": "range" }
       ],
       "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 107,
+      "type": "row",
+      "title": "Community ID correlation",
+      "gridPos": { "x": 0, "y": 77, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 32,
+      "type": "logs",
+      "title": "Zeek + Suricata flow evidence",
+      "description": "Click a Community ID link in a Zeek or Suricata log, or paste one into the dashboard variable. Community ID identifies the same bidirectional flow across sensors; an empty Suricata result means no host-sensor alert matched that flow.",
+      "gridPos": { "x": 0, "y": 78, "w": 24, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"conn\"} | json | community_id = \"$community_id\" | line_format \"[ZEEK] {{.id_orig_h}}:{{.id_orig_p}} → {{.id_resp_h}}:{{.id_resp_p}}  {{.proto}}/{{.service}}  state={{.conn_state}}  community_id={{.community_id}}\"", "queryType": "range" },
+        { "refId": "B", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"notice\"} | json | community_id = \"$community_id\" | line_format \"[ZEEK NOTICE] {{.note}} — {{.msg}}  community_id={{.community_id}}\"", "queryType": "range" },
+        { "refId": "C", "expr": "{job=\"suricata\"} | json | event_type = \"alert\" | community_id = \"$community_id\" | line_format \"[SURICATA sev={{.alert_severity}}] {{.alert_signature}}  {{.src_ip}}:{{.src_port}} → {{.dest_ip}}:{{.dest_port}}  community_id={{.community_id}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 108,
+      "type": "row",
+      "title": "Observed asset inventory",
+      "gridPos": { "x": 0, "y": 87, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 26,
+      "type": "stat",
+      "title": "Unique hosts (24h)",
+      "description": "Distinct IP addresses Zeek observed on the protected OPT1 network during the last 24 hours.",
+      "gridPos": { "x": 0, "y": 88, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "count(sum by (asset_ip) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"known_hosts\"} | json asset_ip=\"host\" | asset_ip != \"\" [24h])))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "Service endpoints (24h)",
+      "description": "Distinct host, port, and transport combinations advertised or accepted by an OPT1 host in the last 24 hours.",
+      "gridPos": { "x": 4, "y": 88, "w": 4, "h": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "count(sum by (asset_ip, observed_port, observed_proto) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"known_services\"} | json asset_ip=\"host\", observed_port=\"port_num\", observed_proto=\"port_proto\" | asset_ip != \"\" [24h])))", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 28,
+      "type": "bargauge",
+      "title": "Service observations by host (24h)",
+      "gridPos": { "x": 8, "y": 88, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(12, sum by (asset_ip) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"known_services\"} | json asset_ip=\"host\" | asset_ip != \"\" [24h])))", "instant": true, "legendFormat": "{{asset_ip}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "continuous-BlPu" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 29,
+      "type": "bargauge",
+      "title": "Detected application services (24h)",
+      "description": "Application protocols Zeek inferred from traffic behavior on observed service endpoints.",
+      "gridPos": { "x": 16, "y": 88, "w": 8, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(12, sum by (observed_service) (count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"known_services\"} | json observed_service=\"service[0]\" | observed_service != \"\" [24h])))", "instant": true, "legendFormat": "{{observed_service}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "continuous-PuRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 30,
+      "type": "logs",
+      "title": "Recently observed hosts",
+      "gridPos": { "x": 0, "y": 96, "w": 8, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"known_hosts\"} | json asset_ip=\"host\" | line_format \"{{.asset_ip}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": false, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "exact" }
+    },
+    {
+      "id": 31,
+      "type": "logs",
+      "title": "Recently observed service endpoints",
+      "gridPos": { "x": 8, "y": 96, "w": 16, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"zeek\", host=\"mac\", zeek_log=\"known_services\"} | json asset_ip=\"host\", observed_port=\"port_num\", observed_proto=\"port_proto\", observed_service=\"service[0]\" | line_format \"{{.asset_ip}}:{{.observed_port}}/{{.observed_proto}} — {{.observed_service}}\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": false, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "exact" }
     }
   ]
 }

@@ -111,7 +111,11 @@ about it is push-based — every host ships to it, and it pulls metrics back.
   health metadata as JSON. Alloy ships the current logs to Loki; Zeek rotates
   them daily and keeps seven local days for recovery. The sensor is capped at
   two CPUs and 4 GiB and is not inline, so stopping it cannot interrupt VM
-  networking.
+  networking. Its high-signal policies detect SSH password guessing,
+  Heartbleed activity, and observable TLS certificate failures against both
+  public roots and ThornCloud_CA. Grafana inventories observed hosts/services
+  and pivots matching Zeek and Suricata evidence by Community ID; selected
+  notices page Discord.
 
 **How a log becomes a graph:** journal line → Alloy (`loki.source.journal`)
 → Loki on soc → Grafana panel / alert rule. Metrics are the reverse pull:
@@ -132,8 +136,9 @@ rebuilds and aren't hand-clicked:
   `provision.alerting` (host down, unit failed, SSH brute force, Suricata
   alert, CrowdSec scenario, Loki down, disk/inode pressure, read-only roots,
   OOM kills, clock sync, stale backups, endpoint/TLS failures, comin state,
-  Zeek sensor silence/capture loss, plus one log-silence rule generated per
-  always-on host). All deliver to Discord via a webhook held in sops.
+  Zeek sensor silence/capture loss, SSH password guessing, Heartbleed, local
+  certificate failures, plus one log-silence rule generated per always-on
+  host). All deliver to Discord via a webhook held in sops.
 - Each rule carries a `severity` label (`critical` / `warning`). The
   notification policy routes both to the same Discord webhook but gives
   `critical` faster grouping and hourly re-notification, so an IDS hit

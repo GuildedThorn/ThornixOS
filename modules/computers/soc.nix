@@ -513,6 +513,19 @@
                   type = "loki";
                   uid = "loki";
                   url = "http://127.0.0.1:3100";
+                  jsonData.derivedFields = [
+                    {
+                      # Both Suricata EVE and Zeek JSON use this field. The
+                      # link opens a focused dashboard panel with both data
+                      # sources filtered to the exact bidirectional flow.
+                      name = "Community ID";
+                      # Match both raw JSON log details and the compact
+                      # line_format output used by the dashboards.
+                      matcherRegex = ''community_id"?\s*[:=]\s*"?([^"\s]+)'';
+                      url = "/d/network-visibility/network-visibility?orgId=1&var-community_id=$${__value.raw}&from=now-6h&to=now&viewPanel=32";
+                      urlDisplayLabel = "Correlate Zeek + Suricata";
+                    }
+                  ];
                 }
                 {
                   name = "Prometheus";
@@ -1032,6 +1045,70 @@
                           window = 900;
                           category = "network";
                           summary = "The kernel dropped packets before Zeek could inspect them; sensor CPU or capture buffering may need tuning.";
+                        })
+                        (rule {
+                          # Page only when the guessed service is inside the
+                          # protected OPT1 network. A local client mistyping a
+                          # password against an Internet host is not a SOC
+                          # incident for this environment.
+                          uid = "siem-zeek-ssh-password-guessing";
+                          title = "Zeek detected SSH password guessing";
+                          datasourceUid = "loki";
+                          expr = ''
+                            sum(count_over_time({job="zeek", host="mac", zeek_log="notice"}
+                              | json
+                              | note = "SSH::Password_Guessing"
+                              | dst =~ `172\.16\.25\..*` [10m]))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          severity = "critical";
+                          category = "security";
+                          summary = "Zeek observed at least 30 failed SSH authentications against an OPT1 host from one source within 30 minutes.";
+                        })
+                        (rule {
+                          uid = "siem-zeek-heartbleed";
+                          title = "Zeek detected TLS Heartbleed activity";
+                          datasourceUid = "loki";
+                          expr = ''
+                            sum(count_over_time({job="zeek", host="mac", zeek_log="notice"}
+                              | json
+                              | note =~ "Heartbleed::SSL_Heartbeat_(Attack(_Success)?|Odd_Length|Many_Requests)" [10m]))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          severity = "critical";
+                          category = "security";
+                          summary = "Zeek observed a suspicious TLS heartbeat request, scan, or probable Heartbleed exploit attempt.";
+                        })
+                        (rule {
+                          # Passive TLS certificate inspection is possible
+                          # only when the handshake exposes the certificate
+                          # (TLS 1.3 encrypts it). Blackbox probes remain the
+                          # direct check for known HTTPS endpoints.
+                          uid = "siem-zeek-local-certificate";
+                          title = "Zeek found a local TLS certificate problem";
+                          datasourceUid = "loki";
+                          expr = ''
+                            sum(count_over_time({job="zeek", host="mac", zeek_log="notice"}
+                              | json
+                              | note =~ "SSL::(Invalid_Server_Cert|Certificate_Expired|Certificate_Expires_Soon|Certificate_Not_Valid_Yet)"
+                              | dst =~ `172\.16\.25\..*` [1h]))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          window = 3600;
+                          category = "tls";
+                          summary = "Zeek observed an invalid, expired, not-yet-valid, or soon-expiring certificate from an OPT1 TLS service.";
                         })
                         (rule {
                           # pfSense's perimeter Suricata arrives as raw syslog
