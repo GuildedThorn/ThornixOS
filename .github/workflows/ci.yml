@@ -53,7 +53,12 @@ jobs:
           - vmware-guest
           - vmware-test
     steps:
+      # Promotion is intentionally fast-forward-only. The default shallow
+      # checkout cannot prove that an existing deploy-* tip is an ancestor
+      # of HEAD and rejects an otherwise valid push with "fetch first".
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       # ubuntu-latest ships with ~30-40GB of preinstalled toolchains we
       # never touch (dotnet, Android SDK, GHC, ...), leaving only ~14GB
       # free — not enough for hosts whose closure builds huge from-source
