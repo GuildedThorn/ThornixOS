@@ -238,6 +238,19 @@ read_description() {
   printf '%s\n' "$description"
 }
 
+read_neighbor_mac() {
+  ip neigh show "$vm_ip" dev "$bridge" |
+    awk '{
+      for (field = 1; field < NF; field++) {
+        if ($field == "lladdr") {
+          print $(field + 1)
+          exit
+        }
+      }
+    }' |
+    tr '[:upper:]' '[:lower:]'
+}
+
 assert_managed_vm() {
   local expected_description=$1
   local config_text name_line description_line scsi_line net_line unexpected_devices
@@ -320,7 +333,7 @@ verify_installer() {
 
   config_text=$(read_vm_config)
   vm_mac=$(sed -n 's/^net0: virtio=\([^,]*\).*/\1/p' <<<"$config_text" | tr '[:upper:]' '[:lower:]')
-  observed_mac=$(ip neigh show "$vm_ip" dev "$bridge" | awk '/lladdr/ { print $5; exit }' | tr '[:upper:]' '[:lower:]')
+  observed_mac=$(read_neighbor_mac)
   remote_mac=$(remote cat /sys/class/net/eth0/address | tr '[:upper:]' '[:lower:]')
   marker=$(remote cat /etc/thornix-installer-profile)
   disk_inventory=$(remote lsblk -dn -o NAME,TYPE)
@@ -374,7 +387,7 @@ verify_installed_system() {
 
   config_text=$(read_vm_config)
   vm_mac=$(sed -n 's/^net0: virtio=\([^,]*\).*/\1/p' <<<"$config_text" | tr '[:upper:]' '[:lower:]')
-  observed_mac=$(ip neigh show "$vm_ip" dev "$bridge" | awk '/lladdr/ { print $5; exit }' | tr '[:upper:]' '[:lower:]')
+  observed_mac=$(read_neighbor_mac)
   remote_mac=$(remote cat /sys/class/net/eth0/address | tr '[:upper:]' '[:lower:]')
   hostname_value=$(remote hostname -s)
   marker=$(remote 'cat /etc/thornix-installer-profile 2>/dev/null || true')
