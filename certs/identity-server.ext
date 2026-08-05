@@ -1,0 +1,11 @@
+[identity_server]
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = critical, serverAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid, issuer
+subjectAltName = @identity_alt_names
+
+[identity_alt_names]
+DNS.1 = identity.guildedthorn.arpa
+IP.1 = 172.16.25.52

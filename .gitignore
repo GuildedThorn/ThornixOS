@@ -1,5 +1,7 @@
 /hardware-configuration.nix
 secrets/*
+certs/*.csr
+certs/*.key
 
 /.idea/
 

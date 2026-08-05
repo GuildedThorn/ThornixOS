@@ -116,6 +116,7 @@ fi
 
 [[ $(hostname -s) == "mac" ]] || die "this utility may only run on the mac Proxmox host"
 [[ -r $THORNIX_BOOTSTRAP_ISO ]] || die "bootstrap ISO is missing from the mac system closure"
+[[ -r $THORNIX_CA_CERTIFICATE ]] || die "ThornCloud CA certificate is missing from the mac system closure"
 
 for command_name in arping curl ip nix nixos-anywhere pvesm qm ssh ssh-add ssh-keygen ssh-keyscan sudo; do
   require_command "$command_name"
@@ -401,11 +402,11 @@ verify_installed_system() {
 
   note "Waiting for Authentik HTTPS readiness"
   for ((attempt = 1; attempt <= 120; attempt++)); do
-    # Authentik intentionally starts with its generated certificate. TLS
-    # authenticity is not inferred from this probe; the host was already
-    # authenticated above through its pinned SSH key and matching VM MAC.
+    # Require identity's ThornCloud_CA certificate in addition to the SSH,
+    # Proxmox, and VM-MAC checks already completed above.
     if remote systemctl is-active --quiet authentik.service &&
-      curl --insecure --fail --silent --show-error --output /dev/null \
+      curl --fail --silent --show-error --output /dev/null \
+        --cacert "$THORNIX_CA_CERTIFICATE" \
         --noproxy '*' \
         --connect-timeout 3 \
         --max-time 8 \

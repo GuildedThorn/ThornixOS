@@ -85,12 +85,13 @@
           sslmode: disable
 
         listen:
-          # Cleartext traffic never leaves loopback. The native HTTPS listener
-          # supplies a generated certificate until ThornCloud_CA enrollment.
+          # Nginx terminates ThornCloud_CA TLS. Both native listeners remain
+          # available on loopback for local diagnostics, but neither exposes
+          # Authentik's cleartext traffic or generated certificate directly.
           http:
             - "127.0.0.1:9000"
           https:
-            - "0.0.0.0:443"
+            - "127.0.0.1:9443"
           metrics:
             - "0.0.0.0:9300"
           debug: "127.0.0.1:9900"

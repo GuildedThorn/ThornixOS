@@ -106,6 +106,7 @@
         runtimeEnv = {
           THORNIX_ADMIN_SSH_KEYS = lib.concatStringsSep "\n" adminSshKeys;
           THORNIX_BOOTSTRAP_ISO = identityInstallerIso;
+          THORNIX_CA_CERTIFICATE = "${inputs.self}/certs/ThornCloud_CA.crt";
           THORNIX_DEFAULT_FLAKE = "github:GuildedThorn/ThornixOS/deploy-identity#identity";
         };
         text = builtins.readFile ./proxmox-provisioner.sh;

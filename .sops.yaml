@@ -10,6 +10,7 @@ keys:
   - &host_soc age10zuunep3aw3j760st7yz9wydnlmgwr0p30w2wvqyw9kdg8xu5pnq0fpyrh
   - &host_scout age1sn6hvafu0vh97lp6d67m6ee35j0twg6nysswr6k29q3wt90ezefsmewj4d
   - &host_mac age17t2hdf3ppalwqqtj75nmnwxh5vgam7cgg8h73cqaqg0cptfu9sxs5zatwh
+  - &host_identity age1tjur0q3s2zrmzxr5t273wutj0yj6w7evf4e724yhdev4mp6vyy2qh3l43j
 
 creation_rules:
   # Shared Alloy writer identity. Every currently installed host must be able
@@ -26,6 +27,9 @@ creation_rules:
   - path_regex: hosts/mac/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_mac
+  - path_regex: hosts/identity/secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_identity
   - path_regex: hosts/scout/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_scout
