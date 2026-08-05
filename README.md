@@ -27,6 +27,7 @@ hosts/<host>/              per-host data: hardware-configuration, disko,
 |---|---|
 | `nixos` | Main workstation — AMD, Hyprland, home-manager, the works |
 | `websites` | Proxmox VM serving [guildedthorn.com](https://guildedthorn.com) — see below |
+| `identity` | Proxmox VM running Authentik and PostgreSQL for internal SSO/MFA |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -48,6 +49,24 @@ Every host runs [comin](https://github.com/nlewo/comin) watching this repo's
 from CI. Activation is diff-based: a commit that doesn't change a host's
 closure is a no-op for it, and a failed build leaves the old generation
 running.
+
+### First identity VM install from `mac`
+
+Once CI has promoted both `deploy-mac` and `deploy-identity`, open an
+agent-forwarded session to the hypervisor and run the mac-only provisioner:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision identity
+```
+
+It prebuilds the promoted identity closure, creates only VM 104, boots a
+key-only static-IP installer at `172.16.25.52`, verifies the Proxmox ownership
+marker, NIC MAC, ISO label, disk serial and disk size, and then runs Disko plus
+`nixos-anywhere`. Type `identity/104` at its destructive confirmation. If an
+install is interrupted, inspect the VM and resume it explicitly with
+`thornix-provision identity --resume`; the utility never deletes a VM, and a
+post-install resume cannot run Disko again.
 
 ## guildedthorn.com
 

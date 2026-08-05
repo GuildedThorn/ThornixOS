@@ -43,6 +43,7 @@ jobs:
       matrix:
         host:
           - firewall
+          - identity
           - mac
           - mitm
           - nixos

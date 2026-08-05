@@ -12,6 +12,7 @@
       config.nixos.modules.services-canary
       config.nixos.modules.services-clamav
       config.nixos.modules.services-proxmox
+      config.nixos.modules.services-proxmox-provisioner
       config.nixos.modules.services-ssh
       config.nixos.modules.services-zeek
 
@@ -77,6 +78,10 @@
                 "172.16.25.51" = {
                   title = "soc";
                   role = "siem";
+                };
+                "172.16.25.52" = {
+                  title = "identity";
+                  role = "identity";
                 };
               };
             };

@@ -1,0 +1,571 @@
+# shellcheck shell=bash
+
+readonly profile_name="identity"
+readonly vmid="104"
+readonly vm_name="identity"
+readonly vm_ip="172.16.25.52"
+readonly vm_gateway="172.16.25.1"
+readonly bridge="vmbr0"
+readonly storage="local"
+readonly iso_volume="local:iso/thornix-identity-installer.iso"
+readonly disk_serial="THORNIX_IDENTITY_104"
+readonly installer_profile="identity/v1"
+readonly state_installing="thornix-provision:identity:v1:installing"
+readonly state_unverified="thornix-provision:identity:v1:installed-unverified"
+readonly state_installed="thornix-provision:identity:v1:installed"
+
+usage() {
+  cat <<'EOF'
+Provision ThornixOS VMs from the mac Proxmox host.
+
+Usage:
+  thornix-provision identity [options]
+
+Recommended remote session:
+  ssh -A root@172.16.25.3
+  thornix-provision identity
+
+Options:
+  --flake URI          Identity flake URI ending in #identity.
+                       Default: github:GuildedThorn/ThornixOS/deploy-identity#identity
+  --identity-file PATH Private SSH key used for bootstrap and final checks.
+                       Prefer an ssh-agent for passphrase-protected keys.
+  --resume             Resume only a VM previously created by this utility.
+  --yes                Accept the destructive confirmation non-interactively.
+  -h, --help           Show this help.
+
+The fixed identity profile creates VM 104 with 2 vCPU, 4 GiB RAM, one 40 GiB
+disk on local storage, and a virtio NIC on vmbr0. Disko erases only /dev/sda
+inside that verified VM. This command never deletes a VM.
+EOF
+}
+
+die() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
+
+note() {
+  printf '\n==> %s\n' "$*"
+}
+
+warn() {
+  printf 'warning: %s\n' "$*" >&2
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+}
+
+if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+[[ $# -ge 1 ]] || {
+  usage >&2
+  exit 2
+}
+
+[[ $1 == "$profile_name" ]] || die "the only available profile is 'identity'"
+shift
+
+flake="$THORNIX_DEFAULT_FLAKE"
+identity_file=""
+resume=false
+assume_yes=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --flake)
+    [[ $# -ge 2 ]] || die "--flake requires a value"
+    flake=$2
+    shift 2
+    ;;
+  --identity-file)
+    [[ $# -ge 2 ]] || die "--identity-file requires a path"
+    identity_file=$2
+    shift 2
+    ;;
+  --resume)
+    resume=true
+    shift
+    ;;
+  --yes)
+    assume_yes=true
+    shift
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    die "unknown option: $1"
+    ;;
+  esac
+done
+
+[[ $flake == *"#identity" ]] || die "--flake must select the #identity output"
+flake_base=${flake%#identity}
+[[ -n $flake_base ]] || die "invalid flake URI: $flake"
+
+if [[ -n $identity_file ]]; then
+  [[ -f $identity_file && -r $identity_file ]] || die "cannot read SSH identity: $identity_file"
+  identity_file=$(readlink -f -- "$identity_file")
+fi
+
+[[ $(hostname -s) == "mac" ]] || die "this utility may only run on the mac Proxmox host"
+[[ -r $THORNIX_BOOTSTRAP_ISO ]] || die "bootstrap ISO is missing from the mac system closure"
+
+for command_name in arping curl ip nix nixos-anywhere pvesm qm ssh ssh-add ssh-keygen ssh-keyscan sudo; do
+  require_command "$command_name"
+done
+
+key_is_authorized() {
+  local offered_keys=$1
+  local expected_type expected_blob offered_type offered_blob
+
+  while read -r expected_type expected_blob _; do
+    while read -r offered_type offered_blob _; do
+      if [[ $offered_type == "$expected_type" && $offered_blob == "$expected_blob" ]]; then
+        return 0
+      fi
+    done <<<"$offered_keys"
+  done <<<"$THORNIX_ADMIN_SSH_KEYS"
+  return 1
+}
+
+if [[ -n $identity_file ]]; then
+  offered_keys=$(ssh-keygen -y -f "$identity_file") || die "could not read the SSH identity"
+elif [[ -n ${SSH_AUTH_SOCK:-} && -S $SSH_AUTH_SOCK ]]; then
+  offered_keys=$(ssh-add -L 2>/dev/null) ||
+    die "the SSH agent has no keys; load one of identity's admin keys first"
+else
+  die "no SSH identity is available; connect with 'ssh -A root@172.16.25.3' or use --identity-file"
+fi
+key_is_authorized "$offered_keys" ||
+  die "the available SSH identity is not authorized by the bootstrap or installed identity host"
+
+arping_command=$(command -v arping)
+cmp_command=$(command -v cmp)
+install_command=$(command -v install)
+mv_command=$(command -v mv)
+pvesm_command=$(command -v pvesm)
+qm_command=$(command -v qm)
+sudo_command=$(command -v sudo)
+readonly arping_command cmp_command install_command mv_command pvesm_command qm_command sudo_command
+
+root_command=()
+if [[ $EUID -ne 0 ]]; then
+  "$sudo_command" -v
+  root_command=("$sudo_command" --)
+fi
+
+root_run() {
+  "${root_command[@]}" "$@"
+}
+
+temporary_directory=$(mktemp -d)
+trap 'rm -rf -- "$temporary_directory"' EXIT
+known_hosts="$temporary_directory/known_hosts"
+
+ssh_options=(
+  -o "UserKnownHostsFile=$known_hosts"
+  -o StrictHostKeyChecking=yes
+  -o CheckHostIP=yes
+  -o ConnectTimeout=10
+  -o PasswordAuthentication=no
+  -o KbdInteractiveAuthentication=no
+  -o PreferredAuthentications=publickey
+)
+if [[ -n $identity_file ]]; then
+  ssh_options+=(
+    -o IdentitiesOnly=yes
+    -i "$identity_file"
+  )
+fi
+
+remote() {
+  # OpenSSH intentionally assembles the remaining arguments into the remote
+  # command; every call site below supplies a fixed command, never user input.
+  # shellcheck disable=SC2029
+  ssh "${ssh_options[@]}" "root@$vm_ip" "$@"
+}
+
+capture_host_key() {
+  local phase=$1
+  local scan_file="$temporary_directory/host-key.scan"
+  local attempt
+
+  : >"$known_hosts"
+  note "Waiting for $phase SSH at $vm_ip"
+  for ((attempt = 1; attempt <= 60; attempt++)); do
+    : >"$scan_file"
+    if ssh-keyscan -T 3 -t ed25519 -H "$vm_ip" >"$scan_file" 2>/dev/null && [[ -s $scan_file ]]; then
+      mv -- "$scan_file" "$known_hosts"
+      printf 'Pinned host key: '
+      ssh-keygen -lf "$known_hosts"
+      return 0
+    fi
+    if ((attempt % 6 == 0)); then
+      printf 'Still waiting for %s SSH (%d/60)\n' "$phase" "$attempt"
+    fi
+    sleep 5
+  done
+
+  die "$phase did not expose SSH within five minutes; inspect VM $vmid in Proxmox"
+}
+
+read_vm_config() {
+  root_run "$qm_command" config "$vmid"
+}
+
+read_vm_state() {
+  root_run "$qm_command" status "$vmid" | awk '{ print $2 }'
+}
+
+read_description() {
+  sed -n 's/^description: //p' <<<"$1"
+}
+
+assert_managed_vm() {
+  local expected_description=$1
+  local config_text name_line description_line scsi_line net_line unexpected_devices
+
+  config_text=$(read_vm_config)
+  name_line=$(sed -n 's/^name: //p' <<<"$config_text")
+  description_line=$(read_description "$config_text")
+  scsi_line=$(sed -n 's/^scsi0: //p' <<<"$config_text")
+  net_line=$(sed -n 's/^net0: //p' <<<"$config_text")
+
+  [[ $name_line == "$vm_name" ]] || die "VM $vmid is named '$name_line', not '$vm_name'; refusing to touch it"
+  [[ $description_line == "$expected_description" ]] ||
+    die "VM $vmid does not have the expected thornix-provision state; refusing to touch it"
+  [[ $scsi_line == "$storage:"* ]] || die "VM $vmid scsi0 is not on $storage storage"
+  [[ $scsi_line == *"serial=$disk_serial"* ]] || die "VM $vmid scsi0 lacks the expected disk serial"
+  [[ $scsi_line == *"size=40G"* ]] || die "VM $vmid scsi0 is not the expected 40 GiB disk"
+  [[ $net_line == "virtio="* ]] || die "VM $vmid net0 is not a virtio NIC"
+  [[ $net_line == *"bridge=$bridge"* ]] || die "VM $vmid net0 is not attached to $bridge"
+
+  unexpected_devices=$(awk -F: '
+    /^(ide|sata|scsi|virtio)[0-9]+:/ && $1 != "scsi0" && $1 != "ide2" { print $1 }
+  ' <<<"$config_text")
+  [[ -z $unexpected_devices ]] ||
+    die "VM $vmid has unexpected block devices ($unexpected_devices); refusing to run Disko"
+}
+
+ensure_iso_installed() {
+  local iso_path=$1
+
+  if [[ -e $iso_path ]] && root_run "$cmp_command" -s -- "$THORNIX_BOOTSTRAP_ISO" "$iso_path"; then
+    note "Bootstrap ISO is already current"
+    return 0
+  fi
+
+  note "Installing the key-only identity bootstrap ISO"
+  root_run "$install_command" -D -m 0444 -- "$THORNIX_BOOTSTRAP_ISO" "$iso_path.new"
+  root_run "$mv_command" -f -- "$iso_path.new" "$iso_path"
+}
+
+confirm_destruction() {
+  printf '\nVM profile:       identity\n'
+  printf 'Proxmox VMID:     %s\n' "$vmid"
+  printf 'Address:          %s/24 via %s\n' "$vm_ip" "$vm_gateway"
+  printf 'Virtual hardware: 2 vCPU, 4 GiB RAM, one 40 GiB disk on %s\n' "$storage"
+  printf 'Install source:   %s\n' "$flake"
+  printf '\nDisko WILL erase /dev/sda inside the verified VM. No VM is ever deleted automatically.\n'
+
+  if $assume_yes; then
+    return 0
+  fi
+  [[ -t 0 ]] || die "refusing a non-interactive destructive run without --yes"
+
+  local answer
+  read -r -p "Type identity/104 to continue: " answer
+  [[ $answer == "identity/104" ]] || die "confirmation did not match"
+}
+
+build_install_closure() {
+  local disko_attribute system_attribute
+  disko_attribute="$flake_base#nixosConfigurations.identity.config.system.build.diskoScript"
+  system_attribute="$flake_base#nixosConfigurations.identity.config.system.build.toplevel"
+
+  note "Building the exact identity closure before changing Proxmox"
+  nix build -L --out-link "$temporary_directory/disko" "$disko_attribute"
+  nix build -L --out-link "$temporary_directory/system" "$system_attribute"
+
+  disko_script=$(readlink -f -- "$temporary_directory/disko")
+  nixos_system=$(readlink -f -- "$temporary_directory/system")
+  [[ -x $disko_script ]] || die "Disko output is not executable: $disko_script"
+  [[ -d $nixos_system ]] || die "NixOS system output is not a directory: $nixos_system"
+}
+
+verify_installer() {
+  local config_text vm_mac observed_mac remote_mac marker disk_inventory disk_names disk_size remote_disk_serial iso_label
+  local minimum_size=$((39 * 1024 * 1024 * 1024))
+  local maximum_size=$((41 * 1024 * 1024 * 1024))
+
+  note "Authenticating and verifying the installer target"
+  remote true
+
+  config_text=$(read_vm_config)
+  vm_mac=$(sed -n 's/^net0: virtio=\([^,]*\).*/\1/p' <<<"$config_text" | tr '[:upper:]' '[:lower:]')
+  observed_mac=$(ip neigh show "$vm_ip" dev "$bridge" | awk '/lladdr/ { print $5; exit }' | tr '[:upper:]' '[:lower:]')
+  remote_mac=$(remote cat /sys/class/net/eth0/address | tr '[:upper:]' '[:lower:]')
+  marker=$(remote cat /etc/thornix-installer-profile)
+  disk_inventory=$(remote lsblk -dn -o NAME,TYPE)
+  disk_names=$(awk '$2 == "disk" { print $1 }' <<<"$disk_inventory")
+  disk_size=$(remote blockdev --getsize64 /dev/sda)
+  remote_disk_serial=$(remote lsblk -dn -o SERIAL /dev/sda | tr -d '[:space:]')
+  # This is deliberately single-quoted: $source must expand on the installer.
+  # shellcheck disable=SC2016
+  iso_label=$(remote 'source=$(findmnt -rn -o SOURCE /iso) && blkid -s LABEL -o value "$source"')
+
+  [[ -n $vm_mac && $observed_mac == "$vm_mac" && $remote_mac == "$vm_mac" ]] ||
+    die "MAC mismatch: Proxmox '$vm_mac', neighbor '$observed_mac', installer '$remote_mac'"
+  [[ $marker == "$installer_profile" ]] ||
+    die "SSH endpoint is not the Thornix identity installer; Disko was not run"
+  [[ $iso_label == "THORNIX_IDENTITY" ]] ||
+    die "live system is not mounted from the expected bootstrap ISO"
+  [[ $disk_names == "sda" ]] ||
+    die "expected exactly one disk named sda, found: ${disk_names:-none}"
+  [[ $remote_disk_serial == "$disk_serial" ]] ||
+    die "/dev/sda serial '$remote_disk_serial' does not match '$disk_serial'"
+  [[ $disk_size =~ ^[0-9]+$ ]] || die "could not determine /dev/sda size"
+  ((disk_size >= minimum_size && disk_size <= maximum_size)) ||
+    die "/dev/sda is $disk_size bytes, outside the guarded 39-41 GiB range"
+
+  printf 'Verified VM %s, MAC %s, ISO label %s, /dev/sda %s bytes.\n' \
+    "$vmid" "$vm_mac" "$iso_label" "$disk_size"
+}
+
+reboot_to_installed_system() {
+  local attempt
+
+  note "Rebooting identity from the installer into its disk"
+  remote systemctl reboot >/dev/null 2>&1 || true
+
+  for ((attempt = 1; attempt <= 60; attempt++)); do
+    if ! remote true >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  die "VM $vmid did not leave the installer after its reboot request"
+}
+
+verify_installed_system() {
+  local config_text vm_mac observed_mac remote_mac hostname_value marker attempt
+
+  capture_host_key "installed identity"
+  note "Authenticating to the installed system"
+  remote true
+
+  config_text=$(read_vm_config)
+  vm_mac=$(sed -n 's/^net0: virtio=\([^,]*\).*/\1/p' <<<"$config_text" | tr '[:upper:]' '[:lower:]')
+  observed_mac=$(ip neigh show "$vm_ip" dev "$bridge" | awk '/lladdr/ { print $5; exit }' | tr '[:upper:]' '[:lower:]')
+  remote_mac=$(remote cat /sys/class/net/eth0/address | tr '[:upper:]' '[:lower:]')
+  hostname_value=$(remote hostname -s)
+  marker=$(remote 'cat /etc/thornix-installer-profile 2>/dev/null || true')
+  [[ -n $vm_mac && $observed_mac == "$vm_mac" && $remote_mac == "$vm_mac" ]] ||
+    die "MAC mismatch: Proxmox '$vm_mac', neighbor '$observed_mac', installed host '$remote_mac'"
+  [[ $hostname_value == "$vm_name" ]] || die "installed host reports hostname '$hostname_value', not '$vm_name'"
+  [[ $marker != "$installer_profile" ]] ||
+    die "VM booted back into the installer instead of the installed disk"
+  remote test -e /run/current-system
+  remote systemctl is-active --quiet sshd.service
+
+  note "Waiting for Authentik HTTPS readiness"
+  for ((attempt = 1; attempt <= 120; attempt++)); do
+    # Authentik intentionally starts with its generated certificate. TLS
+    # authenticity is not inferred from this probe; the host was already
+    # authenticated above through its pinned SSH key and matching VM MAC.
+    if remote systemctl is-active --quiet authentik.service &&
+      curl --insecure --fail --silent --show-error --output /dev/null \
+        --noproxy '*' \
+        --connect-timeout 3 \
+        --max-time 8 \
+        --resolve "identity.guildedthorn.arpa:443:$vm_ip" \
+        https://identity.guildedthorn.arpa/; then
+      note "Installed identity system and Authentik are online"
+      return 0
+    fi
+    if ((attempt % 6 == 0)); then
+      printf 'Still waiting for Authentik (%d/120)\n' "$attempt"
+    fi
+    sleep 5
+  done
+
+  die "Authentik did not become ready within ten minutes; inspect 'systemctl status authentik' on VM $vmid"
+}
+
+storage_status=$(root_run "$pvesm_command" status --storage "$storage")
+storage_state=$(awk -v name="$storage" '$1 == name { print $3 }' <<<"$storage_status")
+[[ $storage_state == "active" ]] || die "Proxmox storage '$storage' is not active"
+ip link show dev "$bridge" >/dev/null 2>&1 || die "Proxmox bridge '$bridge' does not exist"
+
+iso_path=$(root_run "$pvesm_command" path "$iso_volume")
+[[ $iso_path == /var/lib/vz/template/iso/* ]] ||
+  die "Proxmox resolved the ISO outside local ISO storage: $iso_path"
+
+vm_exists=false
+vm_state="absent"
+vm_description=""
+if root_run "$qm_command" config "$vmid" >/dev/null 2>&1; then
+  vm_exists=true
+  vm_config=$(read_vm_config)
+  vm_state=$(read_vm_state)
+  vm_description=$(read_description "$vm_config")
+
+  $resume || die "VM $vmid already exists; use --resume only if this utility created it"
+  case "$vm_description" in
+  "$state_installed")
+    assert_managed_vm "$state_installed"
+    printf 'VM %s is already marked installed. Authentik: https://identity.guildedthorn.arpa/\n' "$vmid"
+    exit 0
+    ;;
+  "$state_unverified")
+    assert_managed_vm "$state_unverified"
+    note "Resuming post-install verification without running Disko"
+    root_run "$qm_command" set "$vmid" --boot "order=scsi0;ide2"
+    if [[ $vm_state == "stopped" ]]; then
+      root_run "$qm_command" start "$vmid"
+    elif [[ $vm_state != "running" ]]; then
+      die "VM $vmid is in unexpected state '$vm_state'"
+    fi
+
+    # An interruption after installation but before the reboot leaves the VM
+    # safely in the installer. Reboot it into the already-installed disk;
+    # never send this state back through nixos-anywhere or Disko.
+    capture_host_key "unverified identity"
+    remote true
+    current_marker=$(remote 'cat /etc/thornix-installer-profile 2>/dev/null || true')
+    if [[ $current_marker == "$installer_profile" ]]; then
+      reboot_to_installed_system
+    fi
+    verify_installed_system
+    if ! root_run "$qm_command" set "$vmid" --delete ide2; then
+      warn "identity is installed, but the bootstrap ISO could not be detached"
+    fi
+    root_run "$qm_command" set "$vmid" --description "$state_installed"
+    printf '\nAuthentik is ready for first-time setup at:\n  https://identity.guildedthorn.arpa/if/flow/initial-setup/\n'
+    exit 0
+    ;;
+  "$state_installing")
+    assert_managed_vm "$state_installing"
+    ;;
+  *)
+    die "VM $vmid was not created by thornix-provision; refusing to touch it"
+    ;;
+  esac
+else
+  $resume && die "--resume was requested, but VM $vmid does not exist"
+fi
+
+if ! $vm_exists; then
+  storage_free_kib=$(awk -v name="$storage" '$1 == name { print $6 }' <<<"$storage_status")
+  [[ $storage_free_kib =~ ^[0-9]+$ ]] || die "could not determine free space on '$storage'"
+  ((storage_free_kib >= 45 * 1024 * 1024)) ||
+    die "storage '$storage' has less than the guarded 45 GiB free-space minimum"
+
+  note "Checking that $vm_ip is unused on $bridge"
+  if ! root_run "$arping_command" -D -q -c 3 -w 5 -I "$bridge" "$vm_ip"; then
+    die "$vm_ip answered duplicate-address detection; refusing to create identity"
+  fi
+fi
+
+# Both derivations are realized before confirmation or VM creation. A missing
+# deploy branch, evaluation failure, or cache/build failure therefore cannot
+# leave behind a half-created guest or an erased disk.
+build_install_closure
+confirm_destruction
+
+if ! $vm_exists; then
+  ensure_iso_installed "$iso_path"
+
+  note "Creating guarded Proxmox VM $vmid"
+  root_run "$qm_command" create "$vmid" \
+    --name "$vm_name" \
+    --description "$state_installing" \
+    --ostype l26 \
+    --bios seabios \
+    --cpu x86-64-v2-AES \
+    --sockets 1 \
+    --cores 2 \
+    --memory 4096 \
+    --balloon 0 \
+    --scsihw virtio-scsi-single \
+    --scsi0 "$storage:40,discard=on,iothread=1,ssd=1,serial=$disk_serial" \
+    --net0 "virtio,bridge=$bridge,firewall=1" \
+    --agent enabled=1 \
+    --onboot 1
+  vm_exists=true
+  vm_state="stopped"
+else
+  note "Resuming thornix-provision VM $vmid"
+fi
+
+if [[ $vm_state == "stopped" ]]; then
+  ensure_iso_installed "$iso_path"
+  root_run "$qm_command" set "$vmid" --ide2 "$iso_volume,media=cdrom"
+  root_run "$qm_command" set "$vmid" --boot "order=ide2;scsi0"
+elif [[ $vm_state == "running" ]]; then
+  running_config=$(read_vm_config)
+  ide2_line=$(sed -n 's/^ide2: //p' <<<"$running_config")
+  [[ $ide2_line == *"$iso_volume"* && $ide2_line == *"media=cdrom"* ]] ||
+    die "running VM $vmid is not using the expected bootstrap ISO"
+else
+  die "VM $vmid is in unexpected state '$vm_state'"
+fi
+
+assert_managed_vm "$state_installing"
+if [[ $vm_state == "stopped" ]]; then
+  note "Starting identity from the bootstrap ISO"
+  root_run "$qm_command" start "$vmid"
+fi
+
+capture_host_key "identity installer"
+verify_installer
+
+# Select the disk before installation. If nixos-anywhere reboots successfully,
+# the installed system wins; an unbootable disk falls back to the still-attached
+# ISO for console recovery without allowing an automatic second Disko run.
+root_run "$qm_command" set "$vmid" --boot "order=scsi0;ide2"
+
+note "Installing the prebuilt ThornixOS identity closure"
+anywhere_arguments=(
+  --store-paths "$disko_script" "$nixos_system"
+  --target-host "root@$vm_ip"
+  --phases "disko,install"
+  -L
+  --ssh-option "UserKnownHostsFile=$known_hosts"
+  --ssh-option StrictHostKeyChecking=yes
+  --ssh-option CheckHostIP=yes
+  --ssh-option PasswordAuthentication=no
+  --ssh-option KbdInteractiveAuthentication=no
+)
+if [[ -n $identity_file ]]; then
+  anywhere_arguments+=( -i "$identity_file" )
+fi
+
+if ! nixos-anywhere "${anywhere_arguments[@]}"; then
+  printf '\nInstallation stopped safely. VM %s was left intact for inspection.\n' "$vmid" >&2
+  printf 'After correcting the error, rerun: thornix-provision identity --resume\n' >&2
+  exit 1
+fi
+
+# Installation has completed while the verified installer is still running.
+# Change the persistent Proxmox state before requesting a reboot. From this
+# point onward, --resume is verification-only and can never rerun Disko.
+root_run "$qm_command" set "$vmid" --description "$state_unverified"
+reboot_to_installed_system
+verify_installed_system
+
+if ! root_run "$qm_command" set "$vmid" --delete ide2; then
+  warn "identity is installed, but the bootstrap ISO could not be detached"
+fi
+root_run "$qm_command" set "$vmid" --description "$state_installed"
+
+printf '\nIdentity VM %s is installed and reachable.\n' "$vmid"
+printf 'Complete Authentik first-time setup at:\n  https://identity.guildedthorn.arpa/if/flow/initial-setup/\n'

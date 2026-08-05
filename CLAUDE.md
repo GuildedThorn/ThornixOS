@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Thorn's personal NixOS + Home Manager flake, covering ~10 hosts (workstation,
+Thorn's personal NixOS + Home Manager flake, covering ~11 hosts (workstation,
 laptop, a public-facing website VM, lab/test VMs). See `README.md` for the
 host list, GitOps deployment model, and the full sops secrets workflow —
 don't duplicate that here, read it when a task touches deployment or secrets.
@@ -20,7 +20,7 @@ nixfmt path/to/file.nix                                                    # for
 sops hosts/<host>/secrets.yaml                                             # edit that host's encrypted secrets
 ```
 
-Host names: `firewall`, `mac`, `mitm`, `nixos`, `proxmox-guest`, `websites`,
+Host names: `firewall`, `identity`, `mac`, `mitm`, `nixos`, `proxmox-guest`, `websites`,
 `scout`, `soc`, `vmware-guest`, `vmware-test` (must match the CI matrix
 in `.github/workflows/ci.yml` and the `flake.nixosConfigurations.<name>` set
 in `modules/computers/`).
