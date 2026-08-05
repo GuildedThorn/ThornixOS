@@ -311,13 +311,14 @@
       "id": 10,
       "type": "logs",
       "title": "Enriched security events",
-      "description": "Raw evidence is unchanged. Expand a line to see its GeoIP/ASN structured metadata and original indexed stream labels.",
+      "description": "Latest 200 matching events in the selected dashboard time range. Raw evidence is unchanged; expand a line to see its GeoIP/ASN structured metadata and original indexed stream labels.",
       "gridPos": { "x": 0, "y": 34, "w": 24, "h": 12 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
           "refId": "A",
           "expr": "{geoip_enriched=\"true\"} | geoip_src_ip != \"\" | keep job, host, geoip_src_ip, geoip_city_name, geoip_country_name, geoip_country_code, geoip_autonomous_system_number, geoip_autonomous_system_organization",
+          "maxLines": 200,
           "queryType": "range"
         }
       ],
