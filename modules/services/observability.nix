@@ -4,11 +4,23 @@
     {
       config,
       lib,
+      pkgs,
       ...
     }:
 
     let
       cfg = config.thorn.telemetry;
+      alloyConfigPath = toString config.services.alloy.configPath;
+      alloyValidationPath =
+        if lib.hasPrefix "/etc/" alloyConfigPath then
+          "${config.system.build.etc}${alloyConfigPath}"
+        else
+          alloyConfigPath;
+      alloyConfigCheck = pkgs.runCommand "alloy-config-check-${config.networking.hostName}" { } ''
+        echo "validating assembled Alloy configuration at ${alloyValidationPath}"
+        ${lib.getExe config.services.alloy.package} validate ${alloyValidationPath}
+        touch "$out"
+      '';
       # nginx terminates ThornCloud_CA mTLS on soc. Loki itself is bound to
       # loopback, so this is the only network path into its write API.
       lokiUrl = "https://soc.guildedthorn.arpa:3100";
@@ -37,6 +49,16 @@
               -m multiport --dports 9100,4243 -j nixos-fw-accept
           '';
         }
+
+        # A NixOS closure build normally validates only the Nix expression;
+        # embedded Alloy syntax and component selectors are parsed at runtime.
+        # Make the ordinary per-host CI build depend on validation of the exact
+        # assembled /etc/alloy directory so an invalid config never reaches a
+        # deploy branch. Validating the directory also catches duplicate or
+        # broken cross-file component references.
+        (lib.mkIf config.services.alloy.enable {
+          system.checks = [ alloyConfigCheck ];
+        })
 
         (lib.mkIf cfg.enable {
           assertions = [
