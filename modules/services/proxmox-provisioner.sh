@@ -225,7 +225,17 @@ read_vm_state() {
 }
 
 read_description() {
-  sed -n 's/^description: //p' <<<"$1"
+  local description
+
+  description=$(sed -n 's/^description: //p' <<<"$1")
+
+  # Proxmox percent-encodes colons written through `qm --description` when it
+  # renders the VM configuration. Decode only that canonical encoding so a
+  # literal "%3A" in an unrelated description remains encoded as "%253A"
+  # and cannot be mistaken for one of our ownership markers.
+  description=${description//%3A/:}
+  description=${description//%3a/:}
+  printf '%s\n' "$description"
 }
 
 assert_managed_vm() {
