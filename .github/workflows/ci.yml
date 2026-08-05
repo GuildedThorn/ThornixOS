@@ -12,8 +12,18 @@ concurrency:
 jobs:
   flake-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+      # A nearly full hosted runner can kill Nix without producing a useful
+      # evaluation error. Keep swap available, but reclaim the same space as
+      # the per-host build jobs before evaluating and building every check.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          large-packages: true
+          swap-storage: false
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: cachix/cachix-action@v17
         with:
@@ -23,7 +33,8 @@ jobs:
           # original URL and aren't worth cache storage.
           pushFilter: '(-source$|\.tar\.gz$)'
       - uses: DeterminateSystems/flake-checker-action@v12
-      - run: nix flake check
+      - name: Run nix flake check
+        run: nix flake check
 
   build:
     runs-on: ubuntu-latest
