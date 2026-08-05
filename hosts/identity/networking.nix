@@ -21,10 +21,12 @@
     # SSH is a key-only recovery path. Authentik itself and its unauthenticated
     # metrics endpoint are admitted below only from their intended networks.
     firewall.allowedUDPPorts = [
+      443
       9443
       9000
     ];
     firewall.allowedTCPPorts = [
+      443
       22
       9443
       9000
