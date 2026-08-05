@@ -657,7 +657,10 @@
               // for a compromised client to churn Loki streams. Only the
               // fixed event kind becomes a label.
               stage.match {
-                selector      = "{job=\"syslog\"} |= \" unbound[\" |= \" query: \""
+                # Anchor on the end of Unbound's thread prefix so internal
+                # verbosity-3 messages such as `info: sending query:` do not
+                # inflate the client-query counters when their regex fails.
+                selector      = "{job=\"syslog\"} |= \" unbound[\" |= \"] query: \""
                 pipeline_name = "pfsense_unbound_query"
 
                 stage.regex {
@@ -684,7 +687,7 @@
               // Unbound reply records append rcode, resolution seconds,
               // cache status (0/1), and response bytes to the query fields.
               stage.match {
-                selector      = "{job=\"syslog\"} |= \" unbound[\" |= \" reply: \""
+                selector      = "{job=\"syslog\"} |= \" unbound[\" |= \"] reply: \""
                 pipeline_name = "pfsense_unbound_reply"
 
                 stage.regex {
