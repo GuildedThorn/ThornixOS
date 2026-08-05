@@ -657,9 +657,9 @@
               // for a compromised client to churn Loki streams. Only the
               // fixed event kind becomes a label.
               stage.match {
-                # Anchor on the end of Unbound's thread prefix so internal
-                # verbosity-3 messages such as `info: sending query:` do not
-                # inflate the client-query counters when their regex fails.
+                // Anchor on the end of Unbound's thread prefix so internal
+                // verbosity-3 messages such as `info: sending query:` do not
+                // inflate the client-query counters when their regex fails.
                 selector      = "{job=\"syslog\"} |= \" unbound[\" |= \"] query: \""
                 pipeline_name = "pfsense_unbound_query"
 
