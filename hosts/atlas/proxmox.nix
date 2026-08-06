@@ -21,11 +21,15 @@
       "postgresql.service"
       "redis-netbox.service"
     ];
-    # HTTP exists only as a redirect to HTTPS. Checking it proves nginx is
-    # online without teaching the provisioner to trust the temporary leaf.
-    httpChecks = [ { url = "http://172.16.25.54/login/"; } ];
+    httpChecks = [
+      {
+        url = "https://atlas.guildedthorn.arpa/login/";
+        caCertificate = ../../certs/ThornCloud_CA.crt;
+        resolve = "atlas.guildedthorn.arpa:443:172.16.25.54";
+      }
+    ];
     readyLines = [
-      "Atlas: https://atlas.guildedthorn.arpa/ (temporary certificate until CA enrollment)"
+      "Atlas: https://atlas.guildedthorn.arpa/"
       "Create the first local administrator with:"
       "  ssh -t root@172.16.25.54 netbox-manage createsuperuser"
     ];

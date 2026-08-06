@@ -16,6 +16,7 @@ in
       "${inputs.self}/hosts/atlas/hardware-configuration.nix"
       "${inputs.self}/hosts/atlas/disko.nix"
       "${inputs.self}/hosts/atlas/networking.nix"
+      "${inputs.self}/hosts/atlas/secrets.nix"
 
       (
         { lib, ... }:

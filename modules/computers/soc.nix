@@ -365,6 +365,19 @@
                 tls_config.ca_file = config.security.pki.caBundle;
                 static_configs = [ { targets = [ "soc.guildedthorn.arpa:3000" ]; } ];
               }
+              # Native NetBox application metrics. nginx exposes only this
+              # path to the SOC, and the ThornCloud_CA leaf is verified rather
+              # than weakening Prometheus with insecure_skip_verify.
+              {
+                job_name = "netbox";
+                scrape_interval = "60s";
+                scheme = "https";
+                tls_config = {
+                  ca_file = config.security.pki.caBundle;
+                  server_name = "atlas.guildedthorn.arpa";
+                };
+                static_configs = [ { targets = [ "atlas.guildedthorn.arpa:443" ]; } ];
+              }
               # Multi-target exporter pattern: retain the URL as `instance`,
               # pass it to blackbox as `target`, and scrape the local probe.
               {

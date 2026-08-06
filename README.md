@@ -119,19 +119,18 @@ PostgreSQL, Redis, and the NetBox application communicate through local Unix
 sockets; no database password is exposed on the network. NetBox's secret key
 and API pepper are generated into persistent service state on first boot.
 
-The initial deployment creates a temporary self-signed HTTPS certificate on
-Atlas so the first administrator password is never sent over cleartext HTTP.
-Add a pfSense DNS override for `atlas.guildedthorn.arpa` at `172.16.25.54`,
-accept the temporary certificate warning once, and create the first account:
+nginx serves a ThornCloud_CA certificate for `atlas.guildedthorn.arpa`; its
+private key is decrypted from SOPS directly to a `0400` nginx-owned runtime
+file. Add a pfSense DNS override for `atlas.guildedthorn.arpa` at
+`172.16.25.54`, then create the first account if one does not already exist:
 
 ```sh
 ssh -t root@172.16.25.54 netbox-manage createsuperuser
 ```
 
-After bootstrap, enroll Atlas's SSH host-key age recipient, replace the
-temporary certificate with a SOPS-managed ThornCloud_CA leaf, enable Authentik
-OIDC, and enroll it for Alloy journal shipping. Node and comin metrics are
-already scraped by the SOC without waiting for that secret enrollment.
+Atlas's SSH host-key age recipient permits unattended SOPS decryption. The SOC
+scrapes its node, comin, and native NetBox application metrics. Authentik OIDC
+and Alloy journal shipping remain optional follow-up enrollment steps.
 
 ## guildedthorn.com
 
