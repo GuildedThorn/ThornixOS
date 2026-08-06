@@ -16,6 +16,7 @@
         "172.16.25.50" = [ "websites.guildedthorn.arpa" ];
         "172.16.25.51" = [ "soc.guildedthorn.arpa" ];
         "172.16.25.52" = [ "identity.guildedthorn.arpa" ];
+        "172.16.25.53" = [ "pixie.guildedthorn.arpa" ];
       };
     };
 }

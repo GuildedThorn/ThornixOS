@@ -83,6 +83,10 @@
                   title = "identity";
                   role = "identity";
                 };
+                "172.16.25.53" = {
+                  title = "pixie";
+                  role = "provisioning";
+                };
               };
             };
           };

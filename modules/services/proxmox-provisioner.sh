@@ -1,43 +1,38 @@
 # shellcheck shell=bash
 
-readonly profile_name="identity"
-readonly vmid="104"
-readonly vm_name="identity"
-readonly vm_ip="172.16.25.52"
-readonly vm_gateway="172.16.25.1"
-readonly bridge="vmbr0"
-readonly storage="local"
-readonly iso_volume="local:iso/thornix-identity-installer.iso"
-readonly disk_serial="THORNIX_IDENTITY_104"
-readonly installer_profile="identity/v1"
-readonly state_installing="thornix-provision:identity:v1:installing"
-readonly state_unverified="thornix-provision:identity:v1:installed-unverified"
-readonly state_installed="thornix-provision:identity:v1:installed"
-
 usage() {
   cat <<'EOF'
 Provision ThornixOS VMs from the mac Proxmox host.
 
 Usage:
-  thornix-provision identity [options]
+  thornix-provision PROFILE [options]
 
 Recommended remote session:
   ssh -A root@172.16.25.3
-  thornix-provision identity
+  thornix-provision pixie
 
 Options:
-  --flake URI          Identity flake URI ending in #identity.
-                       Default: github:GuildedThorn/ThornixOS/deploy-identity#identity
+  --flake URI          Flake URI selecting the named profile output.
+                       Default: the profile's promoted deploy branch.
   --identity-file PATH Private SSH key used for bootstrap and final checks.
                        Prefer an ssh-agent for passphrase-protected keys.
   --resume             Resume only a VM previously created by this utility.
   --yes                Accept the destructive confirmation non-interactively.
   -h, --help           Show this help.
 
-The fixed identity profile creates VM 104 with 2 vCPU, 4 GiB RAM, one 40 GiB
-disk on local storage, and a virtio NIC on vmbr0. Disko erases only /dev/sda
-inside that verified VM. This command never deletes a VM.
+Each discovered hosts/<profile>/proxmox.nix file declares the exact VM,
+storage and bridge this utility may create. Disko erases only /dev/sda inside
+that verified VM. This command never deletes a VM.
 EOF
+
+  if [[ -r ${THORNIX_PROFILE_DATA:-} ]] && command -v jq >/dev/null 2>&1; then
+    printf '\nAvailable profiles:\n'
+    jq -r '
+      to_entries[]
+      | "  \(.key) (VM \(.value.vmid), \(.value.address), \(.value.cores) vCPU, "
+        + "\(.value.memoryMiB) MiB RAM, \(.value.diskGiB) GiB disk)"
+    ' "$THORNIX_PROFILE_DATA"
+  fi
 }
 
 die() {
@@ -67,10 +62,48 @@ fi
   exit 2
 }
 
-[[ $1 == "$profile_name" ]] || die "the only available profile is 'identity'"
+readonly profile_name=$1
+[[ -r ${THORNIX_PROFILE_DATA:-} ]] || die "provision profile data is missing from the mac system closure"
+profile_json=$(jq -c --arg profile "$profile_name" '.[$profile] // empty' "$THORNIX_PROFILE_DATA") ||
+  die "could not read provision profile '$profile_name'"
+[[ -n $profile_json ]] || {
+  available_profiles=$(jq -r 'keys | join(", ")' "$THORNIX_PROFILE_DATA")
+  die "unknown profile '$profile_name'; available profiles: $available_profiles"
+}
+
+vmid=$(jq -r '.vmid' <<<"$profile_json")
+vm_name=$(jq -r '.name' <<<"$profile_json")
+vm_ip=$(jq -r '.address' <<<"$profile_json")
+vm_gateway=$(jq -r '.gateway' <<<"$profile_json")
+prefix_length=$(jq -r '.prefixLength' <<<"$profile_json")
+bridge=$(jq -r '.bridge' <<<"$profile_json")
+storage=$(jq -r '.storage' <<<"$profile_json")
+cores=$(jq -r '.cores' <<<"$profile_json")
+memory_mib=$(jq -r '.memoryMiB' <<<"$profile_json")
+disk_gib=$(jq -r '.diskGiB' <<<"$profile_json")
+minimum_disk_gib=$(jq -r '.minimumDiskGiB' <<<"$profile_json")
+maximum_disk_gib=$(jq -r '.maximumDiskGiB' <<<"$profile_json")
+minimum_free_gib=$(jq -r '.minimumFreeGiB' <<<"$profile_json")
+iso_volume=$(jq -r '.isoVolume' <<<"$profile_json")
+iso_label=$(jq -r '.isoLabel' <<<"$profile_json")
+disk_serial=$(jq -r '.diskSerial' <<<"$profile_json")
+bootstrap_iso=$(jq -r '.bootstrapIso' <<<"$profile_json")
+default_flake=$(jq -r '.defaultFlake' <<<"$profile_json")
+installer_profile=$(jq -r '.installerProfile' <<<"$profile_json")
+display_name=$(jq -r '.readiness.displayName' <<<"$profile_json")
+readiness_label=$(jq -r '.readiness.label' <<<"$profile_json")
+admin_ssh_keys=$(jq -r '.adminSshKeys[]' <<<"$profile_json")
+
+readonly profile_json vmid vm_name vm_ip vm_gateway prefix_length bridge storage cores memory_mib
+readonly disk_gib minimum_disk_gib maximum_disk_gib minimum_free_gib iso_volume iso_label
+readonly disk_serial bootstrap_iso default_flake installer_profile display_name readiness_label
+readonly admin_ssh_keys
+readonly state_installing="thornix-provision:$profile_name:v1:installing"
+readonly state_unverified="thornix-provision:$profile_name:v1:installed-unverified"
+readonly state_installed="thornix-provision:$profile_name:v1:installed"
 shift
 
-flake="$THORNIX_DEFAULT_FLAKE"
+flake="$default_flake"
 identity_file=""
 resume=false
 assume_yes=false
@@ -105,8 +138,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ $flake == *"#identity" ]] || die "--flake must select the #identity output"
-flake_base=${flake%#identity}
+flake_suffix="#$profile_name"
+[[ $flake == *"$flake_suffix" ]] || die "--flake must select the #$profile_name output"
+flake_base=${flake%"$flake_suffix"}
 [[ -n $flake_base ]] || die "invalid flake URI: $flake"
 
 if [[ -n $identity_file ]]; then
@@ -115,10 +149,13 @@ if [[ -n $identity_file ]]; then
 fi
 
 [[ $(hostname -s) == "mac" ]] || die "this utility may only run on the mac Proxmox host"
-[[ -r $THORNIX_BOOTSTRAP_ISO ]] || die "bootstrap ISO is missing from the mac system closure"
-[[ -r $THORNIX_CA_CERTIFICATE ]] || die "ThornCloud CA certificate is missing from the mac system closure"
+[[ -r $bootstrap_iso ]] || die "$profile_name bootstrap ISO is missing from the mac system closure"
+while IFS= read -r ca_certificate; do
+  [[ -r $ca_certificate ]] ||
+    die "$profile_name readiness CA certificate is missing from the mac system closure: $ca_certificate"
+done < <(jq -r '.readiness.httpChecks[].caCertificate | select(length > 0)' <<<"$profile_json")
 
-for command_name in arping curl ip nix nixos-anywhere pvesm qm ssh ssh-add ssh-keygen ssh-keyscan sudo; do
+for command_name in arping curl ip jq nix nixos-anywhere ping pvesm qm ssh ssh-add ssh-keygen ssh-keyscan sudo; do
   require_command "$command_name"
 done
 
@@ -132,7 +169,7 @@ key_is_authorized() {
         return 0
       fi
     done <<<"$offered_keys"
-  done <<<"$THORNIX_ADMIN_SSH_KEYS"
+  done <<<"$admin_ssh_keys"
   return 1
 }
 
@@ -140,12 +177,12 @@ if [[ -n $identity_file ]]; then
   offered_keys=$(ssh-keygen -y -f "$identity_file") || die "could not read the SSH identity"
 elif [[ -n ${SSH_AUTH_SOCK:-} && -S $SSH_AUTH_SOCK ]]; then
   offered_keys=$(ssh-add -L 2>/dev/null) ||
-    die "the SSH agent has no keys; load one of identity's admin keys first"
+    die "the SSH agent has no keys; load one of $profile_name's admin keys first"
 else
   die "no SSH identity is available; connect with 'ssh -A root@172.16.25.3' or use --identity-file"
 fi
 key_is_authorized "$offered_keys" ||
-  die "the available SSH identity is not authorized by the bootstrap or installed identity host"
+  die "the available SSH identity is not authorized by the bootstrap or installed $profile_name host"
 
 arping_command=$(command -v arping)
 cmp_command=$(command -v cmp)
@@ -240,6 +277,10 @@ read_description() {
 }
 
 read_neighbor_mac() {
+  # Refresh the cache if the bridge exposes guest neighbours there. Some
+  # Proxmox bridge/kernel combinations keep only an FDB entry, so absence is
+  # not itself proof of a mismatch; a present conflicting entry still is.
+  ping -q -c 1 -W 1 -I "$bridge" "$vm_ip" >/dev/null 2>&1 || true
   ip neigh show "$vm_ip" dev "$bridge" |
     awk '{
       for (field = 1; field < NF; field++) {
@@ -267,7 +308,8 @@ assert_managed_vm() {
     die "VM $vmid does not have the expected thornix-provision state; refusing to touch it"
   [[ $scsi_line == "$storage:"* ]] || die "VM $vmid scsi0 is not on $storage storage"
   [[ $scsi_line == *"serial=$disk_serial"* ]] || die "VM $vmid scsi0 lacks the expected disk serial"
-  [[ $scsi_line == *"size=40G"* ]] || die "VM $vmid scsi0 is not the expected 40 GiB disk"
+  [[ $scsi_line == *"size=${disk_gib}G"* ]] ||
+    die "VM $vmid scsi0 is not the expected $disk_gib GiB disk"
   [[ $net_line == "virtio="* ]] || die "VM $vmid net0 is not a virtio NIC"
   [[ $net_line == *"bridge=$bridge"* ]] || die "VM $vmid net0 is not attached to $bridge"
 
@@ -281,21 +323,22 @@ assert_managed_vm() {
 ensure_iso_installed() {
   local iso_path=$1
 
-  if [[ -e $iso_path ]] && root_run "$cmp_command" -s -- "$THORNIX_BOOTSTRAP_ISO" "$iso_path"; then
+  if [[ -e $iso_path ]] && root_run "$cmp_command" -s -- "$bootstrap_iso" "$iso_path"; then
     note "Bootstrap ISO is already current"
     return 0
   fi
 
-  note "Installing the key-only identity bootstrap ISO"
-  root_run "$install_command" -D -m 0444 -- "$THORNIX_BOOTSTRAP_ISO" "$iso_path.new"
+  note "Installing the key-only $profile_name bootstrap ISO"
+  root_run "$install_command" -D -m 0444 -- "$bootstrap_iso" "$iso_path.new"
   root_run "$mv_command" -f -- "$iso_path.new" "$iso_path"
 }
 
 confirm_destruction() {
-  printf '\nVM profile:       identity\n'
+  printf '\nVM profile:       %s\n' "$profile_name"
   printf 'Proxmox VMID:     %s\n' "$vmid"
-  printf 'Address:          %s/24 via %s\n' "$vm_ip" "$vm_gateway"
-  printf 'Virtual hardware: 2 vCPU, 4 GiB RAM, one 40 GiB disk on %s\n' "$storage"
+  printf 'Address:          %s/%s via %s\n' "$vm_ip" "$prefix_length" "$vm_gateway"
+  printf 'Virtual hardware: %s vCPU, %s MiB RAM, one %s GiB disk on %s\n' \
+    "$cores" "$memory_mib" "$disk_gib" "$storage"
   printf 'Install source:   %s\n' "$flake"
   printf '\nDisko WILL erase /dev/sda inside the verified VM. No VM is ever deleted automatically.\n'
 
@@ -305,16 +348,16 @@ confirm_destruction() {
   [[ -t 0 ]] || die "refusing a non-interactive destructive run without --yes"
 
   local answer
-  read -r -p "Type identity/104 to continue: " answer
-  [[ $answer == "identity/104" ]] || die "confirmation did not match"
+  read -r -p "Type $profile_name/$vmid to continue: " answer
+  [[ $answer == "$profile_name/$vmid" ]] || die "confirmation did not match"
 }
 
 build_install_closure() {
   local disko_attribute system_attribute
-  disko_attribute="$flake_base#nixosConfigurations.identity.config.system.build.diskoScript"
-  system_attribute="$flake_base#nixosConfigurations.identity.config.system.build.toplevel"
+  disko_attribute="$flake_base#nixosConfigurations.$profile_name.config.system.build.diskoScript"
+  system_attribute="$flake_base#nixosConfigurations.$profile_name.config.system.build.toplevel"
 
-  note "Building the exact identity closure before changing Proxmox"
+  note "Building the exact $profile_name closure before changing Proxmox"
   nix build -L --out-link "$temporary_directory/disko" "$disko_attribute"
   nix build -L --out-link "$temporary_directory/system" "$system_attribute"
 
@@ -325,9 +368,9 @@ build_install_closure() {
 }
 
 verify_installer() {
-  local config_text vm_mac observed_mac remote_mac marker disk_inventory disk_names disk_size remote_disk_serial iso_label
-  local minimum_size=$((39 * 1024 * 1024 * 1024))
-  local maximum_size=$((41 * 1024 * 1024 * 1024))
+  local config_text vm_mac observed_mac remote_mac marker disk_inventory disk_names disk_size remote_disk_serial remote_iso_label
+  local minimum_size=$((minimum_disk_gib * 1024 * 1024 * 1024))
+  local maximum_size=$((maximum_disk_gib * 1024 * 1024 * 1024))
 
   note "Authenticating and verifying the installer target"
   remote true
@@ -343,13 +386,17 @@ verify_installer() {
   remote_disk_serial=$(remote lsblk -dn -o SERIAL /dev/sda | tr -d '[:space:]')
   # This is deliberately single-quoted: $source must expand on the installer.
   # shellcheck disable=SC2016
-  iso_label=$(remote 'source=$(findmnt -rn -o SOURCE /iso) && blkid -s LABEL -o value "$source"')
+  remote_iso_label=$(remote 'source=$(findmnt -rn -o SOURCE /iso) && blkid -s LABEL -o value "$source"')
 
-  [[ -n $vm_mac && $observed_mac == "$vm_mac" && $remote_mac == "$vm_mac" ]] ||
+  [[ -n $vm_mac && $remote_mac == "$vm_mac" ]] ||
+    die "MAC mismatch: Proxmox '$vm_mac', installer '$remote_mac'"
+  [[ -z $observed_mac || $observed_mac == "$vm_mac" ]] ||
     die "MAC mismatch: Proxmox '$vm_mac', neighbor '$observed_mac', installer '$remote_mac'"
+  [[ -n $observed_mac ]] ||
+    warn "the bridge has no neighbor-cache entry for $vm_ip; Proxmox and installer MACs still match"
   [[ $marker == "$installer_profile" ]] ||
-    die "SSH endpoint is not the Thornix identity installer; Disko was not run"
-  [[ $iso_label == "THORNIX_IDENTITY" ]] ||
+    die "SSH endpoint is not the Thornix $profile_name installer; Disko was not run"
+  [[ $remote_iso_label == "$iso_label" ]] ||
     die "live system is not mounted from the expected bootstrap ISO"
   [[ $disk_names == "sda" ]] ||
     die "expected exactly one disk named sda, found: ${disk_names:-none}"
@@ -357,16 +404,16 @@ verify_installer() {
     die "/dev/sda serial '$remote_disk_serial' does not match '$disk_serial'"
   [[ $disk_size =~ ^[0-9]+$ ]] || die "could not determine /dev/sda size"
   ((disk_size >= minimum_size && disk_size <= maximum_size)) ||
-    die "/dev/sda is $disk_size bytes, outside the guarded 39-41 GiB range"
+    die "/dev/sda is $disk_size bytes, outside the guarded $minimum_disk_gib-$maximum_disk_gib GiB range"
 
   printf 'Verified VM %s, MAC %s, ISO label %s, /dev/sda %s bytes.\n' \
-    "$vmid" "$vm_mac" "$iso_label" "$disk_size"
+    "$vmid" "$vm_mac" "$remote_iso_label" "$disk_size"
 }
 
 reboot_to_installed_system() {
   local attempt
 
-  note "Rebooting identity from the installer into its disk"
+  note "Rebooting $profile_name from the installer into its disk"
   remote systemctl reboot >/dev/null 2>&1 || true
 
   for ((attempt = 1; attempt <= 60; attempt++)); do
@@ -379,10 +426,54 @@ reboot_to_installed_system() {
   die "VM $vmid did not leave the installer after its reboot request"
 }
 
+readiness_checks_pass() {
+  local http_count tftp_count index unit url ca_certificate resolve expect_pattern
+  local -a units curl_arguments
+
+  mapfile -t units < <(jq -r '.readiness.units[]' <<<"$profile_json")
+  for unit in "${units[@]}"; do
+    remote systemctl is-active --quiet "$unit" || return 1
+  done
+
+  http_count=$(jq -r '.readiness.httpChecks | length' <<<"$profile_json")
+  for ((index = 0; index < http_count; index++)); do
+    url=$(jq -r --argjson index "$index" '.readiness.httpChecks[$index].url' <<<"$profile_json")
+    ca_certificate=$(jq -r --argjson index "$index" '.readiness.httpChecks[$index].caCertificate' <<<"$profile_json")
+    resolve=$(jq -r --argjson index "$index" '.readiness.httpChecks[$index].resolve' <<<"$profile_json")
+    expect_pattern=$(jq -r --argjson index "$index" '.readiness.httpChecks[$index].expectPattern' <<<"$profile_json")
+    curl_arguments=(
+      --fail
+      --silent
+      --show-error
+      --noproxy '*'
+      --connect-timeout 3
+      --max-time 8
+    )
+    [[ -z $ca_certificate ]] || curl_arguments+=( --cacert "$ca_certificate" )
+    [[ -z $resolve ]] || curl_arguments+=( --resolve "$resolve" )
+
+    if [[ -n $expect_pattern ]]; then
+      curl "${curl_arguments[@]}" -- "$url" | grep -E -- "$expect_pattern" >/dev/null || return 1
+    else
+      curl "${curl_arguments[@]}" --output /dev/null -- "$url" || return 1
+    fi
+  done
+
+  tftp_count=$(jq -r '.readiness.tftpChecks | length' <<<"$profile_json")
+  for ((index = 0; index < tftp_count; index++)); do
+    url=$(jq -r --argjson index "$index" '.readiness.tftpChecks[$index]' <<<"$profile_json")
+    curl --fail --silent --show-error --output /dev/null \
+      --noproxy '*' \
+      --connect-timeout 3 \
+      --max-time 15 \
+      -- "$url" || return 1
+  done
+}
+
 verify_installed_system() {
   local config_text vm_mac observed_mac remote_mac hostname_value marker attempt
 
-  capture_host_key "installed identity"
+  capture_host_key "installed $profile_name"
   note "Authenticating to the installed system"
   remote true
 
@@ -392,36 +483,36 @@ verify_installed_system() {
   remote_mac=$(remote cat /sys/class/net/eth0/address | tr '[:upper:]' '[:lower:]')
   hostname_value=$(remote hostname -s)
   marker=$(remote 'cat /etc/thornix-installer-profile 2>/dev/null || true')
-  [[ -n $vm_mac && $observed_mac == "$vm_mac" && $remote_mac == "$vm_mac" ]] ||
+  [[ -n $vm_mac && $remote_mac == "$vm_mac" ]] ||
+    die "MAC mismatch: Proxmox '$vm_mac', installed host '$remote_mac'"
+  [[ -z $observed_mac || $observed_mac == "$vm_mac" ]] ||
     die "MAC mismatch: Proxmox '$vm_mac', neighbor '$observed_mac', installed host '$remote_mac'"
+  [[ -n $observed_mac ]] ||
+    warn "the bridge has no neighbor-cache entry for $vm_ip; Proxmox and installed-host MACs still match"
   [[ $hostname_value == "$vm_name" ]] || die "installed host reports hostname '$hostname_value', not '$vm_name'"
   [[ $marker != "$installer_profile" ]] ||
     die "VM booted back into the installer instead of the installed disk"
   remote test -e /run/current-system
   remote systemctl is-active --quiet sshd.service
 
-  note "Waiting for Authentik HTTPS readiness"
+  note "Waiting for $readiness_label readiness"
   for ((attempt = 1; attempt <= 120; attempt++)); do
-    # Require identity's ThornCloud_CA certificate in addition to the SSH,
-    # Proxmox, and VM-MAC checks already completed above.
-    if remote systemctl is-active --quiet authentik.service &&
-      curl --fail --silent --show-error --output /dev/null \
-        --cacert "$THORNIX_CA_CERTIFICATE" \
-        --noproxy '*' \
-        --connect-timeout 3 \
-        --max-time 8 \
-        --resolve "identity.guildedthorn.arpa:443:$vm_ip" \
-        https://identity.guildedthorn.arpa/; then
-      note "Installed identity system and Authentik are online"
+    if readiness_checks_pass; then
+      note "Installed $display_name system and configured readiness checks are online"
       return 0
     fi
     if ((attempt % 6 == 0)); then
-      printf 'Still waiting for Authentik (%d/120)\n' "$attempt"
+      printf 'Still waiting for %s (%d/120)\n' "$readiness_label" "$attempt"
     fi
     sleep 5
   done
 
-  die "Authentik did not become ready within ten minutes; inspect 'systemctl status authentik' on VM $vmid"
+  die "$readiness_label did not become ready within ten minutes; inspect VM $vmid"
+}
+
+print_ready() {
+  printf '\n%s VM %s is marked installed.\n' "$display_name" "$vmid"
+  jq -r '.readiness.readyLines[]' <<<"$profile_json"
 }
 
 storage_status=$(root_run "$pvesm_command" status --storage "$storage")
@@ -446,7 +537,7 @@ if root_run "$qm_command" config "$vmid" >/dev/null 2>&1; then
   case "$vm_description" in
   "$state_installed")
     assert_managed_vm "$state_installed"
-    printf 'VM %s is already marked installed. Authentik: https://identity.guildedthorn.arpa/\n' "$vmid"
+    print_ready
     exit 0
     ;;
   "$state_unverified")
@@ -462,7 +553,7 @@ if root_run "$qm_command" config "$vmid" >/dev/null 2>&1; then
     # An interruption after installation but before the reboot leaves the VM
     # safely in the installer. Reboot it into the already-installed disk;
     # never send this state back through nixos-anywhere or Disko.
-    capture_host_key "unverified identity"
+    capture_host_key "unverified $profile_name"
     remote true
     current_marker=$(remote 'cat /etc/thornix-installer-profile 2>/dev/null || true')
     if [[ $current_marker == "$installer_profile" ]]; then
@@ -470,10 +561,10 @@ if root_run "$qm_command" config "$vmid" >/dev/null 2>&1; then
     fi
     verify_installed_system
     if ! root_run "$qm_command" set "$vmid" --delete ide2; then
-      warn "identity is installed, but the bootstrap ISO could not be detached"
+      warn "$profile_name is installed, but the bootstrap ISO could not be detached"
     fi
     root_run "$qm_command" set "$vmid" --description "$state_installed"
-    printf '\nAuthentik is ready for first-time setup at:\n  https://identity.guildedthorn.arpa/if/flow/initial-setup/\n'
+    print_ready
     exit 0
     ;;
   "$state_installing")
@@ -490,12 +581,12 @@ fi
 if ! $vm_exists; then
   storage_free_kib=$(awk -v name="$storage" '$1 == name { print $6 }' <<<"$storage_status")
   [[ $storage_free_kib =~ ^[0-9]+$ ]] || die "could not determine free space on '$storage'"
-  ((storage_free_kib >= 45 * 1024 * 1024)) ||
-    die "storage '$storage' has less than the guarded 45 GiB free-space minimum"
+  ((storage_free_kib >= minimum_free_gib * 1024 * 1024)) ||
+    die "storage '$storage' has less than the guarded $minimum_free_gib GiB free-space minimum"
 
   note "Checking that $vm_ip is unused on $bridge"
   if ! root_run "$arping_command" -D -q -c 3 -w 5 -I "$bridge" "$vm_ip"; then
-    die "$vm_ip answered duplicate-address detection; refusing to create identity"
+    die "$vm_ip answered duplicate-address detection; refusing to create $profile_name"
   fi
 fi
 
@@ -516,11 +607,11 @@ if ! $vm_exists; then
     --bios seabios \
     --cpu x86-64-v2-AES \
     --sockets 1 \
-    --cores 2 \
-    --memory 4096 \
+    --cores "$cores" \
+    --memory "$memory_mib" \
     --balloon 0 \
     --scsihw virtio-scsi-single \
-    --scsi0 "$storage:40,discard=on,iothread=1,ssd=1,serial=$disk_serial" \
+    --scsi0 "$storage:$disk_gib,discard=on,iothread=1,ssd=1,serial=$disk_serial" \
     --net0 "virtio,bridge=$bridge,firewall=1" \
     --agent enabled=1 \
     --onboot 1
@@ -545,11 +636,11 @@ fi
 
 assert_managed_vm "$state_installing"
 if [[ $vm_state == "stopped" ]]; then
-  note "Starting identity from the bootstrap ISO"
+  note "Starting $profile_name from the bootstrap ISO"
   root_run "$qm_command" start "$vmid"
 fi
 
-capture_host_key "identity installer"
+capture_host_key "$profile_name installer"
 verify_installer
 
 # Select the disk before installation. If nixos-anywhere reboots successfully,
@@ -557,7 +648,7 @@ verify_installer
 # ISO for console recovery without allowing an automatic second Disko run.
 root_run "$qm_command" set "$vmid" --boot "order=scsi0;ide2"
 
-note "Installing the prebuilt ThornixOS identity closure"
+note "Installing the prebuilt ThornixOS $profile_name closure"
 anywhere_arguments=(
   --store-paths "$disko_script" "$nixos_system"
   --target-host "root@$vm_ip"
@@ -575,7 +666,7 @@ fi
 
 if ! nixos-anywhere "${anywhere_arguments[@]}"; then
   printf '\nInstallation stopped safely. VM %s was left intact for inspection.\n' "$vmid" >&2
-  printf 'After correcting the error, rerun: thornix-provision identity --resume\n' >&2
+  printf 'After correcting the error, rerun: thornix-provision %s --resume\n' "$profile_name" >&2
   exit 1
 fi
 
@@ -587,9 +678,8 @@ reboot_to_installed_system
 verify_installed_system
 
 if ! root_run "$qm_command" set "$vmid" --delete ide2; then
-  warn "identity is installed, but the bootstrap ISO could not be detached"
+  warn "$profile_name is installed, but the bootstrap ISO could not be detached"
 fi
 root_run "$qm_command" set "$vmid" --description "$state_installed"
 
-printf '\nIdentity VM %s is installed and reachable.\n' "$vmid"
-printf 'Complete Authentik first-time setup at:\n  https://identity.guildedthorn.arpa/if/flow/initial-setup/\n'
+print_ready

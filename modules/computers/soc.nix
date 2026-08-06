@@ -180,10 +180,7 @@
             PasswordAuthentication = false;
           };
           # Workstation keys — headless host, no other login path.
-          users.users.root.openssh.authorizedKeys.keys = [
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO+iFLtqnhkscz2qLK45nJVmGZIbQvIeIuW8tenAjX2p thorn@workstation"
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIESh83q74VIIDGsHLvu6a1ptpmkae739Nz8SshW58eWY thorn"
-          ];
+          users.users.root.openssh.authorizedKeys.keys = import ../../hosts/soc/admin-ssh-keys.nix;
 
           services.loki = {
             enable = true;

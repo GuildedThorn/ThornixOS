@@ -28,6 +28,7 @@ hosts/<host>/              per-host data: hardware-configuration, disko,
 | `nixos` | Main workstation — AMD, Hyprland, home-manager, the works |
 | `websites` | Proxmox VM serving [guildedthorn.com](https://guildedthorn.com) — see below |
 | `identity` | Proxmox VM running Authentik and PostgreSQL for internal SSO/MFA |
+| `pixie` | Proxmox VM providing a locked ThornixOS rescue image plus iPXE/netboot.xyz |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -50,23 +51,62 @@ from CI. Activation is diff-based: a commit that doesn't change a host's
 closure is a no-op for it, and a failed build leaves the old generation
 running.
 
-### First identity VM install from `mac`
+### One-shot VM installs from `mac`
 
-Once CI has promoted both `deploy-mac` and `deploy-identity`, open an
+Once CI has promoted `deploy-mac` and the new VM's deploy branch, open an
 agent-forwarded session to the hypervisor and run the mac-only provisioner:
 
 ```sh
 ssh -A root@172.16.25.3
 thornix-provision identity
+# or
+thornix-provision pixie
 ```
 
-It prebuilds the promoted identity closure, creates only VM 104, boots a
-key-only static-IP installer at `172.16.25.52`, verifies the Proxmox ownership
-marker, NIC MAC, ISO label, disk serial and disk size, and then runs Disko plus
-`nixos-anywhere`. Type `identity/104` at its destructive confirmation. If an
-install is interrupted, inspect the VM and resume it explicitly with
-`thornix-provision identity --resume`; the utility never deletes a VM, and a
+The currently declared profiles are soc (VM 103, `172.16.25.51`, 60 GiB),
+identity (VM 104, `172.16.25.52`, 40 GiB), and pixie (VM 105,
+`172.16.25.53`, 20 GiB). The utility prebuilds the promoted closure, boots a
+key-only static-IP installer, verifies the Proxmox ownership marker, NIC MAC,
+ISO label, disk serial and disk size, and then runs Disko plus
+`nixos-anywhere`. Type `<profile>/<vmid>` at its destructive confirmation. If
+an install is interrupted, inspect the VM and resume it explicitly with
+`thornix-provision <profile> --resume`; the utility never deletes a VM, and a
 post-install resume cannot run Disko again.
+
+Profiles are data-driven. Any `hosts/<name>/proxmox.nix` file is discovered
+automatically when `mac` evaluates; it declares the VMID, static address,
+resources, disk serial, admin keys, and optional readiness probes. The
+provisioner validates that VMIDs, addresses, and disk serials are unique and
+generates the installer and `thornix-provision <name>` entry without a shell
+code change. The host must also expose `nixosConfigurations.<name>` with a
+Disko script targeting `/dev/sda`; the default deploy source is
+`deploy-<name>#<name>`.
+
+### Pixie network boot
+
+Pixie serves only TFTP bootstrap firmware on UDP 69 and immutable HTTP boot
+assets on TCP 80. It never runs DHCP or DNS: pfSense remains authoritative.
+The embedded BIOS (`undionly.kpxe`) and x86_64 UEFI (`ipxe.efi`, with
+`snp.efi` as a firmware-compatibility alternative) loaders chain to
+`http://172.16.25.53/boot.ipxe`. The menu defaults back to the local disk after
+ten seconds and provides:
+
+- a local, reproducible ThornixOS rescue/NixOS installer built from this
+  flake's locked nixpkgs, with key-only root SSH access;
+- the upstream netboot.xyz menu for additional installers and diagnostics;
+- an iPXE shell and firmware reboot/local-boot actions.
+
+Add a pfSense DNS override for `pixie.guildedthorn.arpa` at `172.16.25.53`.
+On each pfSense DHCP interface where PXE should work, set the next-server/TFTP
+server to `172.16.25.53` and choose the boot filename by client architecture:
+`undionly.kpxe` for legacy BIOS or `ipxe.efi` for x86_64 UEFI. Do not enable a
+second DHCP server. TFTP and HTTP are firewall-limited to `192.168.1.0/24` and
+`172.16.25.0/24`; they are bootstrap protocols, not authenticated transport,
+so enable network boot only for trusted clients. These locally-built iPXE
+executables are not Secure Boot signed; disable Secure Boot on a client before
+using them. The local ThornixOS target is flake-locked, while choosing
+netboot.xyz intentionally trusts that upstream service and requires Internet
+access.
 
 ## guildedthorn.com
 
