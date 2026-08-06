@@ -29,6 +29,7 @@ hosts/<host>/              per-host data: hardware-configuration, disko,
 | `websites` | Proxmox VM serving [guildedthorn.com](https://guildedthorn.com) — see below |
 | `identity` | Proxmox VM running Authentik and PostgreSQL for internal SSO/MFA |
 | `pixie` | Proxmox VM providing a locked ThornixOS rescue image plus iPXE/netboot.xyz |
+| `atlas` | Proxmox VM running NetBox as the infrastructure inventory/IPAM source of truth |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -61,12 +62,15 @@ ssh -A root@172.16.25.3
 thornix-provision identity
 # or
 thornix-provision pixie
+# or
+thornix-provision atlas
 ```
 
 The currently declared profiles are soc (VM 103, `172.16.25.51`, 60 GiB),
 identity (VM 104, `172.16.25.52`, 40 GiB), and pixie (VM 105,
-`172.16.25.53`, 20 GiB). The utility prebuilds the promoted closure, boots a
-key-only static-IP installer, verifies the Proxmox ownership marker, NIC MAC,
+`172.16.25.53`, 20 GiB), and atlas (VM 106, `172.16.25.54`, 40 GiB). The
+utility prebuilds the promoted closure, boots a key-only static-IP installer,
+verifies the Proxmox ownership marker, NIC MAC,
 ISO label, disk serial and disk size, and then runs Disko plus
 `nixos-anywhere`. Type `<profile>/<vmid>` at its destructive confirmation. If
 an install is interrupted, inspect the VM and resume it explicitly with
@@ -107,6 +111,27 @@ executables are not Secure Boot signed; disable Secure Boot on a client before
 using them. The local ThornixOS target is flake-locked, while choosing
 netboot.xyz intentionally trusts that upstream service and requires Internet
 access.
+
+### Atlas infrastructure inventory
+
+Atlas runs NetBox behind nginx at `https://atlas.guildedthorn.arpa/`.
+PostgreSQL, Redis, and the NetBox application communicate through local Unix
+sockets; no database password is exposed on the network. NetBox's secret key
+and API pepper are generated into persistent service state on first boot.
+
+The initial deployment creates a temporary self-signed HTTPS certificate on
+Atlas so the first administrator password is never sent over cleartext HTTP.
+Add a pfSense DNS override for `atlas.guildedthorn.arpa` at `172.16.25.54`,
+accept the temporary certificate warning once, and create the first account:
+
+```sh
+ssh -t root@172.16.25.54 netbox-manage createsuperuser
+```
+
+After bootstrap, enroll Atlas's SSH host-key age recipient, replace the
+temporary certificate with a SOPS-managed ThornCloud_CA leaf, enable Authentik
+OIDC, and enroll it for Alloy journal shipping. Node and comin metrics are
+already scraped by the SOC without waiting for that secret enrollment.
 
 ## guildedthorn.com
 

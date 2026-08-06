@@ -87,6 +87,10 @@
                   title = "pixie";
                   role = "provisioning";
                 };
+                "172.16.25.54" = {
+                  title = "atlas";
+                  role = "inventory";
+                };
               };
             };
           };

@@ -127,8 +127,18 @@
               journalHost = "websites";
               metricsHost = "websites.guildedthorn.arpa";
             }
+            {
+              journalHost = "atlas";
+              metricsHost = "atlas.guildedthorn.arpa";
+              # Atlas cannot decrypt the shared Alloy writer key until its
+              # first boot gives it an age recipient. Scrape its node/comin
+              # metrics now without creating a false log-silence alert.
+              shipsJournal = false;
+            }
           ];
-          fleetJournalHosts = map (host: host.journalHost) fleet;
+          fleetJournalHosts = map (host: host.journalHost) (
+            lib.filter (host: host.shipsJournal or true) fleet
+          );
           fleetMetricsTargets = port: map (host: "${host.metricsHost}:${port}") fleet;
 
           # Hosts running services-canary — i.e. those with
@@ -1795,7 +1805,7 @@
                           uid = "siem-comin-fetch-failed";
                           title = "comin cannot fetch on an always-on host";
                           datasourceUid = "prometheus";
-                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites)[.]guildedthorn[.]arpa:4243"}'';
+                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites|atlas)[.]guildedthorn[.]arpa:4243"}'';
                           evaluator = {
                             type = "gt";
                             params = [ 0 ];
