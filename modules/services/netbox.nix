@@ -12,6 +12,17 @@
       address = "172.16.25.54";
       tlsCertificate = "${inputs.self}/certs/atlas.guildedthorn.arpa.crt";
       tlsKey = config.sops.secrets.netbox_tls_key.path;
+      inventorySeed = ./netbox-inventory.py;
+      netboxSeed = pkgs.writeShellScriptBin "thornix-netbox-seed" ''
+        set -o errexit -o nounset -o pipefail
+
+        if (( EUID != 0 )); then
+          echo "error: thornix-netbox-seed must run as root" >&2
+          exit 1
+        fi
+
+        exec netbox-manage shell --no-imports --interface python < ${inventorySeed}
+      '';
     in
     {
       services.netbox = {
@@ -39,8 +50,12 @@
           BANNER_TOP = "GuildedThorn Atlas - authoritative infrastructure inventory";
           CENSUS_REPORTING_ENABLED = false;
           CSRF_COOKIE_SECURE = true;
+          # Proxmox reports RAM in MiB and disks in GiB. Matching its binary
+          # units keeps the live resource figures exact in NetBox.
+          DISK_BASE_UNIT = 1024;
           LOGIN_REQUIRED = true;
           METRICS_ENABLED = true;
+          RAM_BASE_UNIT = 1024;
           RELEASE_CHECK_URL = null;
           SECURE_PROXY_SSL_HEADER = [
             "HTTP_X_FORWARDED_PROTO"
@@ -69,6 +84,12 @@
         startAt = "*-*-* 02:30:00";
         compression = "zstd";
       };
+
+      # A manual, transactional and idempotent seed. Keeping this out of the
+      # activation path prevents a normal deployment from silently changing
+      # the source of truth; reruns only create missing records or fill fields
+      # that are still empty.
+      environment.systemPackages = [ netboxSeed ];
 
       services.nginx = {
         recommendedGzipSettings = true;
