@@ -33,8 +33,29 @@ jobs:
           # original URL and aren't worth cache storage.
           pushFilter: '(-source$|\.tar\.gz$)'
       - uses: DeterminateSystems/flake-checker-action@v12
-      - name: Run nix flake check
-        run: nix flake check
+      # `nix flake check` evaluates every nixosConfiguration in one process.
+      # As this flake grew, that evaluator began exhausting the hosted
+      # runner and losing its GitHub heartbeat. This flake currently exposes
+      # only nixosConfigurations, so validate the same required toplevel
+      # attribute for every host in a fresh process and release its heap
+      # before moving to the next host. The build matrix below subsequently
+      # builds every one of these exact derivations.
+      - name: Evaluate every NixOS configuration
+        run: |
+          set -euo pipefail
+
+          hosts="$(
+            nix eval --raw .#nixosConfigurations \
+              --apply 'configs: builtins.concatStringsSep "\n" (builtins.attrNames configs)'
+          )"
+
+          for host in ${hosts}; do
+            echo "::group::Evaluating ${host}"
+            nix eval --raw \
+              ".#nixosConfigurations.${host}.config.system.build.toplevel.drvPath"
+            echo
+            echo "::endgroup::"
+          done
 
   build:
     runs-on: ubuntu-latest
