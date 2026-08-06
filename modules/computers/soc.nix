@@ -130,10 +130,6 @@
             {
               journalHost = "atlas";
               metricsHost = "atlas.guildedthorn.arpa";
-              # Atlas cannot decrypt the shared Alloy writer key until its
-              # first boot gives it an age recipient. Scrape its node/comin
-              # metrics now without creating a false log-silence alert.
-              shipsJournal = false;
             }
           ];
           fleetJournalHosts = map (host: host.journalHost) (
@@ -151,6 +147,7 @@
             "mac"
             "soc"
             "websites"
+            "atlas"
           ];
         in
         {

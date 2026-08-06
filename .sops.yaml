@@ -14,7 +14,7 @@ keys:
   - &host_atlas age1h0wm9stquj2h0v6ep4wrv5xq40255zrth8a6a6t3075sakafjcdqc93fph
 
 creation_rules:
-  # Shared Alloy writer identity. Every currently installed host must be able
+  # Shared Alloy writer identity. Every telemetry-enrolled host must be able
   # to decrypt it unattended; the certificate can push telemetry but nginx
   # does not permit it to query Loki or Prometheus.
   - path_regex: hosts/shared/telemetry-secrets\.ya?ml$
@@ -24,7 +24,8 @@ creation_rules:
       age1k3jvm08n7p5yyptjlsuz7mhk0smdg6lh9etgtxdssuzn08v0wysql3wjk2,
       age10zuunep3aw3j760st7yz9wydnlmgwr0p30w2wvqyw9kdg8xu5pnq0fpyrh,
       age1sn6hvafu0vh97lp6d67m6ee35j0twg6nysswr6k29q3wt90ezefsmewj4d,
-      age17t2hdf3ppalwqqtj75nmnwxh5vgam7cgg8h73cqaqg0cptfu9sxs5zatwh
+      age17t2hdf3ppalwqqtj75nmnwxh5vgam7cgg8h73cqaqg0cptfu9sxs5zatwh,
+      age1h0wm9stquj2h0v6ep4wrv5xq40255zrth8a6a6t3075sakafjcdqc93fph
   - path_regex: hosts/mac/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_mac

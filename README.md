@@ -129,8 +129,9 @@ ssh -t root@172.16.25.54 netbox-manage createsuperuser
 ```
 
 Atlas's SSH host-key age recipient permits unattended SOPS decryption. The SOC
-scrapes its node, comin, and native NetBox application metrics. Authentik OIDC
-and Alloy journal shipping remain optional follow-up enrollment steps.
+scrapes its node, comin, and native NetBox application metrics; Alloy ships its
+journal and audit records to Loki, including the end-to-end detection canary.
+Authentik OIDC remains an optional follow-up enrollment step.
 
 ## guildedthorn.com
 
@@ -170,7 +171,7 @@ installed/enrolled host ships logs to it, and it pulls metrics back.
   `thorn-core`): `node_exporter` exposes metrics on :9100 only to the SOC,
   and auditd adds a baseline of security rules (identity/sudoers/sshd
   changes, module loads, privilege exec, and `execve`).
-- **nixos, mac, scout, soc, websites** (`thorn.telemetry.enable = true`):
+- **nixos, mac, scout, soc, websites, atlas** (`thorn.telemetry.enable = true`):
   Grafana Alloy tails the systemd journal and pushes it to Loki using the
   fleet writer certificate. Enrollment is explicit because a host must be a
   recipient of `hosts/shared/telemetry-secrets.yaml`; there is no plaintext
@@ -181,10 +182,10 @@ installed/enrolled host ships logs to it, and it pulls metrics back.
   while headless hosts set `"all"`. That distinction matters — under
   `"sessions"` a server with no interactive logins records *nothing*, which
   is precisely where a compromised service would run.
-- **mac, soc, websites** (via `services-canary`): a uniquely-named probe runs
-  every 10 minutes, and an alert fires if its `execve` record doesn't reach
-  Loki. This is the only check that tests the detection pipeline instead of
-  reporting through it — the probe emits no log output of its own, so it can
+- **mac, soc, websites, atlas** (via `services-canary`): a uniquely-named
+  probe runs every 10 minutes, and an alert fires if its `execve` record
+  doesn't reach Loki. This is the only check that tests the detection pipeline
+  instead of reporting through it — the probe emits no log output of its own, so it can
   only appear if auditd → journal → Alloy → Loki → query all work. It exists
   because a wrong LogQL filter once left every audit panel silently empty
   for weeks, indistinguishable from a quiet fleet. Requires
