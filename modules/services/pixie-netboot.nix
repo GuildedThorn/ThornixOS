@@ -62,35 +62,61 @@
       rescueKernel = "${rescueSystem.config.system.build.kernel}/${rescueSystem.config.system.boot.loader.kernelFile}";
       rescueInitrd = "${rescueSystem.config.system.build.netbootRamdisk}/initrd";
       rescueKernelParams = lib.concatStringsSep " " rescueSystem.config.boot.kernelParams;
+      brandImage = "${inputs.self}/pictures/FullLogo.png";
 
       bootMenu = pkgs.writeText "pixie-boot.ipxe" ''
         #!ipxe
 
+        # Graphical console support is intentionally limited to UEFI by the
+        # upstream iPXE build. Legacy BIOS clients fall through to the same
+        # menu using their native text console.
+        :start
+        iseq ''${platform} efi && goto branded || goto menu
+
+        :branded
+        console --picture http://${address}/brand.png --left 128 --right 128 --top 640 --bottom 64 --keep || goto menu
+        colour --basic 0 --rgb 0x000010 0
+        colour --basic 1 --rgb 0xff5a1f 1
+        colour --basic 3 --rgb 0xffc857 3
+        colour --basic 7 --rgb 0xf7f3e8 7
+        cpair --foreground 7 --background 4 0
+        cpair --foreground 7 --background 4 1
+        cpair --foreground 0 --background 3 2
+        cpair --foreground 3 --background 4 3
+        cpair --foreground 0 --background 3 4
+        cpair --foreground 7 --background 1 5
+        cpair --foreground 3 --background 4 6
+        cpair --foreground 0 --background 3 7
+
         :menu
-        menu ThornixOS network boot
-        item --gap --             Local, reproducible boot targets
-        item thornix              ThornixOS rescue / NixOS installer (locked flake)
-        item --gap --             Upstream tools (requires Internet access)
-        item netbootxyz           netboot.xyz installers and diagnostics
-        item --gap --             Firmware actions
-        item shell                iPXE shell
-        item reboot               Reboot
-        item local                Continue to local disk
+        menu GuildedThorn  //  PIXIE
+        item --gap --             STARTUP
+        item --key l local        [L] Continue to local disk (default)
+        item --gap --             RECOVERY & INSTALLATION
+        item --key r thornix      [R] ThornixOS rescue / NixOS installer - locked flake
+        item --key n netbootxyz   [N] netboot.xyz - upstream installers and diagnostics
+        item --gap --             FIRMWARE TOOLS
+        item --key s shell        [S] Open the iPXE command shell
+        item --key b reboot       [B] Reboot this machine
         choose --default local --timeout 10000 target || goto local
         goto ''${target}
 
         :thornix
+        echo
+        echo Loading the ThornixOS rescue environment...
         kernel http://${address}/thornix/bzImage init=${rescueSystem.config.system.build.toplevel}/init initrd=initrd ${rescueKernelParams} || goto failed
         initrd http://${address}/thornix/initrd || goto failed
         boot || goto failed
 
         :netbootxyz
+        echo
+        echo Loading netboot.xyz from the Internet...
         chain --autofree https://boot.netboot.xyz || chain --autofree http://boot.netboot.xyz || goto failed
-        goto menu
+        goto start
 
         :shell
         shell
-        goto menu
+        goto start
 
         :reboot
         reboot
@@ -100,9 +126,11 @@
 
         :failed
         echo
-        echo Boot failed. Returning to the Pixie menu in three seconds.
+        echo Pixie could not start the selected target.
+        echo Check the network connection or choose another option.
+        echo Returning to the menu in three seconds...
         sleep 3
-        goto menu
+        goto start
       '';
 
       embeddedBootstrap = pkgs.writeText "pixie-bootstrap.ipxe" ''
@@ -147,6 +175,10 @@
         }
       ];
       httpRoot = pkgs.linkFarm "pixie-http-root" [
+        {
+          name = "brand.png";
+          path = brandImage;
+        }
         {
           name = "boot.ipxe";
           path = bootMenu;
