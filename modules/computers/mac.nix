@@ -91,6 +91,10 @@
                   title = "atlas";
                   role = "inventory";
                 };
+                "172.16.25.55" = {
+                  title = "anvil";
+                  role = "pki";
+                };
               };
             };
           };

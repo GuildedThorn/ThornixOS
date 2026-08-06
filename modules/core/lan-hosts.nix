@@ -18,6 +18,7 @@
         "172.16.25.52" = [ "identity.guildedthorn.arpa" ];
         "172.16.25.53" = [ "pixie.guildedthorn.arpa" ];
         "172.16.25.54" = [ "atlas.guildedthorn.arpa" ];
+        "172.16.25.55" = [ "anvil.guildedthorn.arpa" ];
       };
     };
 }

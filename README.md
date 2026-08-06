@@ -30,6 +30,7 @@ hosts/<host>/              per-host data: hardware-configuration, disko,
 | `identity` | Proxmox VM running Authentik and PostgreSQL for internal SSO/MFA |
 | `pixie` | Proxmox VM providing a locked ThornixOS rescue image plus iPXE/netboot.xyz |
 | `atlas` | Proxmox VM running NetBox as the infrastructure inventory/IPAM source of truth |
+| `anvil` | Proxmox VM running the online ThornCloud issuing CA and internal ACME endpoint |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -64,14 +65,16 @@ thornix-provision identity
 thornix-provision pixie
 # or
 thornix-provision atlas
+# or
+thornix-provision anvil
 ```
 
 The currently declared profiles are soc (VM 103, `172.16.25.51`, 60 GiB),
 identity (VM 104, `172.16.25.52`, 40 GiB), and pixie (VM 105,
-`172.16.25.53`, 20 GiB), and atlas (VM 106, `172.16.25.54`, 40 GiB). The
-utility prebuilds the promoted closure, boots a key-only static-IP installer,
-verifies the Proxmox ownership marker, NIC MAC,
-ISO label, disk serial and disk size, and then runs Disko plus
+`172.16.25.53`, 20 GiB), atlas (VM 106, `172.16.25.54`, 40 GiB), and anvil
+(VM 107, `172.16.25.55`, 20 GiB). The utility prebuilds the promoted closure,
+boots a key-only static-IP installer, verifies the Proxmox ownership marker,
+NIC MAC, ISO label, disk serial and disk size, and then runs Disko plus
 `nixos-anywhere`. Type `<profile>/<vmid>` at its destructive confirmation. If
 an install is interrupted, inspect the VM and resume it explicitly with
 `thornix-provision <profile> --resume`; the utility never deletes a VM, and a
@@ -133,6 +136,91 @@ scrapes its node, comin, and native NetBox application metrics; Alloy ships its
 journal and audit records to Loki, including the end-to-end detection canary.
 Authentik OIDC remains an optional follow-up enrollment step.
 
+### Anvil internal certificate authority
+
+Anvil runs `step-ca` at `https://anvil.guildedthorn.arpa/` and publishes the
+ACME directory at
+`https://anvil.guildedthorn.arpa/acme/thorncloud/directory`. The ThornCloud
+root private key is deliberately offline and must never be copied to Anvil or
+put in SOPS. Anvil receives only an encrypted, pathLen=0 issuing intermediate;
+its ACME provisioner issues only `*.guildedthorn.arpa` hostnames, rejects
+literal wildcard and IP certificates, and defaults to 24-hour certificates
+with a seven-day maximum.
+
+Onboarding is intentionally two-stage because the final SOPS recipient is
+derived from the installed VM's real SSH host key:
+
+1. Commit and push the bootstrap configuration, wait for `deploy-mac` and
+   `deploy-anvil`, then run `thornix-provision anvil` from an agent-forwarded
+   root session on mac. The first closure contains no CA private material and
+   leaves `step-ca` disabled.
+2. From the workstation, capture the installed ed25519 host key. Compare the
+   `ssh-keygen` SHA256 fingerprint with the pinned fingerprint printed by
+   `thornix-provision` before accepting the age recipient:
+
+   ```sh
+   anvil_host_key=$(mktemp)
+   ssh-keyscan -t ed25519 172.16.25.55 > "$anvil_host_key"
+   ssh-keygen -lf "$anvil_host_key"
+   ssh-to-age < "$anvil_host_key"
+   ```
+
+3. Add that age value as `&host_anvil` in `.sops.yaml`, add it to the shared
+   telemetry rule, and add a `hosts/anvil/secrets.yaml` creation rule. Then
+   rewrap the existing fleet writer identity:
+
+   ```sh
+   sops updatekeys hosts/shared/telemetry-secrets.yaml
+   ```
+
+4. On the machine where the offline root key is available, create the
+   encrypted EC P-256 issuing key and public five-year intermediate. Replace
+   only the `/path/to/offline/ThornCloud_CA.key` placeholder; an encrypted root
+   key prompts for its own password interactively.
+
+   ```sh
+   umask 077
+   anvil_work=$(mktemp -d)
+   nix shell .#nixosConfigurations.anvil.pkgs.openssl -c \
+     openssl rand -base64 48 > "$anvil_work/intermediate.pass"
+   nix shell .#nixosConfigurations.anvil.pkgs.step-cli -c \
+     step certificate create "ThornCloud Anvil Intermediate CA" \
+       certs/anvil-intermediate.crt "$anvil_work/intermediate.key" \
+       --profile intermediate-ca \
+       --ca certs/ThornCloud_CA.crt \
+       --ca-key /path/to/offline/ThornCloud_CA.key \
+       --password-file "$anvil_work/intermediate.pass" \
+       --kty EC --curve P-256 --not-after 43800h
+   ```
+
+5. Run `sops hosts/anvil/secrets.yaml` and add the encrypted private-key PEM
+   and its generated password under these exact keys:
+
+   ```yaml
+   step_ca_intermediate_key: |-
+     -----BEGIN ENCRYPTED PRIVATE KEY-----
+     ...
+     -----END ENCRYPTED PRIVATE KEY-----
+   step_ca_intermediate_password: "..."
+   ```
+
+   Commit only `.sops.yaml`, the rewrapped shared telemetry file, the SOPS
+   ciphertext, and the public intermediate certificate. Delete the temporary
+   plaintext password and encrypted-key working copy after confirming SOPS can
+   decrypt it. CI verifies the chain, expiry, and pathLen before promoting
+   `deploy-anvil`; comin then activates `step-ca` on the bootstrap VM.
+
+Add a pfSense DNS override for `anvil.guildedthorn.arpa` at `172.16.25.55`.
+Only the trusted internal subnets can reach SSH or the CA, while node/comin
+metrics remain source-limited to SOC. Confirm activation with:
+
+```sh
+curl --cacert certs/ThornCloud_CA.crt \
+  https://anvil.guildedthorn.arpa/health
+curl --cacert certs/ThornCloud_CA.crt \
+  https://anvil.guildedthorn.arpa/acme/thorncloud/directory
+```
+
 ## guildedthorn.com
 
 The website (ASP.NET Core + React) lives in its own repo,
@@ -171,7 +259,7 @@ installed/enrolled host ships logs to it, and it pulls metrics back.
   `thorn-core`): `node_exporter` exposes metrics on :9100 only to the SOC,
   and auditd adds a baseline of security rules (identity/sudoers/sshd
   changes, module loads, privilege exec, and `execve`).
-- **nixos, mac, scout, soc, websites, atlas** (`thorn.telemetry.enable = true`):
+- **nixos, mac, scout, soc, websites, atlas, anvil** (`thorn.telemetry.enable = true`):
   Grafana Alloy tails the systemd journal and pushes it to Loki using the
   fleet writer certificate. Enrollment is explicit because a host must be a
   recipient of `hosts/shared/telemetry-secrets.yaml`; there is no plaintext
@@ -182,7 +270,7 @@ installed/enrolled host ships logs to it, and it pulls metrics back.
   while headless hosts set `"all"`. That distinction matters — under
   `"sessions"` a server with no interactive logins records *nothing*, which
   is precisely where a compromised service would run.
-- **mac, soc, websites, atlas** (via `services-canary`): a uniquely-named
+- **mac, soc, websites, atlas, anvil** (via `services-canary`): a uniquely-named
   probe runs every 10 minutes, and an alert fires if its `execve` record
   doesn't reach Loki. This is the only check that tests the detection pipeline
   instead of reporting through it — the probe emits no log output of its own, so it can

@@ -70,10 +70,11 @@ jobs:
       # No concurrency cap: max-parallel existed to avoid throttling
       # GitHub's Actions Cache API (the old FlakeHub-less magic-nix-cache
       # fallback). Cachix is a dedicated service built for concurrent CI
-      # load, so that constraint no longer applies — let all 13 hosts run
+      # load, so that constraint no longer applies — let all hosts run
       # at once instead of serializing into batches.
       matrix:
         host:
+          - anvil
           - atlas
           - firewall
           - identity

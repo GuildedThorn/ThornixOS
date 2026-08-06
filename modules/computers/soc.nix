@@ -50,6 +50,9 @@
 
           telemetryServerCertificate = "${inputs.self}/certs/soc.guildedthorn.arpa.crt";
           telemetryServerKey = config.sops.secrets.grafana_tls_key.path;
+          anvilCaReady =
+            builtins.pathExists "${inputs.self}/certs/anvil-intermediate.crt"
+            && builtins.pathExists "${inputs.self}/hosts/anvil/secrets.yaml";
 
           # Both public telemetry ports use the same server identity and
           # ThornCloud_CA client trust. The per-location CN checks below
@@ -131,6 +134,11 @@
               journalHost = "atlas";
               metricsHost = "atlas.guildedthorn.arpa";
             }
+            {
+              journalHost = "anvil";
+              metricsHost = "anvil.guildedthorn.arpa";
+              shipsJournal = anvilCaReady;
+            }
           ];
           fleetJournalHosts = map (host: host.journalHost) (
             lib.filter (host: host.shipsJournal or true) fleet
@@ -148,7 +156,8 @@
             "soc"
             "websites"
             "atlas"
-          ];
+          ]
+          ++ lib.optional anvilCaReady "anvil";
         in
         {
           # Headless: nobody logs in interactively, so the default
@@ -393,7 +402,8 @@
                       "https://truenas.guildedthorn.arpa/"
                       "https://truenas.guildedthorn.arpa:30304/"
                       "https://pfsense.guildedthorn.arpa/"
-                    ];
+                    ]
+                    ++ lib.optional anvilCaReady "https://anvil.guildedthorn.arpa/health";
                   }
                 ];
                 relabel_configs = [
@@ -1815,7 +1825,7 @@
                           uid = "siem-comin-fetch-failed";
                           title = "comin cannot fetch on an always-on host";
                           datasourceUid = "prometheus";
-                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites|atlas)[.]guildedthorn[.]arpa:4243"}'';
+                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites|atlas|anvil)[.]guildedthorn[.]arpa:4243"}'';
                           evaluator = {
                             type = "gt";
                             params = [ 0 ];

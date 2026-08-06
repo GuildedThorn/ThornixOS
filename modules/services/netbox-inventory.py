@@ -210,6 +210,7 @@ def seed():
         "identity": ("Identity Provider", "673ab7", True),
         "provisioning": ("Network Boot", "ff9800", True),
         "inventory": ("Infrastructure Inventory", "4caf50", True),
+        "pki": ("Certificate Authority", "795548", True),
     }
     roles = {
         key: ensure(
@@ -587,6 +588,20 @@ def seed():
             "vmid": 106,
             "description": "NetBox infrastructure source of truth",
         },
+        "anvil": {
+            "role": roles["pki"],
+            "vcpus": 2,
+            "memory": 2048,
+            "disk": 20480,
+            "start_on_boot": "on",
+            "ip": "172.16.25.55/24",
+            "vmid": 107,
+            "description": "ThornCloud online issuing CA and internal ACME service",
+            "comments": (
+                "Proxmox VMID 107; declared by ThornixOS on 2026-08-06. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
     }
 
     vms = {}
@@ -606,14 +621,18 @@ def seed():
                 "memory": spec["memory"],
                 "disk": spec["disk"],
                 "description": spec["description"],
-                "comments": f"Proxmox VMID {spec['vmid']}; resources verified live on 2026-08-06.",
+                "comments": spec.get(
+                    "comments",
+                    f"Proxmox VMID {spec['vmid']}; resources verified live on 2026-08-06.",
+                ),
             },
         )
         interface = ensure_vm_interface(
             vm,
             description="VirtIO NIC on Proxmox vmbr0 / OPT1",
         )
-        ensure_mac(interface, spec["mac"])
+        if spec.get("mac"):
+            ensure_mac(interface, spec["mac"])
         ip = ensure_ip(
             interface,
             spec["ip"],
@@ -656,6 +675,10 @@ def seed():
         (vms["atlas"], "NetBox HTTPS", "tcp", [443], "Infrastructure source of truth"),
         (vms["atlas"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
         (vms["atlas"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["anvil"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["anvil"], "step-ca HTTPS", "tcp", [443], "Internal ACME and CA API"),
+        (vms["anvil"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["anvil"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
     )
     for parent, name, protocol, ports, description in services:
         service = ensure_service(parent, name, protocol, ports, description)
