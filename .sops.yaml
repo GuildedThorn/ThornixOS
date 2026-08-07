@@ -53,6 +53,9 @@ creation_rules:
   - path_regex: hosts/nixos/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_nixos
+  - path_regex: hosts/nixos/velociraptor-client\.sops$
+    pgp: *admin_jamie
+    age: *host_nixos
   - path_regex: hosts/websites/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_websites

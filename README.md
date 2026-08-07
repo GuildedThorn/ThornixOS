@@ -305,9 +305,29 @@ Read the generated credential and change it immediately after the first login:
 ssh root@172.16.25.57 hound-admin-password
 ```
 
-No endpoint is enrolled and no hunt or response action starts automatically.
-When ready to onboard a selected endpoint, export its deployment-specific
-client config to a new root-only file, transfer it over SSH, and use the
+The `nixos` workstation is the initial declarative canary endpoint. Its
+deployment-specific client configuration is stored only as
+`hosts/nixos/velociraptor-client.sops`, encrypted to the administrator PGP key
+and that machine's installed SSH-derived age key. At activation sops-nix
+decrypts it into `/run`; systemd copies it into the service's private
+credential directory, and no plaintext enrollment material enters a Nix store
+path. The client runs as root because host-wide forensic collection and
+response require it, but receives only process-level hardening that does not
+hide files, devices, processes, or network state from investigations.
+
+No hunt or response action starts automatically, and no other endpoint is
+enrolled yet. Verify the canary after its first deployment with:
+
+```sh
+systemctl status velociraptor-client
+journalctl -u velociraptor-client -b
+```
+
+It should then appear as `nixos` on Hound's Clients screen. The persistent
+client identity lives at `/etc/velociraptor.writeback.yaml`; never commit it,
+and preserve it when rebuilding the same endpoint to avoid creating a second
+client identity. When ready to onboard another platform, export its
+deployment-specific client config to a new root-only file and follow the
 platform-specific installer workflow in Velociraptor:
 
 ```sh
@@ -316,7 +336,7 @@ ssh root@172.16.25.57 \
 scp root@172.16.25.57:/root/hound-client.config.yaml ./
 ```
 
-Treat that client config as enrollment material and do not commit it. More
+Treat plaintext client config as enrollment material and do not commit it. More
 critically, `/var/lib/velociraptor/server.config.yaml` contains the internal CA
 private key that existing clients trust. Preserve it with the Hound datastore
 in a root-only encrypted NAS backup before enrolling important endpoints; a

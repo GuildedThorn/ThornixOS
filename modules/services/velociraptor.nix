@@ -20,30 +20,7 @@
       # static release directly, pinned by the SHA-256 published with v0.77.1.
       # The static binary keeps Hound native to systemd without introducing a
       # privileged container daemon solely for this service.
-      velociraptor = pkgs.stdenvNoCC.mkDerivation {
-        pname = "velociraptor";
-        version = "0.77.1";
-
-        src = pkgs.fetchurl {
-          url = "https://github.com/Velocidex/velociraptor/releases/download/v0.77.1/velociraptor-v0.77.1-linux-amd64-musl";
-          hash = "sha256-w54NQCd2VV01yVVd9B1ZAb+38y9Lq6HQZ5XRKGICik8=";
-        };
-
-        dontUnpack = true;
-        installPhase = ''
-          runHook preInstall
-          install -Dm0555 "$src" "$out/bin/velociraptor"
-          runHook postInstall
-        '';
-
-        meta = {
-          description = "Endpoint visibility and digital forensic collection platform";
-          homepage = "https://docs.velociraptor.app/";
-          license = lib.licenses.agpl3Only;
-          mainProgram = "velociraptor";
-          platforms = [ "x86_64-linux" ];
-        };
-      };
+      velociraptor = pkgs.callPackage ../../packages/velociraptor.nix { };
 
       # This file contains policy only. `config generate` adds the internal CA,
       # frontend and gateway private keys at first boot directly into mutable

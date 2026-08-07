@@ -3,6 +3,10 @@
   sops.defaultSopsFile = ./secrets.yaml;
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
   thorn.telemetry.enable = true;
+  thorn.velociraptorClient = {
+    enable = true;
+    sopsFile = ./velociraptor-client.sops;
+  };
 
   sops.secrets.wakatime_api_key = { };
 
