@@ -402,6 +402,7 @@
                       "https://truenas.guildedthorn.arpa/"
                       "https://truenas.guildedthorn.arpa:30304/"
                       "https://pfsense.guildedthorn.arpa/"
+                      "https://atlas.guildedthorn.arpa/"
                     ]
                     ++ lib.optional anvilCaReady "https://anvil.guildedthorn.arpa/health";
                   }
@@ -1478,9 +1479,9 @@
                           title = "TLS certificate expires within 21 days";
                           datasourceUid = "prometheus";
                           expr = ''
-                            (probe_ssl_earliest_cert_expiry - time() < 1814400)
+                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas)[.]guildedthorn[.]arpa/.*"} - time() < 1814400)
                             unless
-                            (probe_ssl_earliest_cert_expiry - time() < 604800)
+                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas)[.]guildedthorn[.]arpa/.*"} - time() < 604800)
                           '';
                           evaluator = {
                             type = "lt";
@@ -1493,7 +1494,7 @@
                           uid = "fleet-tls-expiry-critical";
                           title = "TLS certificate expires within 7 days";
                           datasourceUid = "prometheus";
-                          expr = "probe_ssl_earliest_cert_expiry - time()";
+                          expr = ''probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas)[.]guildedthorn[.]arpa/.*"} - time()'';
                           evaluator = {
                             type = "lt";
                             params = [ 604800 ];
@@ -1501,6 +1502,20 @@
                           for = "5m";
                           severity = "critical";
                           summary = "A monitored HTTPS endpoint's certificate expires within seven days or has already expired.";
+                        })
+                        (rule {
+                          uid = "fleet-internal-acme-expiry-critical";
+                          title = "Internal ACME certificate expires within 4 hours";
+                          datasourceUid = "prometheus";
+                          expr = ''probe_ssl_earliest_cert_expiry{instance=~"https://(anvil|atlas)[.]guildedthorn[.]arpa/.*"} - time()'';
+                          evaluator = {
+                            type = "lt";
+                            params = [ 14400 ];
+                          };
+                          for = "10m";
+                          noDataState = "Alerting";
+                          severity = "critical";
+                          summary = "A 24-hour Anvil certificate has less than four hours remaining; automatic renewal is not keeping pace.";
                         })
                         (rule {
                           uid = "soc-prometheus-config-reload";

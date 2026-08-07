@@ -45,14 +45,14 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Shortest TLS lifetime",
-      "description": "Lowest certificate lifetime across every HTTPS blackbox target.",
+      "title": "Shortest ACME lifetime",
+      "description": "Lowest remaining lifetime among Anvil's short-lived internal certificates. Normal operation renews them around the halfway point.",
       "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "min((probe_ssl_earliest_cert_expiry - time()) / 86400)", "instant": true }
+        { "refId": "A", "expr": "min((probe_ssl_earliest_cert_expiry{instance=~\"https://(anvil|atlas)[.]guildedthorn[.]arpa/.*\"} - time()) / 3600)", "instant": true }
       ],
-      "fieldConfig": { "defaults": { "unit": "d", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 7 }, { "color": "yellow", "value": 21 }, { "color": "green", "value": 30 }] } }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "h", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 4 }, { "color": "yellow", "value": 8 }, { "color": "green", "value": 12 }] } }, "overrides": [] },
       "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
@@ -151,11 +151,12 @@
     {
       "id": 11,
       "type": "bargauge",
-      "title": "TLS certificate lifetime",
+      "title": "Long-lived TLS certificate lifetime",
+      "description": "Public and legacy internal certificates. Anvil-managed 24-hour leaves are shown separately above.",
       "gridPos": { "x": 0, "y": 23, "w": 14, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "(probe_ssl_earliest_cert_expiry - time()) / 86400", "instant": true, "legendFormat": "{{instance}}" }
+        { "refId": "A", "expr": "(probe_ssl_earliest_cert_expiry{instance!~\"https://(anvil|atlas)[.]guildedthorn[.]arpa/.*\"} - time()) / 86400", "instant": true, "legendFormat": "{{instance}}" }
       ],
       "fieldConfig": { "defaults": { "unit": "d", "decimals": 1, "min": 0, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 7 }, { "color": "yellow", "value": 21 }, { "color": "green", "value": 30 }] } }, "overrides": [] },
       "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "reduceOptions": { "calcs": ["lastNotNull"] } }

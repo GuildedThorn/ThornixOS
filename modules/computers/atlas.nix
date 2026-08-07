@@ -9,6 +9,7 @@ in
       config.nixos.modules.thorn-core
 
       config.nixos.modules.services-canary
+      config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.services-netbox
       config.nixos.modules.services-ssh
 

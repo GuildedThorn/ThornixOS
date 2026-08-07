@@ -91,14 +91,25 @@
       # that are still empty.
       environment.systemPackages = [ netboxSeed ];
 
+      # Anvil issues a 24-hour leaf and the shared ACME module checks hourly.
+      # Seed the ACME directory with the current SOPS-backed certificate so
+      # the first migration cannot produce even a brief self-signed window.
+      thorn.acme = {
+        enable = true;
+        domain = hostname;
+        group = config.services.nginx.group;
+        reloadServices = [ "nginx.service" ];
+        bootstrapCertificate = tlsCertificate;
+        bootstrapKey = tlsKey;
+      };
+
       services.nginx = {
         recommendedGzipSettings = true;
         recommendedTlsSettings = true;
         virtualHosts.${hostname} = {
           serverName = hostname;
           forceSSL = true;
-          sslCertificate = tlsCertificate;
-          sslCertificateKey = tlsKey;
+          useACMEHost = hostname;
           extraConfig = ''
             add_header X-Content-Type-Options "nosniff" always;
             add_header Referrer-Policy "same-origin" always;
