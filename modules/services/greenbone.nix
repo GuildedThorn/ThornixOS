@@ -9,7 +9,12 @@
     }:
     let
       hostname = "sieve.guildedthorn.arpa";
-      composeFile = ./greenbone-compose.yaml;
+      # Give Compose its own content-addressed store path. Referring directly
+      # into inputs.self would change the path on every repository commit and
+      # unnecessarily restart the scanner even when this file was untouched.
+      composeFile = pkgs.writeText "thornix-sieve-greenbone-compose.yaml" (
+        builtins.readFile ./greenbone-compose.yaml
+      );
       compose = "${pkgs.docker-compose}/bin/docker-compose --project-name thornix-sieve --file ${composeFile}";
       lockFile = "/run/lock/sieve-greenbone.lock";
       stateDirectory = "/var/lib/sieve";
@@ -234,12 +239,18 @@
             "docker.service"
             "network-online.target"
           ];
+          unitConfig = {
+            StartLimitBurst = 3;
+            StartLimitIntervalSec = "20min";
+          };
           restartTriggers = [ composeFile ];
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
             ExecStart = stackStart;
             ExecStop = "-${stackStop}";
+            Restart = "on-failure";
+            RestartSec = "30s";
             TimeoutStartSec = "45min";
             TimeoutStopSec = "2min";
           };

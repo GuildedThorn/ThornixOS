@@ -1,9 +1,0 @@
-# Rename this file to telemetry.nix only after Sieve's SSH-derived age
-# recipient has been added to .sops.yaml and telemetry-secrets.yaml has been
-# rewrapped. The computer and SOC modules detect that enrollment file together,
-# preventing a first boot from failing or creating false missing-log alerts.
-{ ... }:
-{
-  sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
-  thorn.telemetry.enable = true;
-}

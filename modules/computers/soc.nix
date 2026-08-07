@@ -53,9 +53,11 @@
           anvilCaReady =
             builtins.pathExists "${inputs.self}/certs/anvil-intermediate.crt"
             && builtins.pathExists "${inputs.self}/hosts/anvil/secrets.yaml";
-          # Do not create down targets or missing-log alerts before Sieve has
-          # been provisioned and its shared telemetry identity rewrapped.
+          # Do not create down targets or missing-log alerts before a staged
+          # host has been provisioned and its shared telemetry identity
+          # rewrapped to the installed SSH host key.
           sieveTelemetryReady = builtins.pathExists "${inputs.self}/hosts/sieve/telemetry.nix";
+          houndTelemetryReady = builtins.pathExists "${inputs.self}/hosts/hound/telemetry.nix";
 
           # Both public telemetry ports use the same server identity and
           # ThornCloud_CA client trust. The per-location CN checks below
@@ -146,6 +148,10 @@
           ++ lib.optional sieveTelemetryReady {
             journalHost = "sieve";
             metricsHost = "sieve.guildedthorn.arpa";
+          }
+          ++ lib.optional houndTelemetryReady {
+            journalHost = "hound";
+            metricsHost = "hound.guildedthorn.arpa";
           };
           fleetJournalHosts = map (host: host.journalHost) (
             lib.filter (host: host.shipsJournal or true) fleet
@@ -165,7 +171,8 @@
             "atlas"
           ]
           ++ lib.optional anvilCaReady "anvil"
-          ++ lib.optional sieveTelemetryReady "sieve";
+          ++ lib.optional sieveTelemetryReady "sieve"
+          ++ lib.optional houndTelemetryReady "hound";
         in
         {
           # Headless: nobody logs in interactively, so the default
@@ -413,7 +420,8 @@
                       "https://atlas.guildedthorn.arpa/"
                     ]
                     ++ lib.optional anvilCaReady "https://anvil.guildedthorn.arpa/health"
-                    ++ lib.optional sieveTelemetryReady "https://sieve.guildedthorn.arpa/";
+                    ++ lib.optional sieveTelemetryReady "https://sieve.guildedthorn.arpa/"
+                    ++ lib.optional houndTelemetryReady "https://hound.guildedthorn.arpa/";
                   }
                 ];
                 relabel_configs = [
@@ -450,7 +458,16 @@
                   { targets = fleetMetricsTargets "4243"; }
                 ];
               }
-            ];
+            ]
+            ++ lib.optional houndTelemetryReady {
+              # Velociraptor's native Prometheus listener is reachable only
+              # from SOC at the host firewall. Keep it separate from node
+              # metrics so endpoint connection and collection activity remain
+              # easy to query and can use a slower cadence.
+              job_name = "velociraptor";
+              scrape_interval = "60s";
+              static_configs = [ { targets = [ "hound.guildedthorn.arpa:8003" ]; } ];
+            };
           };
 
           # Authenticated ingress for the two telemetry backends. Loki and
@@ -1488,9 +1505,9 @@
                           title = "TLS certificate expires within 21 days";
                           datasourceUid = "prometheus";
                           expr = ''
-                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve)[.]guildedthorn[.]arpa/.*"} - time() < 1814400)
+                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound)[.]guildedthorn[.]arpa/.*"} - time() < 1814400)
                             unless
-                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve)[.]guildedthorn[.]arpa/.*"} - time() < 604800)
+                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound)[.]guildedthorn[.]arpa/.*"} - time() < 604800)
                           '';
                           evaluator = {
                             type = "lt";
@@ -1503,7 +1520,7 @@
                           uid = "fleet-tls-expiry-critical";
                           title = "TLS certificate expires within 7 days";
                           datasourceUid = "prometheus";
-                          expr = ''probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve)[.]guildedthorn[.]arpa/.*"} - time()'';
+                          expr = ''probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound)[.]guildedthorn[.]arpa/.*"} - time()'';
                           evaluator = {
                             type = "lt";
                             params = [ 604800 ];
@@ -1516,7 +1533,7 @@
                           uid = "fleet-internal-acme-expiry-critical";
                           title = "Internal ACME certificate expires within 4 hours";
                           datasourceUid = "prometheus";
-                          expr = ''probe_ssl_earliest_cert_expiry{instance=~"https://(anvil|atlas|sieve)[.]guildedthorn[.]arpa/.*"} - time()'';
+                          expr = ''probe_ssl_earliest_cert_expiry{instance=~"https://(anvil|atlas|sieve|hound)[.]guildedthorn[.]arpa/.*"} - time()'';
                           evaluator = {
                             type = "lt";
                             params = [ 14400 ];
@@ -1849,7 +1866,7 @@
                           uid = "siem-comin-fetch-failed";
                           title = "comin cannot fetch on an always-on host";
                           datasourceUid = "prometheus";
-                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites|atlas|anvil${lib.optionalString sieveTelemetryReady "|sieve"})[.]guildedthorn[.]arpa:4243"}'';
+                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites|atlas|anvil${lib.optionalString sieveTelemetryReady "|sieve"}${lib.optionalString houndTelemetryReady "|hound"})[.]guildedthorn[.]arpa:4243"}'';
                           evaluator = {
                             type = "gt";
                             params = [ 0 ];

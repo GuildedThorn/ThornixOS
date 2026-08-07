@@ -212,6 +212,7 @@ def seed():
         "inventory": ("Infrastructure Inventory", "4caf50", True),
         "pki": ("Certificate Authority", "795548", True),
         "vulnerability": ("Vulnerability Management", "c62828", True),
+        "endpoint-response": ("Endpoint Detection & Response", "ef6c00", True),
     }
     roles = {
         key: ensure(
@@ -617,6 +618,20 @@ def seed():
                 "The VM MAC must be inventoried after guarded provisioning."
             ),
         },
+        "hound": {
+            "role": roles["endpoint-response"],
+            "vcpus": 4,
+            "memory": 8192,
+            "disk": 81920,
+            "start_on_boot": "on",
+            "ip": "172.16.25.57/24",
+            "vmid": 109,
+            "description": "Velociraptor endpoint visibility and forensic response",
+            "comments": (
+                "Proxmox VMID 109; declared by ThornixOS on 2026-08-07. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
     }
 
     vms = {}
@@ -698,6 +713,12 @@ def seed():
         (vms["sieve"], "Greenbone HTTPS", "tcp", [443], "Vulnerability-management web UI"),
         (vms["sieve"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
         (vms["sieve"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["hound"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["hound"], "Velociraptor HTTPS", "tcp", [443], "Endpoint-response web UI"),
+        (vms["hound"], "Velociraptor frontend", "tcp", [8000], "Encrypted endpoint client channel"),
+        (vms["hound"], "Velociraptor metrics", "tcp", [8003], "SOC-only application metrics"),
+        (vms["hound"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["hound"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
     )
     for parent, name, protocol, ports, description in services:
         service = ensure_service(parent, name, protocol, ports, description)

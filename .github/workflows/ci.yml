@@ -77,6 +77,7 @@ jobs:
           - anvil
           - atlas
           - firewall
+          - hound
           - identity
           - mac
           - mitm

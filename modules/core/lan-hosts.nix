@@ -20,6 +20,7 @@
         "172.16.25.54" = [ "atlas.guildedthorn.arpa" ];
         "172.16.25.55" = [ "anvil.guildedthorn.arpa" ];
         "172.16.25.56" = [ "sieve.guildedthorn.arpa" ];
+        "172.16.25.57" = [ "hound.guildedthorn.arpa" ];
       };
     };
 }

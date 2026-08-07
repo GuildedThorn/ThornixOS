@@ -28,6 +28,11 @@ services:
     image: registry.community.greenbone.net/community/scap-data
     environment:
       KEEP_ALIVE: "1"
+    # The image allows only 15 seconds before failed health checks count.
+    # Initial SCAP extraction can take minutes on a fresh volume; a successful
+    # check still ends this grace period immediately.
+    healthcheck:
+      start_period: 10m
     volumes:
       - scap_data_vol:/mnt
 

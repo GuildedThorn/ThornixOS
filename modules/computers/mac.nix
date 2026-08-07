@@ -99,6 +99,10 @@
                   title = "sieve";
                   role = "vulnerability-scanner";
                 };
+                "172.16.25.57" = {
+                  title = "hound";
+                  role = "endpoint-response";
+                };
               };
             };
           };

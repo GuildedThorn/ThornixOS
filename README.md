@@ -32,6 +32,7 @@ hosts/<host>/              per-host data: hardware-configuration, disko,
 | `atlas` | Proxmox VM running NetBox as the infrastructure inventory/IPAM source of truth |
 | `anvil` | Proxmox VM running the online ThornCloud issuing CA and internal ACME endpoint |
 | `sieve` | Proxmox VM running Greenbone vulnerability management and active assessment |
+| `hound` | Proxmox VM running Velociraptor endpoint visibility and forensic response |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -70,12 +71,15 @@ thornix-provision atlas
 thornix-provision anvil
 # or
 thornix-provision sieve
+# or
+thornix-provision hound
 ```
 
 The currently declared profiles are soc (VM 103, `172.16.25.51`, 60 GiB),
-identity (VM 104, `172.16.25.52`, 40 GiB), and pixie (VM 105,
+identity (VM 104, `172.16.25.52`, 40 GiB), pixie (VM 105,
 `172.16.25.53`, 20 GiB), atlas (VM 106, `172.16.25.54`, 40 GiB), anvil
-(VM 107, `172.16.25.55`, 20 GiB), and sieve (VM 108, `172.16.25.56`, 60 GiB).
+(VM 107, `172.16.25.55`, 20 GiB), sieve (VM 108, `172.16.25.56`, 60 GiB),
+and hound (VM 109, `172.16.25.57`, 80 GiB).
 The utility prebuilds the promoted closure,
 boots a key-only static-IP installer, verifies the Proxmox ownership marker,
 NIC MAC, ISO label, disk serial and disk size, and then runs Disko plus
@@ -260,14 +264,72 @@ the LAN net (`192.168.1.0/24`); do not add a WAN inbound rule or authorize
 public ranges as scan targets. Container status and manual feed refreshes are
 available through `sieve-compose ps` and `sieve-update-feeds`.
 
-Telemetry enrollment is deliberately a post-install step because the SOPS age
-recipient comes from Sieve's real SSH host key. Add that recipient to
-`.sops.yaml`, rewrap `hosts/shared/telemetry-secrets.yaml`, then rename
-`hosts/sieve/telemetry.nix.example` to `hosts/sieve/telemetry.nix` and push.
-That single enrollment marker enables Alloy, the detection canary, SOC node
-and comin targets, the HTTPS blackbox probe, and log-silence monitoring without
-creating false alerts while the VM is absent. Rerun `thornix-netbox-seed` on
-Atlas after deployment to add Sieve to the authoritative inventory.
+Sieve telemetry is encrypted to its SSH-derived age recipient. The dedicated
+`hosts/sieve/telemetry.nix` enrollment marker enables Alloy, the detection
+canary, SOC node and comin targets, the HTTPS blackbox probe, and log-silence
+monitoring atomically. If Sieve's SSH host key is ever replaced, update its
+recipient in `.sops.yaml` and rewrap `hosts/shared/telemetry-secrets.yaml`
+before deploying the new key. Rerun `thornix-netbox-seed` on Atlas after
+deployment to add Sieve to the authoritative inventory.
+
+### Hound endpoint visibility and response
+
+Hound runs Velociraptor at `https://hound.guildedthorn.arpa/`. The browser GUI
+is loopback-only behind nginx and a short-lived ThornCloud_CA certificate;
+firewall rules and a second nginx ACL admit only OPT1, LAN, and ThornVPN. The
+separate encrypted endpoint frontend listens on TCP 8000 for enrolled clients.
+Prometheus metrics on TCP 8003 accept only SOC as a source.
+
+The checked-in Nix configuration contains policy but no Velociraptor secrets.
+At first boot Hound generates its internal CA, frontend keys, gateway keys,
+datastore, and a high-entropy `admin` password directly under mode-0700,
+service-owned VM state. Rebuilds reapply declarative listener/resource policy
+while preserving that generated trust. The service runs as an unprivileged
+user under systemd hardening; nginx stays fail-closed until the administrator
+record exists. First boot reissues only the generated frontend and gateway
+certificates to match the internal CA's ten-year lifetime; the health timer
+warns through systemd/SOC if that client-facing certificate ever falls below
+30 days. Anvil's separate browser certificate still renews every 24 hours.
+
+After CI promotes `deploy-mac` and `deploy-hound`, add a pfSense host override
+for `hound.guildedthorn.arpa` at `172.16.25.57`, then provision it from mac:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision hound
+```
+
+Read the generated credential and change it immediately after the first login:
+
+```sh
+ssh root@172.16.25.57 hound-admin-password
+```
+
+No endpoint is enrolled and no hunt or response action starts automatically.
+When ready to onboard a selected endpoint, export its deployment-specific
+client config to a new root-only file, transfer it over SSH, and use the
+platform-specific installer workflow in Velociraptor:
+
+```sh
+ssh root@172.16.25.57 \
+  hound-export-client-config /root/hound-client.config.yaml
+scp root@172.16.25.57:/root/hound-client.config.yaml ./
+```
+
+Treat that client config as enrollment material and do not commit it. More
+critically, `/var/lib/velociraptor/server.config.yaml` contains the internal CA
+private key that existing clients trust. Preserve it with the Hound datastore
+in a root-only encrypted NAS backup before enrolling important endpoints; a
+newly generated replacement config is a different deployment and existing
+clients will not trust it.
+
+Telemetry enrollment remains two-stage. After provisioning, verify Hound's
+installed ed25519 SSH host-key fingerprint, add its `ssh-to-age` recipient to
+`.sops.yaml`, rewrap `hosts/shared/telemetry-secrets.yaml`, and copy
+`hosts/hound/telemetry.nix.example` to `hosts/hound/telemetry.nix`. That marker
+atomically enables Alloy, the audit canary, node/comin/Velociraptor scrapes,
+HTTPS probing, and missing-log alerts. Rerun `thornix-netbox-seed` on Atlas to
+materialize VM 109 and its services in NetBox.
 
 ## guildedthorn.com
 
@@ -307,7 +369,7 @@ installed/enrolled host ships logs to it, and it pulls metrics back.
   `thorn-core`): `node_exporter` exposes metrics on :9100 only to the SOC,
   and auditd adds a baseline of security rules (identity/sudoers/sshd
   changes, module loads, privilege exec, and `execve`).
-- **nixos, mac, scout, soc, websites, atlas, anvil** (`thorn.telemetry.enable = true`):
+- **nixos, mac, scout, soc, websites, atlas, anvil, sieve, hound** (`thorn.telemetry.enable = true`):
   Grafana Alloy tails the systemd journal and pushes it to Loki using the
   fleet writer certificate. Enrollment is explicit because a host must be a
   recipient of `hosts/shared/telemetry-secrets.yaml`; there is no plaintext
@@ -318,7 +380,8 @@ installed/enrolled host ships logs to it, and it pulls metrics back.
   while headless hosts set `"all"`. That distinction matters — under
   `"sessions"` a server with no interactive logins records *nothing*, which
   is precisely where a compromised service would run.
-- **mac, soc, websites, atlas, anvil** (via `services-canary`): a uniquely-named
+- **mac, soc, websites, atlas, anvil, sieve, hound** (via
+  `services-canary`): a uniquely-named
   probe runs every 10 minutes, and an alert fires if its `execve` record
   doesn't reach Loki. This is the only check that tests the detection pipeline
   instead of reporting through it — the probe emits no log output of its own, so it can
