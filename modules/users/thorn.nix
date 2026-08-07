@@ -1,11 +1,29 @@
 { config, inputs, ... }:
 let
   homeManagerThorn = config.homeManager.modules.thorn;
+  fleet = import ../../hosts/inventory.nix;
 in
 {
   nixos.modules.thorn-user =
-    { pkgs, config, ... }:
     {
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
+    let
+      hostName = config.networking.hostName;
+      host = fleet.${hostName} or null;
+      deployment = if host == null then { enable = false; } else host.deployment;
+    in
+    {
+
+      assertions = [
+        {
+          assertion = host != null;
+          message = "${hostName} is missing from hosts/inventory.nix";
+        }
+      ];
 
       home-manager.users.thorn = homeManagerThorn;
 
@@ -116,18 +134,17 @@ in
 
       #services.kmscon.enable = true;
 
-      services.comin = {
+      services.comin = lib.mkIf deployment.enable {
         enable = true;
-        desktop.enable = true;
+        desktop.enable = host.class == "workstation" || host.class == "laptop";
         remotes = [
           {
             name = "origin";
             url = "https://github.com/GuildedThorn/ThornixOS.git";
-            # Each host follows its own deploy-<hostname> branch instead of
-            # main directly — CI only fast-forwards it once that specific
-            # host's build passes (see .github/workflows/ci.yml), so a host
-            # never deploys a config that hasn't been proven to evaluate.
-            branches.main.name = "deploy-${config.networking.hostName}";
+            # Every production host follows the same immutable promotion
+            # pointer. Hydra proves the complete fleet first, and Cachix has
+            # the exact closure before Forge advances this branch.
+            branches.main.name = deployment.branch;
           }
         ];
       };

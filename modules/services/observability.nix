@@ -53,8 +53,8 @@
         # A NixOS closure build normally validates only the Nix expression;
         # embedded Alloy syntax and component selectors are parsed at runtime.
         # Make the ordinary per-host CI build depend on validation of the exact
-        # assembled /etc/alloy directory so an invalid config never reaches a
-        # deploy branch. Validating the directory also catches duplicate or
+        # assembled /etc/alloy directory so an invalid config never reaches
+        # production. Validating the directory also catches duplicate or
         # broken cross-file component references.
         (lib.mkIf config.services.alloy.enable {
           system.checks = [ alloyConfigCheck ];

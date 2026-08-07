@@ -1,3 +1,25 @@
+let
+  fleet = import ../../hosts/inventory.nix;
+  managedHosts = builtins.listToAttrs (
+    builtins.concatLists (
+      builtins.map (
+        name:
+        let
+          host = fleet.${name};
+        in
+        if host.address != null && host.fqdn != null then
+          [
+            {
+              name = host.address;
+              value = [ host.fqdn ];
+            }
+          ]
+        else
+          [ ]
+      ) (builtins.attrNames fleet)
+    )
+  );
+in
 {
   # Fixed /etc/hosts entries for the LAN's static addresses. pfSense's
   # Unbound is authoritative for guildedthorn.arpa, but not every host
@@ -10,20 +32,8 @@
     {
       networking.hosts = {
         "172.16.25.1" = [ "pfsense.guildedthorn.arpa" ];
-        "172.16.25.2" = [ "mitm.guildedthorn.arpa" ];
-        "172.16.25.3" = [ "proxmox.guildedthorn.arpa" ];
         "172.16.25.4" = [ "truenas.guildedthorn.arpa" ];
-        "172.16.25.50" = [ "websites.guildedthorn.arpa" ];
-        "172.16.25.51" = [ "soc.guildedthorn.arpa" ];
-        "172.16.25.52" = [ "identity.guildedthorn.arpa" ];
-        "172.16.25.53" = [ "pixie.guildedthorn.arpa" ];
-        "172.16.25.54" = [ "atlas.guildedthorn.arpa" ];
-        "172.16.25.55" = [ "anvil.guildedthorn.arpa" ];
-        "172.16.25.56" = [ "sieve.guildedthorn.arpa" ];
-        "172.16.25.57" = [ "hound.guildedthorn.arpa" ];
-        "172.16.25.58" = [ "lure.guildedthorn.arpa" ];
-        "172.16.25.59" = [ "casebook.guildedthorn.arpa" ];
-        "172.16.25.60" = [ "oracle.guildedthorn.arpa" ];
-      };
+      }
+      // managedHosts;
     };
 }

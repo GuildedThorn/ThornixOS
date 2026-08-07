@@ -216,6 +216,7 @@ def seed():
         "deception": ("Deception Sensor", "ff7043", True),
         "incident-response": ("Incident Response", "5c6bc0", True),
         "threat-intelligence": ("Threat Intelligence", "00897b", True),
+        "continuous-integration": ("Continuous Integration", "3949ab", True),
     }
     roles = {
         key: ensure(
@@ -639,7 +640,7 @@ def seed():
             "role": roles["deception"],
             "vcpus": 1,
             "memory": 2048,
-            "disk": 10240,
+            "disk": 20480,
             "start_on_boot": "on",
             "ip": "172.16.25.58/24",
             "vmid": 110,
@@ -674,6 +675,20 @@ def seed():
             "description": "OpenCTI threat-intelligence platform and enrichment workers",
             "comments": (
                 "Proxmox VMID 112; declared by ThornixOS on 2026-08-07. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
+        "forge": {
+            "role": roles["continuous-integration"],
+            "vcpus": 8,
+            "memory": 16384,
+            "disk": 204800,
+            "start_on_boot": "on",
+            "ip": "172.16.25.61/24",
+            "vmid": 113,
+            "description": "Hydra CI, Cachix publication, and production promotion",
+            "comments": (
+                "Proxmox VMID 113; declared by ThornixOS on 2026-08-07. "
                 "The VM MAC must be inventoried after guarded provisioning."
             ),
         },
@@ -789,6 +804,10 @@ def seed():
         (vms["oracle"], "OpenCTI HTTPS", "tcp", [443], "Threat-intelligence web UI and API"),
         (vms["oracle"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
         (vms["oracle"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["forge"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["forge"], "Hydra HTTPS", "tcp", [443], "Continuous-integration web UI"),
+        (vms["forge"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["forge"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
     )
     for parent, name, protocol, ports, description in services:
         service = ensure_service(parent, name, protocol, ports, description)

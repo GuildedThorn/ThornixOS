@@ -19,6 +19,7 @@ modules/
   desktop/  graphics/  processor/  services/  home-manager/  users/
 hosts/<host>/              per-host data: hardware-configuration, disko,
                            networking, secrets.nix + secrets.yaml (sops)
+hosts/inventory.nix        authoritative production/deployment/monitoring membership
 ```
 
 ## Hosts
@@ -36,6 +37,7 @@ hosts/<host>/              per-host data: hardware-configuration, disko,
 | `lure` | Proxmox VM running an OpenCanary internal deception sensor |
 | `casebook` | Proxmox VM running TheHive incident-response and case management |
 | `oracle` | Proxmox VM running OpenCTI threat-intelligence aggregation and enrichment |
+| `forge` | Proxmox VM running Hydra CI, Cachix publication, and production promotion |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -46,21 +48,28 @@ hosts/<host>/              per-host data: hardware-configuration, disko,
 Bootstrap a host once by hand; after that comin owns it (next section):
 
 ```sh
-nixos-rebuild switch --flake github:GuildedThorn/ThornixOS#<host>
+nixos-rebuild switch --flake github:GuildedThorn/ThornixOS/production#<host>
 ```
 
 ## Deployment (GitOps via comin)
 
-Every host runs [comin](https://github.com/nlewo/comin) watching this repo's
-`main` branch. Push to `main` and each machine pulls, builds its own
-`nixosConfigurations.<hostname>`, and switches — no push-based deploys, no SSH
-from CI. Activation is diff-based: a commit that doesn't change a host's
-closure is a no-op for it, and a failed build leaves the old generation
-running.
+Every production host runs [comin](https://github.com/nlewo/comin) watching
+the shared `production` branch. `main` is never deployed directly: Forge's
+Hydra jobset first builds every production `nixosConfiguration`, the complete
+aggregate closure is confirmed in Cachix, and only then does Forge
+fast-forward `production` to that exact commit. Each machine substitutes its
+prebuilt closure and activates locally — no push-based deploys and no
+fleet-wide SSH credential on Forge. Offline hosts converge when they return;
+a failed activation leaves the previous generation running.
+
+`hosts/inventory.nix` is the single membership source for Hydra jobs, the
+promotion gate, comin branch selection, static managed-host DNS, the mac
+topology graph, and SOC fleet monitoring. Templates and tests are still Hydra
+validation jobs, but are deliberately excluded from the production aggregate.
 
 ### One-shot VM installs from `mac`
 
-Once CI has promoted `deploy-mac` and the new VM's deploy branch, open an
+Once CI has promoted `production`, open an
 agent-forwarded session to the hypervisor and run the mac-only provisioner:
 
 ```sh
@@ -82,6 +91,8 @@ thornix-provision lure
 thornix-provision casebook
 # or
 thornix-provision oracle
+# or
+thornix-provision forge
 ```
 
 The currently declared profiles are soc (VM 103, `172.16.25.51`, 60 GiB),
@@ -89,8 +100,9 @@ identity (VM 104, `172.16.25.52`, 40 GiB), pixie (VM 105,
 `172.16.25.53`, 20 GiB), atlas (VM 106, `172.16.25.54`, 40 GiB), anvil
 (VM 107, `172.16.25.55`, 20 GiB), sieve (VM 108, `172.16.25.56`, 60 GiB),
 hound (VM 109, `172.16.25.57`, 80 GiB), lure (VM 110,
-`172.16.25.58`, 10 GiB), casebook (VM 111, `172.16.25.59`, 100 GiB), and
-oracle (VM 112, `172.16.25.60`, 150 GiB).
+`172.16.25.58`, 20 GiB), casebook (VM 111, `172.16.25.59`, 100 GiB), and
+oracle (VM 112, `172.16.25.60`, 150 GiB), and Forge (VM 113,
+`172.16.25.61`, 200 GiB).
 The utility prebuilds the promoted closure,
 boots a key-only static-IP installer, verifies the Proxmox ownership marker,
 NIC MAC, ISO label, disk serial and disk size, and then runs Disko plus
@@ -106,7 +118,7 @@ provisioner validates that VMIDs, addresses, and disk serials are unique and
 generates the installer and `thornix-provision <name>` entry without a shell
 code change. The host must also expose `nixosConfigurations.<name>` with a
 Disko script targeting `/dev/sda`; the default deploy source is
-`deploy-<name>#<name>`.
+`production#<name>`.
 
 ### Pixie network boot
 
@@ -169,8 +181,8 @@ with a seven-day maximum.
 Onboarding is intentionally two-stage because the final SOPS recipient is
 derived from the installed VM's real SSH host key:
 
-1. Commit and push the bootstrap configuration, wait for `deploy-mac` and
-   `deploy-anvil`, then run `thornix-provision anvil` from an agent-forwarded
+1. Commit and push the bootstrap configuration, wait for `production`, then
+   run `thornix-provision anvil` from an agent-forwarded
    root session on mac. The first closure contains no CA private material and
    leaves `step-ca` disabled.
 2. From the workstation, capture the installed ed25519 host key. Compare the
@@ -227,7 +239,7 @@ derived from the installed VM's real SSH host key:
    ciphertext, and the public intermediate certificate. Delete the temporary
    plaintext password and encrypted-key working copy after confirming SOPS can
    decrypt it. CI verifies the chain, expiry, and pathLen before promoting
-   `deploy-anvil`; comin then activates `step-ca` on the bootstrap VM.
+   `production`; comin then activates `step-ca` on the bootstrap VM.
 
 Add a pfSense DNS override for `anvil.guildedthorn.arpa` at `172.16.25.55`.
 Only the trusted internal subnets can reach SSH or the CA, while node/comin
@@ -249,7 +261,7 @@ TLS listener is published only on loopback. Executable container images are
 pinned to reviewed linux/amd64 manifests; a daily timer refreshes only the
 rolling Community Feed data images.
 
-Push the configuration and wait for both `deploy-mac` and `deploy-sieve`, add
+Push the configuration and wait for `production`, add
 a pfSense host override for `sieve.guildedthorn.arpa` at `172.16.25.56`, then
 provision from the hypervisor:
 
@@ -302,7 +314,7 @@ certificates to match the internal CA's ten-year lifetime; the health timer
 warns through systemd/SOC if that client-facing certificate ever falls below
 30 days. Anvil's separate browser certificate still renews every 24 hours.
 
-After CI promotes `deploy-mac` and `deploy-hound`, add a pfSense host override
+After CI promotes `production`, add a pfSense host override
 for `hound.guildedthorn.arpa` at `172.16.25.57`, then provision it from mac:
 
 ```sh
@@ -372,7 +384,7 @@ Scout's VPN address. Instrumented FTP, Telnet, HTTP(S), proxy, SQL, alternate
 SSH, Redis, RDP, VNC, MongoDB, Git, NTP, TFTP, and SIP ports are reachable
 only from the trusted internal subnets. Nothing is exposed from WAN.
 
-Provision it after `deploy-mac` and `deploy-lure` land:
+Provision it after `production` lands:
 
 ```sh
 ssh -A root@172.16.25.3
@@ -408,11 +420,13 @@ provisioning so Anvil ACME renewal and browser access use the same name.
 
 ### Oracle threat intelligence
 
-Oracle runs the OpenCTI LTS platform at `https://oracle.guildedthorn.arpa/`
+Oracle runs the OpenCTI Community platform at `https://oracle.guildedthorn.arpa/`
 with two workers plus the OpenCTI datasets and MITRE ATT&CK connectors. Redis,
 Elasticsearch, MinIO, RabbitMQ, and all worker traffic remain on a private
 Docker network; only nginx HTTPS is reachable from the trusted internal
 subnets. Container executables are pinned to reviewed linux/amd64 manifests.
+Oracle deliberately uses a pinned non-LTS Community Edition release: OpenCTI's
+LTS image channel requires a separate Filigran LTS license key.
 API tokens, the encryption key, service passwords, connector UUIDs, and the
 initial administrator credential are generated into mode-0700 VM state on
 first boot, never placed in Git or the Nix store.
@@ -437,6 +451,95 @@ and Sieve pattern. That single marker atomically adds
 Alloy, the detection canary, SOC node/comin/log-silence monitoring, and—for
 Casebook and Oracle—the HTTPS blackbox probe. Then rerun
 `thornix-netbox-seed` on Atlas to materialize VMs 110–112 and their services.
+
+### Forge continuous delivery
+
+Forge runs Hydra behind ThornCloud TLS at
+`https://forge.guildedthorn.arpa/`. Hydra evaluates the flake's `hydraJobs`:
+production hosts are constituents of `required`, while templates and test
+machines build under `validation` without blocking deployment. Forge builds
+locally today; additional Nix build machines can be attached later without
+changing the promotion or comin design.
+
+Provision VM 113 after the GitHub bootstrap workflow has created and promoted
+the shared `production` branch:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision forge
+```
+
+Add the pfSense override `forge.guildedthorn.arpa -> 172.16.25.61`. Then verify
+Forge's installed SSH key, derive its age recipient, add `&host_forge` and a
+`hosts/forge/secrets.yaml` creation rule to `.sops.yaml`, and create this SOPS
+file:
+
+```yaml
+cachix_auth_token: "..."
+github_deploy_key: |
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  ...
+  -----END OPENSSH PRIVATE KEY-----
+```
+
+Generate a dedicated passwordless Ed25519 key on the workstation, not on
+Forge, and add only its public half under **ThornixOS → Settings → Deploy
+keys** with **Allow write access** enabled:
+
+```sh
+ssh-keygen -t ed25519 -N '' -C forge-production-promoter \
+  -f /tmp/thornix-forge-deploy
+```
+
+Paste the complete private key block into SOPS as `github_deploy_key`; never
+paste it into GitHub or plaintext Git. The key can access only this repository,
+and Forge pins GitHub's published Ed25519 host key before using it. The Cachix
+credential needs write access to `guildedthorn.cachix.org`. Both secrets reach
+the promoter through systemd credentials rather than the Nix store. Remove the
+temporary key files after confirming SOPS can decrypt the committed ciphertext.
+Commit the SOPS ciphertext while GitHub bootstrap CI is still enabled so comin
+can activate the uploader and promoter.
+
+Create the first Hydra administrator:
+
+```sh
+ssh -t root@172.16.25.61 \
+  'sudo -u hydra hydra-create-user thorn \
+    --full-name Thorn --email-address admin@guildedthorn.com \
+    --password-prompt --role admin'
+```
+
+In Hydra, create project `thornixos`, then jobset `main` with type **Flake**,
+flake URI `github:GuildedThorn/ThornixOS/main`, a 60-second check interval, and
+five retained evaluations. Do not add deployment credentials to Hydra itself:
+the separate, sandboxed `thornix-promote-production` service only accepts an
+exact-revision aggregate already present in Forge's Nix store, synchronously
+confirms its closure in Cachix, and performs a fast-forward-only production
+push with the repository-scoped deploy key. The revision stamp lets the
+promoter identify completed Hydra results without re-evaluating the fleet.
+Forge runs at most two four-core local builds, updates Hydra's retained GC
+roots twice daily, and collects unreferenced build paths daily so the 200 GiB
+store does not fill with transient artifacts.
+
+After the `required` job succeeds, verify the handoff:
+
+```sh
+systemctl status thornix-promote-production.timer
+journalctl -u thornix-promote-production.service -n 100 --no-pager
+git ls-remote https://github.com/GuildedThorn/ThornixOS.git \
+  refs/heads/main refs/heads/production
+```
+
+Only after those refs match and at least one host has activated through comin,
+retire GitHub's temporary host-build matrix:
+
+```sh
+gh variable set FORGE_CI_ENABLED --body true \
+  --repo GuildedThorn/ThornixOS
+```
+
+GitHub continues its lightweight flake evaluation on pushes and pull requests;
+Forge owns fleet builds, Cachix publication, and promotion from that point on.
 
 ## guildedthorn.com
 
@@ -581,8 +684,21 @@ the way `services-suricata` does.
 
 ## CI
 
-GitHub Actions runs `nix flake check` and dry-run-builds every host's
-toplevel on each push/PR (`.github/workflows/ci.yml`).
+GitHub Actions performs lock hygiene and evaluates every declared
+configuration on pushes and pull requests (`.github/workflows/ci.yml`). Until
+Forge is proven, it also derives the production matrix from
+`hosts/inventory.nix`, builds every production system, uploads through Cachix,
+and advances `production` only after the complete matrix succeeds. Its first
+promotion atomically creates `production` and advances the legacy per-host
+branches so no running comin instance can switch to a branch that does not yet
+exist.
+
+After `FORGE_CI_ENABLED=true`, Hydra builds the `hydraJobs.production` and
+`hydraJobs.validation` sets. The `hydraJobs.required` aggregate is the only
+promotion gate; Forge confirms that exact closure in Cachix before a
+fast-forward-only branch update. Do not delete the legacy `deploy-*` branches
+until every installed host reports the shared production revision in the
+Fleet Deploys dashboard.
 
 ## Secrets (sops)
 

@@ -66,7 +66,7 @@
       "id": 3,
       "type": "stat",
       "title": "Failed builds / evals",
-      "description": "The pushed commit never became a system on this host. CI gates deploy branches, so this usually means a host-specific failure CI could not catch.",
+      "description": "The promoted commit never became a system on this host. Hydra gates the shared production branch, so this usually means an activation or host-local failure.",
       "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -119,7 +119,7 @@
       "id": 5,
       "type": "table",
       "title": "Deployed commit by host",
-      "description": "Compare these commit ids against the tip of each deploy-<hostname> branch. A host missing from this table entirely is not reporting comin metrics at all. KNOWN FALSE POSITIVE, verified on scout 2026-07-18: when a deploy restarts comin itself, the new comin process re-initialises from its store and records a dummy deployment pointing at the PRE-deploy storepath — so this column can show the OLD commit while the host is genuinely running the new one. The failure tiles stay accurate; it is only the commit id that goes stale. Before concluding a host did not deploy, confirm against something from the deploy itself (a file the change touched, or the system generation) rather than trusting this column alone — it fails in the direction of reporting a successful deploy as a missing one.",
+      "description": "Compare these commit ids against the tip of the shared production branch. A host missing from this table entirely is not reporting comin metrics at all. KNOWN FALSE POSITIVE, verified on scout 2026-07-18: when a deploy restarts comin itself, the new comin process re-initialises from its store and records a dummy deployment pointing at the PRE-deploy storepath — so this column can show the OLD commit while the host is genuinely running the new one. The failure tiles stay accurate; it is only the commit id that goes stale. Before concluding a host did not deploy, confirm against something from the deploy itself (a file the change touched, or the system generation) rather than trusting this column alone — it fails in the direction of reporting a successful deploy as a missing one.",
       "gridPos": { "x": 0, "y": 6, "w": 24, "h": 9 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [

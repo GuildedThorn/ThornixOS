@@ -13,7 +13,7 @@ Recommended remote session:
 
 Options:
   --flake URI          Flake URI selecting the named profile output.
-                       Default: the profile's promoted deploy branch.
+                       Default: the shared promoted production branch.
   --identity-file PATH Private SSH key used for bootstrap and final checks.
                        Prefer an ssh-agent for passphrase-protected keys.
   --resume             Resume only a VM previously created by this utility.
@@ -594,7 +594,7 @@ if ! $vm_exists; then
 fi
 
 # Both derivations are realized before confirmation or VM creation. A missing
-# deploy branch, evaluation failure, or cache/build failure therefore cannot
+# production branch, evaluation failure, or cache/build failure therefore cannot
 # leave behind a half-created guest or an erased disk.
 build_install_closure
 confirm_destruction

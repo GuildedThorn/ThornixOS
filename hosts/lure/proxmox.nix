@@ -8,7 +8,7 @@
   resources = {
     cores = 1;
     memoryMiB = 2048;
-    diskGiB = 10;
+    diskGiB = 20;
   };
 
   readiness = {

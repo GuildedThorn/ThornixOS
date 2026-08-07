@@ -86,7 +86,7 @@ services:
     mem_limit: 2g
 
   opencti:
-    image: opencti/platform:7.260309.0-lts.6@sha256:78b8f28fe51bc795c9b0e65f10f01881422b6801ada2fc2f6135df6b67aca312
+    image: opencti/platform:7.260728.0@sha256:5c4922d30a8c279b0fcf2cc03e45d926b243d2aa86ce569ac154d61034f81ebf
     container_name: oracle-opencti
     restart: unless-stopped
     environment:
@@ -139,7 +139,7 @@ services:
     mem_limit: 7g
 
   worker:
-    image: opencti/worker:7.260309.0-lts.6@sha256:3e0fa142e06b2495aa6b71a7b8f4c546c605f5872413a53a1ae1a7f2f7064415
+    image: opencti/worker:7.260728.0@sha256:d8d98481e6672d09f6933f0206c49424f48c563d5f344570e3a88272834d97c9
     restart: unless-stopped
     environment:
       OPENCTI_URL: http://opencti:8080
@@ -155,7 +155,7 @@ services:
     mem_limit: 1g
 
   connector-opencti:
-    image: opencti/connector-opencti:7.260309.0-lts.6@sha256:5ce11a35c982c4d4a7cd1f5ff57fd55422caafb176557bf259c832d2e4e09109
+    image: opencti/connector-opencti:7.260728.0@sha256:3b27efc475b691a2fd668b9ee8bf44d977866aa5b5cdaa3d82a331de1512ac78
     container_name: oracle-connector-opencti
     restart: unless-stopped
     environment:
@@ -177,7 +177,7 @@ services:
     mem_limit: 1g
 
   connector-mitre:
-    image: opencti/connector-mitre:7.260309.0-lts.6@sha256:4ba57de8c7aed9dc3e59e9946627b4a8796fc82c9bd955cee9b4044d49376bf8
+    image: opencti/connector-mitre:7.260728.0@sha256:5d957be87d3c0a53686a7dfe3d3961e06d1fd6449961f2601bb612ec8046eddd
     container_name: oracle-connector-mitre
     restart: unless-stopped
     environment:

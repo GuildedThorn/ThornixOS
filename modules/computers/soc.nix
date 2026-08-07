@@ -1,4 +1,7 @@
 { config, inputs, ... }:
+let
+  fleetInventory = import ../../hosts/inventory.nix;
+in
 {
   flake.nixosConfigurations.soc = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
@@ -50,17 +53,21 @@
 
           telemetryServerCertificate = "${inputs.self}/certs/soc.guildedthorn.arpa.crt";
           telemetryServerKey = config.sops.secrets.grafana_tls_key.path;
-          anvilCaReady =
-            builtins.pathExists "${inputs.self}/certs/anvil-intermediate.crt"
-            && builtins.pathExists "${inputs.self}/hosts/anvil/secrets.yaml";
-          # Do not create down targets or missing-log alerts before a staged
-          # host has been provisioned and its shared telemetry identity
-          # rewrapped to the installed SSH host key.
-          sieveTelemetryReady = builtins.pathExists "${inputs.self}/hosts/sieve/telemetry.nix";
-          houndTelemetryReady = builtins.pathExists "${inputs.self}/hosts/hound/telemetry.nix";
-          lureTelemetryReady = builtins.pathExists "${inputs.self}/hosts/lure/telemetry.nix";
-          casebookTelemetryReady = builtins.pathExists "${inputs.self}/hosts/casebook/telemetry.nix";
-          oracleTelemetryReady = builtins.pathExists "${inputs.self}/hosts/oracle/telemetry.nix";
+          # A host can belong to production before it is physically present.
+          # Its inventory readiness files keep staged machines out of scrape,
+          # probe, canary, and missing-log rules until telemetry enrollment is
+          # committed alongside the installed SSH host key.
+          monitoringReady =
+            name:
+            let
+              host = fleetInventory.${name};
+            in
+            builtins.all (path: builtins.pathExists "${inputs.self}/${path}") host.monitoring.readyFiles;
+          monitoredNames = lib.filter (
+            name: fleetInventory.${name}.monitoring.mode == "scrape" && monitoringReady name
+          ) (builtins.attrNames fleetInventory);
+          houndTelemetryReady = monitoringReady "hound";
+          lureTelemetryReady = monitoringReady "lure";
 
           # Both public telemetry ports use the same server identity and
           # ThornCloud_CA client trust. The per-location CN checks below
@@ -110,68 +117,26 @@
             }
           '';
 
-          # Hosts Prometheus scrapes for node metrics (port 9100, opened
-          # fleet-wide by services-observability). Only the always-on hosts:
-          # scout and the lab VMs (mitm, proxmox-guest) are intermittent, so
-          # scraping them just yields permanent "down" noise. They still ship
-          # logs whenever they are up.
-          #
-          # journalHost is the machine's kernel hostname and therefore its
-          # Loki label. metricsHost is its LAN DNS identity; they differ for
-          # mac now that it is the Proxmox host.
-          # "firewall" is in the flake but not deployed — pfSense fills that
-          # role for now.
-          fleet = [
+          fleet = map (
+            name:
+            let
+              host = fleetInventory.${name};
+            in
             {
-              journalHost = "nixos";
-              metricsHost = "nixos.guildedthorn.arpa";
+              journalHost = name;
+              metricsHost = host.fqdn;
+              shipsJournal = host.monitoring.journal;
             }
-            {
-              journalHost = "mac";
-              metricsHost = "proxmox.guildedthorn.arpa";
-            }
-            {
-              journalHost = "soc";
-              metricsHost = "soc.guildedthorn.arpa";
-            }
-            {
-              journalHost = "websites";
-              metricsHost = "websites.guildedthorn.arpa";
-            }
-            {
-              journalHost = "atlas";
-              metricsHost = "atlas.guildedthorn.arpa";
-            }
-            {
-              journalHost = "anvil";
-              metricsHost = "anvil.guildedthorn.arpa";
-              shipsJournal = anvilCaReady;
-            }
-          ]
-          ++ lib.optional sieveTelemetryReady {
-            journalHost = "sieve";
-            metricsHost = "sieve.guildedthorn.arpa";
-          }
-          ++ lib.optional houndTelemetryReady {
-            journalHost = "hound";
-            metricsHost = "hound.guildedthorn.arpa";
-          }
-          ++ lib.optional lureTelemetryReady {
-            journalHost = "lure";
-            metricsHost = "lure.guildedthorn.arpa";
-          }
-          ++ lib.optional casebookTelemetryReady {
-            journalHost = "casebook";
-            metricsHost = "casebook.guildedthorn.arpa";
-          }
-          ++ lib.optional oracleTelemetryReady {
-            journalHost = "oracle";
-            metricsHost = "oracle.guildedthorn.arpa";
-          };
-          fleetJournalHosts = map (host: host.journalHost) (
-            lib.filter (host: host.shipsJournal or true) fleet
-          );
+          ) monitoredNames;
+          fleetJournalHosts = map (host: host.journalHost) (lib.filter (host: host.shipsJournal) fleet);
           fleetMetricsTargets = port: map (host: "${host.metricsHost}:${port}") fleet;
+          blackboxFleetTargets = builtins.concatLists (
+            map (name: fleetInventory.${name}.monitoring.probes) monitoredNames
+          );
+          escapePrometheusRegex = value: builtins.replaceStrings [ "." ] [ "[.]" ] value;
+          cominFetchInstanceRegex = lib.concatStringsSep "|" (
+            map (host: escapePrometheusRegex "${host.metricsHost}:4243") fleet
+          );
 
           # Hosts running services-canary — i.e. those with
           # thorn.audit.execScope = "all", where a systemd-timer process is
@@ -179,18 +144,7 @@
           # absent: under the "sessions" scope the canary would never be
           # recorded, and they generate continuous real user exec activity
           # anyway, which is its own liveness signal.
-          canaryHosts = [
-            "mac"
-            "soc"
-            "websites"
-            "atlas"
-          ]
-          ++ lib.optional anvilCaReady "anvil"
-          ++ lib.optional sieveTelemetryReady "sieve"
-          ++ lib.optional houndTelemetryReady "hound"
-          ++ lib.optional lureTelemetryReady "lure"
-          ++ lib.optional casebookTelemetryReady "casebook"
-          ++ lib.optional oracleTelemetryReady "oracle";
+          canaryHosts = lib.filter (name: fleetInventory.${name}.monitoring.canary) monitoredNames;
         in
         {
           # Headless: nobody logs in interactively, so the default
@@ -427,21 +381,13 @@
                 static_configs = [
                   {
                     targets = [
-                      "https://guildedthorn.com/"
-                      "https://soc.guildedthorn.arpa:3000/api/health"
                       "http://127.0.0.1:3101/ready"
                       "http://127.0.0.1:9091/-/ready"
-                      "https://proxmox.guildedthorn.arpa:8006/"
                       "https://truenas.guildedthorn.arpa/"
                       "https://truenas.guildedthorn.arpa:30304/"
                       "https://pfsense.guildedthorn.arpa/"
-                      "https://atlas.guildedthorn.arpa/"
                     ]
-                    ++ lib.optional anvilCaReady "https://anvil.guildedthorn.arpa/health"
-                    ++ lib.optional sieveTelemetryReady "https://sieve.guildedthorn.arpa/"
-                    ++ lib.optional houndTelemetryReady "https://hound.guildedthorn.arpa/"
-                    ++ lib.optional casebookTelemetryReady "https://casebook.guildedthorn.arpa/"
-                    ++ lib.optional oracleTelemetryReady "https://oracle.guildedthorn.arpa/";
+                    ++ blackboxFleetTargets;
                   }
                 ];
                 relabel_configs = [
@@ -1886,7 +1832,7 @@
                           uid = "siem-comin-fetch-failed";
                           title = "comin cannot fetch on an always-on host";
                           datasourceUid = "prometheus";
-                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites|atlas|anvil${lib.optionalString sieveTelemetryReady "|sieve"}${lib.optionalString houndTelemetryReady "|hound"}${lib.optionalString lureTelemetryReady "|lure"}${lib.optionalString casebookTelemetryReady "|casebook"}${lib.optionalString oracleTelemetryReady "|oracle"})[.]guildedthorn[.]arpa:4243"}'';
+                          expr = ''comin_last_fetch_failed{instance=~"(${cominFetchInstanceRegex})"}'';
                           evaluator = {
                             type = "gt";
                             params = [ 0 ];

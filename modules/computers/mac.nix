@@ -1,4 +1,7 @@
 { config, inputs, ... }:
+let
+  fleet = import ../../hosts/inventory.nix;
+in
 {
   flake.nixosConfigurations.mac = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
@@ -24,6 +27,20 @@
 
       (
         { lib, modulesPath, ... }:
+        let
+          topologyFleet = lib.filterAttrs (
+            _: host: host.address != null && lib.hasPrefix "172.16.25." host.address
+          ) fleet;
+          managedTopologyHosts = builtins.listToAttrs (
+            lib.mapAttrsToList (name: host: {
+              name = host.address;
+              value = {
+                title = name;
+                inherit (host) role;
+              };
+            }) topologyFleet
+          );
+        in
         {
           imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
 
@@ -59,63 +76,12 @@
                   title = "pfSense";
                   role = "firewall";
                 };
-                "172.16.25.2" = {
-                  title = "mitm";
-                  role = "lab";
-                };
-                "172.16.25.3" = {
-                  title = "mac";
-                  role = "hypervisor";
-                };
                 "172.16.25.4" = {
                   title = "TrueNAS";
                   role = "storage";
                 };
-                "172.16.25.50" = {
-                  title = "websites";
-                  role = "web";
-                };
-                "172.16.25.51" = {
-                  title = "soc";
-                  role = "siem";
-                };
-                "172.16.25.52" = {
-                  title = "identity";
-                  role = "identity";
-                };
-                "172.16.25.53" = {
-                  title = "pixie";
-                  role = "provisioning";
-                };
-                "172.16.25.54" = {
-                  title = "atlas";
-                  role = "inventory";
-                };
-                "172.16.25.55" = {
-                  title = "anvil";
-                  role = "pki";
-                };
-                "172.16.25.56" = {
-                  title = "sieve";
-                  role = "vulnerability-scanner";
-                };
-                "172.16.25.57" = {
-                  title = "hound";
-                  role = "endpoint-response";
-                };
-                "172.16.25.58" = {
-                  title = "lure";
-                  role = "deception";
-                };
-                "172.16.25.59" = {
-                  title = "casebook";
-                  role = "incident-response";
-                };
-                "172.16.25.60" = {
-                  title = "oracle";
-                  role = "threat-intelligence";
-                };
-              };
+              }
+              // managedTopologyHosts;
             };
           };
 

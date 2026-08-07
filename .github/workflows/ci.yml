@@ -2,44 +2,73 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   flake-check:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      production_hosts: ${{ steps.fleet.outputs.production_hosts }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # A nearly full hosted runner can kill Nix without producing a useful
       # evaluation error. Keep swap available, but reclaim the same space as
       # the per-host build jobs before evaluating and building every check.
       - name: Free disk space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # main 2026-08-07
         with:
           tool-cache: true
           large-packages: true
           swap-storage: false
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: cachix/cachix-action@v17
+      - uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41 # main 2026-08-07
+      - uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
         with:
           name: guildedthorn
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
           # Fixed-output/source derivations are cheap to refetch from their
           # original URL and aren't worth cache storage.
           pushFilter: '(-source$|\.tar\.gz$)'
-      - uses: DeterminateSystems/flake-checker-action@v12
-      # `nix flake check` evaluates every nixosConfiguration in one process.
-      # As this flake grew, that evaluator began exhausting the hosted
-      # runner and losing its GitHub heartbeat. This flake currently exposes
-      # only nixosConfigurations, so validate the same required toplevel
-      # attribute for every host in a fresh process and release its heap
-      # before moving to the next host. The build matrix below subsequently
-      # builds every one of these exact derivations.
+      - uses: DeterminateSystems/flake-checker-action@3164002371bc90729c68af0e24d5aacf20d7c9f6 # v12
+      - name: Read the authoritative production fleet
+        id: fleet
+        run: |
+          set -euo pipefail
+          inventory_hosts=$(nix eval --json .#thornixFleet --apply builtins.attrNames)
+          configuration_hosts=$(nix eval --json .#nixosConfigurations --apply builtins.attrNames)
+          if [[ "$inventory_hosts" != "$configuration_hosts" ]]; then
+            echo "hosts/inventory.nix and nixosConfigurations do not have identical keys" >&2
+            echo "inventory:     $inventory_hosts" >&2
+            echo "configurations: $configuration_hosts" >&2
+            exit 1
+          fi
+          flake_revision=$(nix eval --raw .#thornixRevision)
+          git_revision=$(git rev-parse HEAD)
+          if [[ "$flake_revision" != "$git_revision" ]]; then
+            echo "flake revision stamp does not match the checked-out commit" >&2
+            echo "flake: $flake_revision" >&2
+            echo "git:   $git_revision" >&2
+            exit 1
+          fi
+          echo "production_hosts=$(nix eval --json .#productionHosts)" >> "$GITHUB_OUTPUT"
+
+      # A monolithic `nix flake check` evaluates every NixOS configuration and
+      # Hydra job in one process. As this flake grew, that evaluator began
+      # exhausting the hosted runner and losing its GitHub heartbeat. Validate
+      # each configuration's required toplevel in a fresh process so its heap
+      # is released before moving to the next host. The bootstrap matrix below
+      # subsequently builds every production derivation, while Forge evaluates
+      # the aggregate Hydra job after cutover.
       - name: Evaluate every NixOS configuration
         run: |
           set -euo pipefail
@@ -59,12 +88,14 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    # A broken flake (bad syntax, a failing check output, ...) can leave a
-    # host's own evaluation looking fine in isolation — don't promote any
-    # host's deploy branch unless the whole flake is known-good first.
     needs: flake-check
-    permissions:
-      contents: write
+    # This is the safe bootstrap builder until Forge has a working jobset,
+    # Cachix credentials, and promoter. Setting the repository variable
+    # FORGE_CI_ENABLED=true retires this matrix without another code change.
+    if: >-
+      vars.FORGE_CI_ENABLED != 'true' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       github.event_name == 'workflow_dispatch')
     strategy:
       fail-fast: false
       # No concurrency cap: max-parallel existed to avoid throttling
@@ -73,31 +104,12 @@ jobs:
       # load, so that constraint no longer applies — let all hosts run
       # at once instead of serializing into batches.
       matrix:
-        host:
-          - anvil
-          - atlas
-          - casebook
-          - firewall
-          - hound
-          - identity
-          - lure
-          - mac
-          - mitm
-          - nixos
-          - oracle
-          - pixie
-          - proxmox-guest
-          - websites
-          - scout
-          - sieve
-          - soc
-          - vmware-guest
-          - vmware-test
+        host: ${{ fromJSON(needs.flake-check.outputs.production_hosts) }}
     steps:
       # Promotion is intentionally fast-forward-only. The default shallow
-      # checkout cannot prove that an existing deploy-* tip is an ancestor
+      # checkout cannot prove that an existing deployment tip is an ancestor
       # of HEAD and rejects an otherwise valid push with "fetch first".
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       # ubuntu-latest ships with ~30-40GB of preinstalled toolchains we
@@ -107,13 +119,13 @@ jobs:
       # writes to the store. swap-storage stays (rocblas's compile is
       # memory-heavy — dropping swap trades a disk error for an OOM).
       - name: Free disk space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # main 2026-08-07
         with:
           tool-cache: true
           large-packages: true
           swap-storage: false
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: cachix/cachix-action@v17
+      - uses: DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41 # main 2026-08-07
+      - uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
         with:
           name: guildedthorn
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
@@ -122,14 +134,34 @@ jobs:
         run: |
           nix build --no-link \
             ".#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel"
-      # comin on each host tracks deploy-<hostname> instead of main (see
-      # modules/users/thorn.nix) — only fast-forward it here, once this
-      # host's own build has actually passed, so a broken commit for one
-      # host can never get deployed just because main advanced.
-      #
-      # Do not force this update. If main was rewritten, a rejected push is
-      # the safety signal: force-moving the branch strands hosts on the old
-      # history, where comin fetches forever without scheduling a build.
-      - name: Promote deploy-${{ matrix.host }}
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: git push origin HEAD:refs/heads/deploy-${{ matrix.host }}
+
+  promote-production:
+    runs-on: ubuntu-latest
+    needs: [flake-check, build]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.FORGE_CI_ENABLED != 'true'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - name: Promote the verified fleet
+        env:
+          PRODUCTION_HOSTS_JSON: ${{ needs.flake-check.outputs.production_hosts }}
+        run: |
+          set -euo pipefail
+
+          # Until Forge takes over, advance production and every legacy
+          # per-host pointer together. This is deliberately repeated on each
+          # bootstrap promotion: it also handles a pre-existing production
+          # branch while old hosts still need the commit that moves comin to
+          # production. No ref is forced, and --atomic prevents a partial
+          # cutover if any history is unexpectedly divergent.
+          refs=(HEAD:refs/heads/production)
+          while IFS= read -r host; do
+            refs+=("HEAD:refs/heads/deploy-${host}")
+          done < <(jq -r '.[]' <<<"$PRODUCTION_HOSTS_JSON")
+          git push --atomic origin "${refs[@]}"

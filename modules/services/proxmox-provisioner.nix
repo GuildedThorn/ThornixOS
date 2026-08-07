@@ -3,6 +3,7 @@
   nixos.modules.services-proxmox-provisioner =
     { lib, pkgs, ... }:
     let
+      fleet = import ../../hosts/inventory.nix;
       hostsDirectory = ../../hosts;
       hostEntries = builtins.readDir hostsDirectory;
       profileNames = lib.sort builtins.lessThan (
@@ -16,6 +17,7 @@
       normalizeProfile =
         name: profile:
         let
+          fleetHost = fleet.${name} or null;
           resources = profile.resources;
           readiness = profile.readiness or { };
           readinessTimeoutSeconds = readiness.timeoutSeconds or 600;
@@ -29,6 +31,9 @@
         assert lib.assertMsg (
           builtins.match "[a-z][a-z0-9-]*" name != null
         ) "provision profile '$name' must be a lowercase hostname";
+        assert lib.assertMsg (
+          fleetHost != null && fleetHost.deployment.enable
+        ) "provision profile '$name' must be an enabled host in hosts/inventory.nix";
         assert lib.assertMsg (
           builtins.isInt profile.vmid && profile.vmid > 0
         ) "provision profile '$name' needs a positive integer vmid";
@@ -79,7 +84,7 @@
           minimumFreeGiB = resources.diskGiB + 5;
           isoVolume = "local:iso/thornix-${name}-installer.iso";
           installerProfile = "${name}/v1";
-          defaultFlake = "github:GuildedThorn/ThornixOS/deploy-${name}#${name}";
+          defaultFlake = "github:GuildedThorn/ThornixOS/${fleetHost.deployment.branch}#${name}";
           readiness = {
             displayName = readiness.displayName or name;
             label = readiness.label or "${name} services";
