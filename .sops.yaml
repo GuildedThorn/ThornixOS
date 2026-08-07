@@ -14,6 +14,7 @@ keys:
   - &host_atlas age1h0wm9stquj2h0v6ep4wrv5xq40255zrth8a6a6t3075sakafjcdqc93fph
   - &host_anvil age16w0602dq7rph35lplgzxqlq8xmkac329vvtep595vv9e7kp28yzqp938pn
   - &host_sieve age1m5vf62709qgm27m2d0xefsa5cszw98e087txafmzmjlhpsszc9lqupkv0n
+  - &host_hound age12xprza92ashsmvvduxnx5e6czwqnuxvnnu0w6xmm542s426ew4eqr0jsx9
 
 creation_rules:
   # Shared Alloy writer identity. Every telemetry-enrolled host must be able
@@ -29,7 +30,8 @@ creation_rules:
       age17t2hdf3ppalwqqtj75nmnwxh5vgam7cgg8h73cqaqg0cptfu9sxs5zatwh,
       age1h0wm9stquj2h0v6ep4wrv5xq40255zrth8a6a6t3075sakafjcdqc93fph,
       age16w0602dq7rph35lplgzxqlq8xmkac329vvtep595vv9e7kp28yzqp938pn,
-      age1m5vf62709qgm27m2d0xefsa5cszw98e087txafmzmjlhpsszc9lqupkv0n
+      age1m5vf62709qgm27m2d0xefsa5cszw98e087txafmzmjlhpsszc9lqupkv0n,
+      age12xprza92ashsmvvduxnx5e6czwqnuxvnnu0w6xmm542s426ew4eqr0jsx9
   - path_regex: hosts/mac/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_mac

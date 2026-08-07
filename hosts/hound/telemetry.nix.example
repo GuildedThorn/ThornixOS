@@ -1,7 +1,0 @@
-# Copy to telemetry.nix only after Hound's installed ed25519 SSH host key has
-# been added to .sops.yaml and hosts/shared/telemetry-secrets.yaml rewrapped.
-{ ... }:
-{
-  sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
-  thorn.telemetry.enable = true;
-}

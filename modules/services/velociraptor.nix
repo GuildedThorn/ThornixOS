@@ -155,13 +155,23 @@
       healthCheck = pkgs.writeShellScript "hound-velociraptor-health" ''
         set -o errexit -o nounset -o pipefail
 
-        ${pkgs.curl}/bin/curl \
-          --fail --silent --show-error --location \
+        browser_status=$(${pkgs.curl}/bin/curl \
+          --silent --show-error --location \
           --connect-timeout 3 --max-time 20 \
           --cacert ${inputs.self}/certs/ThornCloud_CA.crt \
           --resolve ${hostname}:443:127.0.0.1 \
           --output /dev/null \
-          https://${hostname}/app/index.html
+          --write-out '%{http_code}' \
+          https://${hostname}/app/index.html)
+
+        # Basic authentication deliberately challenges unauthenticated health
+        # requests. Requiring that exact response verifies nginx, trusted TLS,
+        # the reverse proxy, and the Velociraptor GUI without storing an
+        # administrator credential in the probe.
+        if [[ "$browser_status" != 401 ]]; then
+          echo "error: expected Hound GUI authentication challenge, got HTTP $browser_status" >&2
+          exit 1
+        fi
 
         # Browser TLS above renews every 24 hours through Anvil. Independently
         # verify the Velociraptor-internal certificate clients fetch from
@@ -398,6 +408,11 @@
           forceSSL = true;
           useACMEHost = hostname;
           extraConfig = ''
+            # The trusted local health probe connects through this vhost. This
+            # does not expose the GUI externally; loopback cannot arrive from
+            # another machine, and the backend is already loopback-only.
+            allow 127.0.0.1;
+            allow ::1;
             allow 172.16.25.0/24;
             allow 192.168.1.0/24;
             allow 10.10.10.0/24;

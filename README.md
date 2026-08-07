@@ -323,13 +323,13 @@ in a root-only encrypted NAS backup before enrolling important endpoints; a
 newly generated replacement config is a different deployment and existing
 clients will not trust it.
 
-Telemetry enrollment remains two-stage. After provisioning, verify Hound's
-installed ed25519 SSH host-key fingerprint, add its `ssh-to-age` recipient to
-`.sops.yaml`, rewrap `hosts/shared/telemetry-secrets.yaml`, and copy
-`hosts/hound/telemetry.nix.example` to `hosts/hound/telemetry.nix`. That marker
-atomically enables Alloy, the audit canary, node/comin/Velociraptor scrapes,
-HTTPS probing, and missing-log alerts. Rerun `thornix-netbox-seed` on Atlas to
-materialize VM 109 and its services in NetBox.
+Hound telemetry is encrypted to its SSH-derived age recipient. The dedicated
+`hosts/hound/telemetry.nix` enrollment marker atomically enables Alloy, the
+audit canary, node/comin/Velociraptor scrapes, HTTPS probing, and missing-log
+alerts. If Hound's SSH host key is ever replaced, update its recipient in
+`.sops.yaml` and rewrap `hosts/shared/telemetry-secrets.yaml` before deploying
+the new key. Rerun `thornix-netbox-seed` on Atlas to materialize VM 109 and its
+services in NetBox.
 
 ## guildedthorn.com
 
