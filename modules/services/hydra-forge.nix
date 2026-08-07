@@ -128,6 +128,14 @@
             useSubstitutes = true;
             minimumDiskFree = 20;
             minimumDiskFreeEvaluator = 10;
+
+            # Stylix resolves its pinned Base16 scheme through an IFD while
+            # evaluating each host. Hydra defaults this off independently of
+            # nix.conf, so opt in for this administrator-controlled jobset.
+            # Builds remain sandboxed and flake inputs remain URI-allowlisted.
+            extraConfig = ''
+              allow_import_from_derivation = true
+            '';
           };
 
           # Flake jobsets evaluate in restricted mode. Permit only the URI
