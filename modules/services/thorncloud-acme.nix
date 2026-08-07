@@ -11,8 +11,6 @@
       cfg = config.thorn.acme;
       rootCertificate = "${inputs.self}/certs/ThornCloud_CA.crt";
       certificateDirectory = "/var/lib/acme/${cfg.domain}";
-      acmeService = "acme-${cfg.domain}.service";
-      bootstrapService = "thorncloud-acme-bootstrap-${cfg.domain}";
       bootstrapConfigured = cfg.bootstrapCertificate != null && cfg.bootstrapKey != null;
     in
     {
@@ -103,23 +101,13 @@
         })
 
         (lib.mkIf (cfg.enable && bootstrapConfigured) {
-          systemd.services.${bootstrapService} = {
-            description = "Seed ${cfg.domain} with its pre-ACME TLS certificate";
-            before = [ acmeService ];
-            after = [
-              "acme-setup.service"
-              "sops-nix.service"
-            ];
-            requires = [
-              "acme-setup.service"
-              "sops-nix.service"
-            ];
-            serviceConfig = {
-              Type = "oneshot";
-              RemainAfterExit = true;
-              UMask = "0027";
-            };
-            script = ''
+          # switch-to-configuration restarts changed services before it starts
+          # newly introduced units. Seed during activation, after sops-nix has
+          # materialized the legacy key, so nginx's preflight always sees a
+          # complete certificate set on the very first migration.
+          system.activationScripts.thorncloudAcmeBootstrap = {
+            deps = [ "setupSecrets" ];
+            text = ''
               set -eu
 
               certificate_directory=${lib.escapeShellArg certificateDirectory}
@@ -140,11 +128,6 @@
                   "$certificate_directory/acme-success"
               fi
             '';
-          };
-
-          systemd.services."acme-${cfg.domain}" = {
-            requires = [ "${bootstrapService}.service" ];
-            after = [ "${bootstrapService}.service" ];
           };
         })
       ];
