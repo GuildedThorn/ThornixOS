@@ -15,6 +15,7 @@ keys:
   - &host_anvil age16w0602dq7rph35lplgzxqlq8xmkac329vvtep595vv9e7kp28yzqp938pn
   - &host_sieve age1m5vf62709qgm27m2d0xefsa5cszw98e087txafmzmjlhpsszc9lqupkv0n
   - &host_hound age12xprza92ashsmvvduxnx5e6czwqnuxvnnu0w6xmm542s426ew4eqr0jsx9
+  - &host_forge age1um2glewsxfgfkjr36cgjxmtn88396jul5x6xq9vsadwjv4pdzqastfej7c
 
 creation_rules:
   # Shared Alloy writer identity. Every telemetry-enrolled host must be able
@@ -59,3 +60,6 @@ creation_rules:
   - path_regex: hosts/websites/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_websites
+  - path_regex: hosts/forge/secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_forge
