@@ -1,0 +1,24 @@
+services:
+  opencanary:
+    image: thinkst/opencanary:0.9.8@sha256:1db1e004fc66ad5b02715c66fb91ea459b3c4a26a859fcd6aa3ec5c2c7290729
+    container_name: lure-opencanary
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    init: true
+    tmpfs:
+      - /run:size=16m,mode=0755
+      - /tmp:size=32m,mode=1777
+    volumes:
+      - /etc/lure/opencanary.conf:/root/.opencanary.conf:ro
+      - /var/lib/lure/tls:/tls:ro
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 768m

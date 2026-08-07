@@ -21,6 +21,9 @@
         "172.16.25.55" = [ "anvil.guildedthorn.arpa" ];
         "172.16.25.56" = [ "sieve.guildedthorn.arpa" ];
         "172.16.25.57" = [ "hound.guildedthorn.arpa" ];
+        "172.16.25.58" = [ "lure.guildedthorn.arpa" ];
+        "172.16.25.59" = [ "casebook.guildedthorn.arpa" ];
+        "172.16.25.60" = [ "oracle.guildedthorn.arpa" ];
       };
     };
 }

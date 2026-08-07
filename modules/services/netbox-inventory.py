@@ -213,6 +213,9 @@ def seed():
         "pki": ("Certificate Authority", "795548", True),
         "vulnerability": ("Vulnerability Management", "c62828", True),
         "endpoint-response": ("Endpoint Detection & Response", "ef6c00", True),
+        "deception": ("Deception Sensor", "ff7043", True),
+        "incident-response": ("Incident Response", "5c6bc0", True),
+        "threat-intelligence": ("Threat Intelligence", "00897b", True),
     }
     roles = {
         key: ensure(
@@ -632,6 +635,48 @@ def seed():
                 "The VM MAC must be inventoried after guarded provisioning."
             ),
         },
+        "lure": {
+            "role": roles["deception"],
+            "vcpus": 1,
+            "memory": 2048,
+            "disk": 10240,
+            "start_on_boot": "on",
+            "ip": "172.16.25.58/24",
+            "vmid": 110,
+            "description": "OpenCanary internal deception sensor",
+            "comments": (
+                "Proxmox VMID 110; declared by ThornixOS on 2026-08-07. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
+        "casebook": {
+            "role": roles["incident-response"],
+            "vcpus": 8,
+            "memory": 16384,
+            "disk": 102400,
+            "start_on_boot": "on",
+            "ip": "172.16.25.59/24",
+            "vmid": 111,
+            "description": "TheHive incident-response and case-management platform",
+            "comments": (
+                "Proxmox VMID 111; declared by ThornixOS on 2026-08-07. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
+        "oracle": {
+            "role": roles["threat-intelligence"],
+            "vcpus": 8,
+            "memory": 24576,
+            "disk": 153600,
+            "start_on_boot": "on",
+            "ip": "172.16.25.60/24",
+            "vmid": 112,
+            "description": "OpenCTI threat-intelligence platform and enrichment workers",
+            "comments": (
+                "Proxmox VMID 112; declared by ThornixOS on 2026-08-07. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
     }
 
     vms = {}
@@ -719,6 +764,31 @@ def seed():
         (vms["hound"], "Velociraptor metrics", "tcp", [8003], "SOC-only application metrics"),
         (vms["hound"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
         (vms["hound"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["lure"], "SSH", "tcp", [22], "Restricted key-only administration"),
+        (
+            vms["lure"],
+            "OpenCanary TCP decoys",
+            "tcp",
+            [21, 23, 80, 443, 1433, 2222, 3306, 3389, 5900, 6379, 8080, 9418, 27017],
+            "Instrumented internal deception services",
+        ),
+        (
+            vms["lure"],
+            "OpenCanary UDP decoys",
+            "udp",
+            [69, 123, 5060],
+            "Instrumented internal deception services",
+        ),
+        (vms["lure"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["lure"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["casebook"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["casebook"], "TheHive HTTPS", "tcp", [443], "Incident-response web UI and API"),
+        (vms["casebook"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["casebook"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["oracle"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["oracle"], "OpenCTI HTTPS", "tcp", [443], "Threat-intelligence web UI and API"),
+        (vms["oracle"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["oracle"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
     )
     for parent, name, protocol, ports, description in services:
         service = ensure_service(parent, name, protocol, ports, description)

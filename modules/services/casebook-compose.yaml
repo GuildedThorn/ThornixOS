@@ -1,0 +1,98 @@
+services:
+  cassandra:
+    image: cassandra:4.1.11@sha256:95cfb41915d562c208332e387575a9edb72f77ce7f62bd3e594b00ab4121f90d
+    container_name: casebook-cassandra
+    hostname: cassandra
+    restart: unless-stopped
+    environment:
+      CASSANDRA_CLUSTER_NAME: TheHive
+      CASSANDRA_AUTHENTICATOR: PasswordAuthenticator
+      CASSANDRA_NUM_TOKENS: "4"
+      HEAP_NEWSIZE: 512M
+      MAX_HEAP_SIZE: 3G
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    networks:
+      - casebook
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -u cassandra -p cassandra -e 'describe keyspaces' >/dev/null || exit 1"]
+      start_period: 120s
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 4g
+    memswap_limit: 4g
+
+  elasticsearch:
+    image: elasticsearch:8.19.15@sha256:f0133ed868820f60fb71131147b4a9c2a7f9ed1bf197737b478e117509134ab8
+    container_name: casebook-elasticsearch
+    hostname: elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      cluster.name: casebook
+      bootstrap.memory_lock: "true"
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTICSEARCH_PASSWORD}
+      ES_JAVA_OPTS: -Xms3G -Xmx3G
+      thread_pool.search.queue_size: "100000"
+      thread_pool.write.queue_size: "100000"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - casebook
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -u elastic:${ELASTICSEARCH_PASSWORD} http://elasticsearch:9200/_cluster/health?wait_for_status=yellow >/dev/null || exit 1"]
+      start_period: 60s
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 4g
+    memswap_limit: 4g
+
+  thehive:
+    image: strangebee/thehive:5.7.3@sha256:4cf586b727633e663ab036bd7ca85a5853909fb0896ac7dd51fdde0206458939
+    container_name: casebook-thehive
+    hostname: thehive
+    restart: unless-stopped
+    command: --no-config --no-config-secret
+    environment:
+      JAVA_OPTS: >-
+        -Xms3000M -Xmx3000M -XX:MaxMetaspaceSize=400m
+        -XX:ReservedCodeCacheSize=400m
+    volumes:
+      - /var/lib/casebook/config:/etc/thehive:ro
+      - thehive-files:/opt/thp/thehive/files
+    ports:
+      - 127.0.0.1:9000:9000
+    networks:
+      - casebook
+    depends_on:
+      cassandra:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://thehive:9000/api/v1/status/public >/dev/null || exit 1"]
+      start_period: 90s
+      interval: 10s
+      timeout: 5s
+      retries: 18
+    mem_limit: 4g
+    memswap_limit: 4g
+
+networks:
+  casebook:
+    driver: bridge
+
+volumes:
+  cassandra-data:
+  elasticsearch-data:
+  thehive-files:

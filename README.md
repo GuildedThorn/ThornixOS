@@ -33,6 +33,9 @@ hosts/<host>/              per-host data: hardware-configuration, disko,
 | `anvil` | Proxmox VM running the online ThornCloud issuing CA and internal ACME endpoint |
 | `sieve` | Proxmox VM running Greenbone vulnerability management and active assessment |
 | `hound` | Proxmox VM running Velociraptor endpoint visibility and forensic response |
+| `lure` | Proxmox VM running an OpenCanary internal deception sensor |
+| `casebook` | Proxmox VM running TheHive incident-response and case management |
+| `oracle` | Proxmox VM running OpenCTI threat-intelligence aggregation and enrichment |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -73,13 +76,21 @@ thornix-provision anvil
 thornix-provision sieve
 # or
 thornix-provision hound
+# or
+thornix-provision lure
+# or
+thornix-provision casebook
+# or
+thornix-provision oracle
 ```
 
 The currently declared profiles are soc (VM 103, `172.16.25.51`, 60 GiB),
 identity (VM 104, `172.16.25.52`, 40 GiB), pixie (VM 105,
 `172.16.25.53`, 20 GiB), atlas (VM 106, `172.16.25.54`, 40 GiB), anvil
 (VM 107, `172.16.25.55`, 20 GiB), sieve (VM 108, `172.16.25.56`, 60 GiB),
-and hound (VM 109, `172.16.25.57`, 80 GiB).
+hound (VM 109, `172.16.25.57`, 80 GiB), lure (VM 110,
+`172.16.25.58`, 10 GiB), casebook (VM 111, `172.16.25.59`, 100 GiB), and
+oracle (VM 112, `172.16.25.60`, 150 GiB).
 The utility prebuilds the promoted closure,
 boots a key-only static-IP installer, verifies the Proxmox ownership marker,
 NIC MAC, ISO label, disk serial and disk size, and then runs Disko plus
@@ -350,6 +361,82 @@ alerts. If Hound's SSH host key is ever replaced, update its recipient in
 `.sops.yaml` and rewrap `hosts/shared/telemetry-secrets.yaml` before deploying
 the new key. Rerun `thornix-netbox-seed` on Atlas to materialize VM 109 and its
 services in NetBox.
+
+### Lure deception sensor
+
+Lure runs OpenCanary at `172.16.25.58`. It has no administration UI and does
+not impersonate any real ThornCloud hostname: the decoys identify themselves
+as `nas01` and use a locally generated self-signed HTTPS certificate. Real
+key-only SSH remains on TCP 22 and is admitted only from mac, nixos, and
+Scout's VPN address. Instrumented FTP, Telnet, HTTP(S), proxy, SQL, alternate
+SSH, Redis, RDP, VNC, MongoDB, Git, NTP, TFTP, and SIP ports are reachable
+only from the trusted internal subnets. Nothing is exposed from WAN.
+
+Provision it after `deploy-mac` and `deploy-lure` land:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision lure
+```
+
+Do not health-probe Lure's decoy ports: a probe is intentionally
+indistinguishable from an interaction. Once telemetry is enrolled, OpenCanary
+emits structured JSON through Docker's journald driver and a critical Grafana
+alert groups events by source and destination port. Inspect the service with
+`lure-compose ps` or `journalctl -u docker.service` over the restricted SSH
+recovery path.
+
+### Casebook incident response
+
+Casebook runs TheHive at `https://casebook.guildedthorn.arpa/`. Cassandra,
+Elasticsearch, attachments, and the application listener stay inside its
+private Docker network or on loopback; nginx is the only network-facing
+application edge. The upstream default administrator password is replaced
+with a generated credential before nginx is allowed to serve the UI:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision casebook
+ssh root@172.16.25.59 casebook-admin-password
+```
+
+Change that bootstrap password after logging in as `admin@thehive.local`.
+TheHive starts with its upstream Platinum trial and becomes read-only when the
+trial expires unless a free or paid license is activated in the UI. Add the
+pfSense override `casebook.guildedthorn.arpa -> 172.16.25.59` before
+provisioning so Anvil ACME renewal and browser access use the same name.
+
+### Oracle threat intelligence
+
+Oracle runs the OpenCTI LTS platform at `https://oracle.guildedthorn.arpa/`
+with two workers plus the OpenCTI datasets and MITRE ATT&CK connectors. Redis,
+Elasticsearch, MinIO, RabbitMQ, and all worker traffic remain on a private
+Docker network; only nginx HTTPS is reachable from the trusted internal
+subnets. Container executables are pinned to reviewed linux/amd64 manifests.
+API tokens, the encryption key, service passwords, connector UUIDs, and the
+initial administrator credential are generated into mode-0700 VM state on
+first boot, never placed in Git or the Nix store.
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision oracle
+ssh root@172.16.25.60 oracle-admin-password
+```
+
+Log in as `admin@guildedthorn.com`, change the generated password, and add the
+pfSense override `oracle.guildedthorn.arpa -> 172.16.25.60`. The initial
+connector imports can make first boot take substantially longer than an
+ordinary VM deployment; `oracle-compose ps` shows every component.
+
+For each of Lure, Casebook, and Oracle, finish telemetry only after guarded
+provisioning reveals the installed SSH host key. Verify its fingerprint, add
+the SSH-derived age recipient to `.sops.yaml`, rewrap
+`hosts/shared/telemetry-secrets.yaml`, and create the host's
+`hosts/<name>/telemetry.nix` enrollment module following the existing Hound
+and Sieve pattern. That single marker atomically adds
+Alloy, the detection canary, SOC node/comin/log-silence monitoring, and—for
+Casebook and Oracle—the HTTPS blackbox probe. Then rerun
+`thornix-netbox-seed` on Atlas to materialize VMs 110–112 and their services.
 
 ## guildedthorn.com
 

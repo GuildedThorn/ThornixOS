@@ -1,0 +1,208 @@
+services:
+  redis:
+    image: redis:8.8.0@sha256:5d2c689b4b55fc3fab4b0cc8aaa950f85b508c76c1e0f35a90d8f411d55a8b2b
+    container_name: oracle-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "3gb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - oracle
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 4g
+
+  elasticsearch:
+    image: elasticsearch:8.19.16@sha256:282dfd2141199ef3336de829900c0ef1de965b3fcbeade837e299059ceab63a9
+    container_name: oracle-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.ml.enabled: "false"
+      xpack.security.enabled: "false"
+      thread_pool.search.queue_size: "5000"
+      logger.org.elasticsearch.discovery: ERROR
+      ES_JAVA_OPTS: -Xms6G -Xmx6G
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - oracle
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://elasticsearch:9200/_cluster/health?wait_for_status=yellow >/dev/null || exit 1"]
+      start_period: 60s
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    mem_limit: 7g
+    memswap_limit: 7g
+
+  minio:
+    image: minio/minio:latest@sha256:a1a8bd4ac40ad7881a245bab97323e18f971e4d4cba2c2007ec1bedd21cbaba2
+    container_name: oracle-minio
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    networks:
+      - oracle
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 1g
+
+  rabbitmq:
+    image: rabbitmq:4.3-management@sha256:cd4fd60136781671d125ed68ac4b67900c0726b55e2e8b98719daa616a63240b
+    container_name: oracle-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_NODENAME: rabbit01@localhost
+    volumes:
+      - /etc/oracle/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - oracle
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 30s
+      retries: 6
+    mem_limit: 2g
+
+  opencti:
+    image: opencti/platform:7.260309.0-lts.6@sha256:78b8f28fe51bc795c9b0e65f10f01881422b6801ada2fc2f6135df6b67aca312
+    container_name: oracle-opencti
+    restart: unless-stopped
+    environment:
+      NODE_OPTIONS: --max-old-space-size=6144
+      APP__PORT: "8080"
+      APP__BASE_URL: https://oracle.guildedthorn.arpa
+      APP__ADMIN__EMAIL: ${OPENCTI_ADMIN_EMAIL}
+      APP__ADMIN__PASSWORD: ${OPENCTI_ADMIN_PASSWORD}
+      APP__ADMIN__TOKEN: ${OPENCTI_ADMIN_TOKEN}
+      APP__ENCRYPTION_KEY: ${OPENCTI_ENCRYPTION_KEY}
+      APP__HEALTH_ACCESS_KEY: ${OPENCTI_HEALTHCHECK_ACCESS_KEY}
+      PROVIDERS__LOCAL__STRATEGY: LocalStrategy
+      REDIS__HOSTNAME: redis
+      REDIS__PORT: "6379"
+      REDIS__TRIMMING: "500000"
+      ELASTICSEARCH__URL: http://elasticsearch:9200
+      ELASTICSEARCH__NUMBER_OF_REPLICAS: "0"
+      MINIO__ENDPOINT: minio
+      MINIO__PORT: "9000"
+      MINIO__USE_SSL: "false"
+      MINIO__ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO__SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      RABBITMQ__HOSTNAME: rabbitmq
+      RABBITMQ__PORT: "5672"
+      RABBITMQ__PORT_MANAGEMENT: "15672"
+      RABBITMQ__MANAGEMENT_SSL: "false"
+      RABBITMQ__USERNAME: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ__PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      SMTP__HOSTNAME: localhost
+      SMTP__PORT: "25"
+    ports:
+      - 127.0.0.1:8080:8080
+    networks:
+      - oracle
+    depends_on:
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://opencti:8080/health?health_access_key=${OPENCTI_HEALTHCHECK_ACCESS_KEY}"]
+      start_period: 120s
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    mem_limit: 7g
+
+  worker:
+    image: opencti/worker:7.260309.0-lts.6@sha256:3e0fa142e06b2495aa6b71a7b8f4c546c605f5872413a53a1ae1a7f2f7064415
+    restart: unless-stopped
+    environment:
+      OPENCTI_URL: http://opencti:8080
+      OPENCTI_TOKEN: ${OPENCTI_ADMIN_TOKEN}
+    networks:
+      - oracle
+    depends_on:
+      opencti:
+        condition: service_healthy
+    deploy:
+      mode: replicated
+      replicas: 2
+    mem_limit: 1g
+
+  connector-opencti:
+    image: opencti/connector-opencti:7.260309.0-lts.6@sha256:5ce11a35c982c4d4a7cd1f5ff57fd55422caafb176557bf259c832d2e4e09109
+    container_name: oracle-connector-opencti
+    restart: unless-stopped
+    environment:
+      OPENCTI_URL: http://opencti:8080
+      OPENCTI_TOKEN: ${OPENCTI_ADMIN_TOKEN}
+      CONNECTOR_ID: ${CONNECTOR_OPENCTI_ID}
+      CONNECTOR_NAME: OpenCTI Datasets
+      CONNECTOR_SCOPE: marking-definition,identity,location
+      CONNECTOR_LOG_LEVEL: info
+      CONNECTOR_RUN_AND_TERMINATE: "false"
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT: "true"
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL: "100"
+      CONFIG_INTERVAL: "7"
+    networks:
+      - oracle
+    depends_on:
+      opencti:
+        condition: service_healthy
+    mem_limit: 1g
+
+  connector-mitre:
+    image: opencti/connector-mitre:7.260309.0-lts.6@sha256:4ba57de8c7aed9dc3e59e9946627b4a8796fc82c9bd955cee9b4044d49376bf8
+    container_name: oracle-connector-mitre
+    restart: unless-stopped
+    environment:
+      OPENCTI_URL: http://opencti:8080
+      OPENCTI_TOKEN: ${OPENCTI_ADMIN_TOKEN}
+      CONNECTOR_ID: ${CONNECTOR_MITRE_ID}
+      CONNECTOR_NAME: MITRE ATT&CK
+      CONNECTOR_SCOPE: mitre
+      CONNECTOR_LOG_LEVEL: info
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT: "true"
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL: "75"
+      MITRE_INTERVAL: "7"
+    networks:
+      - oracle
+    depends_on:
+      opencti:
+        condition: service_healthy
+    mem_limit: 1g
+
+networks:
+  oracle:
+    driver: bridge
+
+volumes:
+  redis-data:
+  elasticsearch-data:
+  minio-data:
+  rabbitmq-data:

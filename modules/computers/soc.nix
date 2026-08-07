@@ -58,6 +58,9 @@
           # rewrapped to the installed SSH host key.
           sieveTelemetryReady = builtins.pathExists "${inputs.self}/hosts/sieve/telemetry.nix";
           houndTelemetryReady = builtins.pathExists "${inputs.self}/hosts/hound/telemetry.nix";
+          lureTelemetryReady = builtins.pathExists "${inputs.self}/hosts/lure/telemetry.nix";
+          casebookTelemetryReady = builtins.pathExists "${inputs.self}/hosts/casebook/telemetry.nix";
+          oracleTelemetryReady = builtins.pathExists "${inputs.self}/hosts/oracle/telemetry.nix";
 
           # Both public telemetry ports use the same server identity and
           # ThornCloud_CA client trust. The per-location CN checks below
@@ -152,6 +155,18 @@
           ++ lib.optional houndTelemetryReady {
             journalHost = "hound";
             metricsHost = "hound.guildedthorn.arpa";
+          }
+          ++ lib.optional lureTelemetryReady {
+            journalHost = "lure";
+            metricsHost = "lure.guildedthorn.arpa";
+          }
+          ++ lib.optional casebookTelemetryReady {
+            journalHost = "casebook";
+            metricsHost = "casebook.guildedthorn.arpa";
+          }
+          ++ lib.optional oracleTelemetryReady {
+            journalHost = "oracle";
+            metricsHost = "oracle.guildedthorn.arpa";
           };
           fleetJournalHosts = map (host: host.journalHost) (
             lib.filter (host: host.shipsJournal or true) fleet
@@ -172,7 +187,10 @@
           ]
           ++ lib.optional anvilCaReady "anvil"
           ++ lib.optional sieveTelemetryReady "sieve"
-          ++ lib.optional houndTelemetryReady "hound";
+          ++ lib.optional houndTelemetryReady "hound"
+          ++ lib.optional lureTelemetryReady "lure"
+          ++ lib.optional casebookTelemetryReady "casebook"
+          ++ lib.optional oracleTelemetryReady "oracle";
         in
         {
           # Headless: nobody logs in interactively, so the default
@@ -421,7 +439,9 @@
                     ]
                     ++ lib.optional anvilCaReady "https://anvil.guildedthorn.arpa/health"
                     ++ lib.optional sieveTelemetryReady "https://sieve.guildedthorn.arpa/"
-                    ++ lib.optional houndTelemetryReady "https://hound.guildedthorn.arpa/";
+                    ++ lib.optional houndTelemetryReady "https://hound.guildedthorn.arpa/"
+                    ++ lib.optional casebookTelemetryReady "https://casebook.guildedthorn.arpa/"
+                    ++ lib.optional oracleTelemetryReady "https://oracle.guildedthorn.arpa/";
                   }
                 ];
                 relabel_configs = [
@@ -1505,9 +1525,9 @@
                           title = "TLS certificate expires within 21 days";
                           datasourceUid = "prometheus";
                           expr = ''
-                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound)[.]guildedthorn[.]arpa/.*"} - time() < 1814400)
+                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*"} - time() < 1814400)
                             unless
-                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound)[.]guildedthorn[.]arpa/.*"} - time() < 604800)
+                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*"} - time() < 604800)
                           '';
                           evaluator = {
                             type = "lt";
@@ -1520,7 +1540,7 @@
                           uid = "fleet-tls-expiry-critical";
                           title = "TLS certificate expires within 7 days";
                           datasourceUid = "prometheus";
-                          expr = ''probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound)[.]guildedthorn[.]arpa/.*"} - time()'';
+                          expr = ''probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*"} - time()'';
                           evaluator = {
                             type = "lt";
                             params = [ 604800 ];
@@ -1533,7 +1553,7 @@
                           uid = "fleet-internal-acme-expiry-critical";
                           title = "Internal ACME certificate expires within 4 hours";
                           datasourceUid = "prometheus";
-                          expr = ''probe_ssl_earliest_cert_expiry{instance=~"https://(anvil|atlas|sieve|hound)[.]guildedthorn[.]arpa/.*"} - time()'';
+                          expr = ''probe_ssl_earliest_cert_expiry{instance=~"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*"} - time()'';
                           evaluator = {
                             type = "lt";
                             params = [ 14400 ];
@@ -1866,7 +1886,7 @@
                           uid = "siem-comin-fetch-failed";
                           title = "comin cannot fetch on an always-on host";
                           datasourceUid = "prometheus";
-                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites|atlas|anvil${lib.optionalString sieveTelemetryReady "|sieve"}${lib.optionalString houndTelemetryReady "|hound"})[.]guildedthorn[.]arpa:4243"}'';
+                          expr = ''comin_last_fetch_failed{instance=~"(nixos|proxmox|soc|websites|atlas|anvil${lib.optionalString sieveTelemetryReady "|sieve"}${lib.optionalString houndTelemetryReady "|hound"}${lib.optionalString lureTelemetryReady "|lure"}${lib.optionalString casebookTelemetryReady "|casebook"}${lib.optionalString oracleTelemetryReady "|oracle"})[.]guildedthorn[.]arpa:4243"}'';
                           evaluator = {
                             type = "gt";
                             params = [ 0 ];
@@ -1902,6 +1922,26 @@
                           severity = "critical";
                           category = "pipeline";
                           summary = "Prometheus can't scrape Loki on soc — the SIEM may be blind to new logs.";
+                        })
+                      ]
+                      # OpenCanary is deliberately excluded from blackbox
+                      # probes: touching any decoy port is itself an event.
+                      # Alert directly from its structured JSON instead.
+                      ++ lib.optionals lureTelemetryReady [
+                        (rule {
+                          uid = "siem-opencanary-interaction";
+                          title = "OpenCanary decoy service touched";
+                          datasourceUid = "loki";
+                          expr = ''sum by (src_host, dst_port) (count_over_time({job="systemd-journal", host="lure"} | json | src_host != "" [5m]))'';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          window = 300;
+                          severity = "critical";
+                          category = "security";
+                          summary = "A host interacted with an instrumented service on Lure; investigate the source and destination port immediately.";
                         })
                       ]
                       # Detection canaries. Each canary host runs a uniquely

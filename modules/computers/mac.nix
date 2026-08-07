@@ -103,6 +103,18 @@
                   title = "hound";
                   role = "endpoint-response";
                 };
+                "172.16.25.58" = {
+                  title = "lure";
+                  role = "deception";
+                };
+                "172.16.25.59" = {
+                  title = "casebook";
+                  role = "incident-response";
+                };
+                "172.16.25.60" = {
+                  title = "oracle";
+                  role = "threat-intelligence";
+                };
               };
             };
           };

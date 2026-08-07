@@ -76,12 +76,15 @@ jobs:
         host:
           - anvil
           - atlas
+          - casebook
           - firewall
           - hound
           - identity
+          - lure
           - mac
           - mitm
           - nixos
+          - oracle
           - pixie
           - proxmox-guest
           - websites
