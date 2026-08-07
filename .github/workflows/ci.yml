@@ -85,6 +85,7 @@ jobs:
           - proxmox-guest
           - websites
           - scout
+          - sieve
           - soc
           - vmware-guest
           - vmware-test

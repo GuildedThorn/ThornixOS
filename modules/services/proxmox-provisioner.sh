@@ -92,11 +92,13 @@ default_flake=$(jq -r '.defaultFlake' <<<"$profile_json")
 installer_profile=$(jq -r '.installerProfile' <<<"$profile_json")
 display_name=$(jq -r '.readiness.displayName' <<<"$profile_json")
 readiness_label=$(jq -r '.readiness.label' <<<"$profile_json")
+readiness_timeout_seconds=$(jq -r '.readiness.timeoutSeconds' <<<"$profile_json")
 admin_ssh_keys=$(jq -r '.adminSshKeys[]' <<<"$profile_json")
 
 readonly profile_json vmid vm_name vm_ip vm_gateway prefix_length bridge storage cores memory_mib
 readonly disk_gib minimum_disk_gib maximum_disk_gib minimum_free_gib iso_volume iso_label
 readonly disk_serial bootstrap_iso default_flake installer_profile display_name readiness_label
+readonly readiness_timeout_seconds
 readonly admin_ssh_keys
 readonly state_installing="thornix-provision:$profile_name:v1:installing"
 readonly state_unverified="thornix-provision:$profile_name:v1:installed-unverified"
@@ -471,7 +473,7 @@ readiness_checks_pass() {
 }
 
 verify_installed_system() {
-  local config_text vm_mac observed_mac remote_mac hostname_value marker attempt
+  local config_text vm_mac observed_mac remote_mac hostname_value marker attempt max_attempts
 
   capture_host_key "installed $profile_name"
   note "Authenticating to the installed system"
@@ -496,18 +498,19 @@ verify_installed_system() {
   remote systemctl is-active --quiet sshd.service
 
   note "Waiting for $readiness_label readiness"
-  for ((attempt = 1; attempt <= 120; attempt++)); do
+  max_attempts=$(((readiness_timeout_seconds + 4) / 5))
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
     if readiness_checks_pass; then
       note "Installed $display_name system and configured readiness checks are online"
       return 0
     fi
     if ((attempt % 6 == 0)); then
-      printf 'Still waiting for %s (%d/120)\n' "$readiness_label" "$attempt"
+      printf 'Still waiting for %s (%d/%d)\n' "$readiness_label" "$attempt" "$max_attempts"
     fi
     sleep 5
   done
 
-  die "$readiness_label did not become ready within ten minutes; inspect VM $vmid"
+  die "$readiness_label did not become ready within $readiness_timeout_seconds seconds; inspect VM $vmid"
 }
 
 print_ready() {

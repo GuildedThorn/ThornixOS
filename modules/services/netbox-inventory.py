@@ -211,6 +211,7 @@ def seed():
         "provisioning": ("Network Boot", "ff9800", True),
         "inventory": ("Infrastructure Inventory", "4caf50", True),
         "pki": ("Certificate Authority", "795548", True),
+        "vulnerability": ("Vulnerability Management", "c62828", True),
     }
     roles = {
         key: ensure(
@@ -602,6 +603,20 @@ def seed():
                 "The VM MAC must be inventoried after guarded provisioning."
             ),
         },
+        "sieve": {
+            "role": roles["vulnerability"],
+            "vcpus": 4,
+            "memory": 8192,
+            "disk": 61440,
+            "start_on_boot": "on",
+            "ip": "172.16.25.56/24",
+            "vmid": 108,
+            "description": "Greenbone vulnerability management and active assessment",
+            "comments": (
+                "Proxmox VMID 108; declared by ThornixOS on 2026-08-06. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
     }
 
     vms = {}
@@ -679,6 +694,10 @@ def seed():
         (vms["anvil"], "step-ca HTTPS", "tcp", [443], "Internal ACME and CA API"),
         (vms["anvil"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
         (vms["anvil"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["sieve"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["sieve"], "Greenbone HTTPS", "tcp", [443], "Vulnerability-management web UI"),
+        (vms["sieve"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["sieve"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
     )
     for parent, name, protocol, ports, description in services:
         service = ensure_service(parent, name, protocol, ports, description)

@@ -31,6 +31,7 @@ hosts/<host>/              per-host data: hardware-configuration, disko,
 | `pixie` | Proxmox VM providing a locked ThornixOS rescue image plus iPXE/netboot.xyz |
 | `atlas` | Proxmox VM running NetBox as the infrastructure inventory/IPAM source of truth |
 | `anvil` | Proxmox VM running the online ThornCloud issuing CA and internal ACME endpoint |
+| `sieve` | Proxmox VM running Greenbone vulnerability management and active assessment |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -67,12 +68,15 @@ thornix-provision pixie
 thornix-provision atlas
 # or
 thornix-provision anvil
+# or
+thornix-provision sieve
 ```
 
 The currently declared profiles are soc (VM 103, `172.16.25.51`, 60 GiB),
 identity (VM 104, `172.16.25.52`, 40 GiB), and pixie (VM 105,
-`172.16.25.53`, 20 GiB), atlas (VM 106, `172.16.25.54`, 40 GiB), and anvil
-(VM 107, `172.16.25.55`, 20 GiB). The utility prebuilds the promoted closure,
+`172.16.25.53`, 20 GiB), atlas (VM 106, `172.16.25.54`, 40 GiB), anvil
+(VM 107, `172.16.25.55`, 20 GiB), and sieve (VM 108, `172.16.25.56`, 60 GiB).
+The utility prebuilds the promoted closure,
 boots a key-only static-IP installer, verifies the Proxmox ownership marker,
 NIC MAC, ISO label, disk serial and disk size, and then runs Disko plus
 `nixos-anywhere`. Type `<profile>/<vmid>` at its destructive confirmation. If
@@ -220,6 +224,50 @@ curl --cacert certs/ThornCloud_CA.crt \
 curl --cacert certs/ThornCloud_CA.crt \
   https://anvil.guildedthorn.arpa/acme/thorncloud/directory
 ```
+
+### Sieve vulnerability management
+
+Sieve runs Greenbone Community Edition at
+`https://sieve.guildedthorn.arpa/`. NixOS nginx is the only network-facing
+listener and obtains its certificate from Anvil. Greenbone's own generated
+TLS listener is published only on loopback. Executable container images are
+pinned to reviewed linux/amd64 manifests; a daily timer refreshes only the
+rolling Community Feed data images.
+
+Push the configuration and wait for both `deploy-mac` and `deploy-sieve`, add
+a pfSense host override for `sieve.guildedthorn.arpa` at `172.16.25.56`, then
+provision from the hypervisor:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision sieve
+```
+
+The first boot may spend tens of minutes downloading images and importing the
+initial feed, so Sieve's profile has a one-hour readiness window. The upstream
+`admin/admin` credential is replaced before the UI can answer remotely. Read
+the generated bootstrap credential and change it after the first login:
+
+```sh
+ssh root@172.16.25.56 sieve-admin-password
+```
+
+Deployment does not start an active scan. The explicitly authorized owner-run
+scope is available with `sieve-authorized-scope`; create targets and schedules
+in GSA only after reviewing it. OPT1 targets are directly reachable. To assess
+the LAN, add an explicit pfSense OPT1 pass rule from Sieve (`172.16.25.56`) to
+the LAN net (`192.168.1.0/24`); do not add a WAN inbound rule or authorize
+public ranges as scan targets. Container status and manual feed refreshes are
+available through `sieve-compose ps` and `sieve-update-feeds`.
+
+Telemetry enrollment is deliberately a post-install step because the SOPS age
+recipient comes from Sieve's real SSH host key. Add that recipient to
+`.sops.yaml`, rewrap `hosts/shared/telemetry-secrets.yaml`, then rename
+`hosts/sieve/telemetry.nix.example` to `hosts/sieve/telemetry.nix` and push.
+That single enrollment marker enables Alloy, the detection canary, SOC node
+and comin targets, the HTTPS blackbox probe, and log-silence monitoring without
+creating false alerts while the VM is absent. Rerun `thornix-netbox-seed` on
+Atlas after deployment to add Sieve to the authoritative inventory.
 
 ## guildedthorn.com
 

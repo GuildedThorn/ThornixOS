@@ -95,6 +95,10 @@
                   title = "anvil";
                   role = "pki";
                 };
+                "172.16.25.56" = {
+                  title = "sieve";
+                  role = "vulnerability-scanner";
+                };
               };
             };
           };

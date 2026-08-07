@@ -18,6 +18,7 @@
         let
           resources = profile.resources;
           readiness = profile.readiness or { };
+          readinessTimeoutSeconds = readiness.timeoutSeconds or 600;
           httpChecks = map (check: {
             inherit (check) url;
             caCertificate = if check ? caCertificate then toString check.caCertificate else "";
@@ -49,6 +50,11 @@
         assert lib.assertMsg (
           builtins.isInt resources.diskGiB && resources.diskGiB >= 4
         ) "provision profile '$name' needs a disk of at least 4 GiB";
+        assert lib.assertMsg (
+          builtins.isInt readinessTimeoutSeconds
+          && readinessTimeoutSeconds >= 60
+          && readinessTimeoutSeconds <= 7200
+        ) "provision profile '$name' readiness timeout must be an integer from 60 through 7200 seconds";
         {
           inherit name;
           inherit (profile)
@@ -77,6 +83,7 @@
           readiness = {
             displayName = readiness.displayName or name;
             label = readiness.label or "${name} services";
+            timeoutSeconds = readinessTimeoutSeconds;
             units = readiness.units or [ ];
             inherit httpChecks;
             tftpChecks = readiness.tftpChecks or [ ];
