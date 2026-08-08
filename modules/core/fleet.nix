@@ -33,17 +33,13 @@ in
     productionHosts = productionHosts;
     validationHosts = validationHosts;
 
-    # Hydra builds every declared configuration, but only production jobs are
-    # constituents of the release gate. Templates and tests therefore keep
-    # compiling without blocking a fleet deployment.
+    # Hydra builds every declared configuration. Production promotion checks
+    # the individual production jobs through Hydra's local API instead of
+    # evaluating one monolithic aggregate, which would retain the whole fleet
+    # module graph in a single evaluator process.
     hydraJobs = {
       production = productionJobs;
       validation = validationJobs;
-      required = pkgs.releaseTools.aggregate {
-        name = "thornixos-production-required-${revision}";
-        constituents = builtins.attrValues productionJobs;
-        meta.description = "Every production ThornixOS host built successfully";
-      };
     };
   };
 }

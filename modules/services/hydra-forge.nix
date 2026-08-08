@@ -11,6 +11,13 @@
       cfg = config.thorn.forgePromotion;
       hostname = "forge.guildedthorn.arpa";
       stateDirectory = "/var/lib/thornix-promotion";
+      inventory = import ../../hosts/inventory.nix;
+      inventoryNames = lib.sort builtins.lessThan (builtins.attrNames inventory);
+      productionHosts = lib.filter (name: inventory.${name}.production) inventoryNames;
+      expectedProductionJobs = map (name: "production.${name}") productionHosts;
+      expectedProductionJobsFile = pkgs.writeText "thornix-production-jobs" (
+        lib.concatMapStrings (job: "${job}\n") expectedProductionJobs
+      );
       # Pin GitHub's published Ed25519 host key rather than trusting DNS or
       # accepting a first-seen key on the machine that controls production.
       githubKnownHosts = pkgs.writeText "thornix-github-known-hosts" ''
@@ -20,8 +27,10 @@
         name = "thornix-promote-production";
         runtimeInputs = with pkgs; [
           cachix
-          findutils
+          coreutils
+          curl
           git
+          jq
           nix
           openssh
         ];
@@ -61,39 +70,101 @@
             exit 1
           fi
 
-          # Hydra stamps each required aggregate with its exact source
-          # revision. Prefer the newest completed main commit, but walk back
-          # through recent revisions so frequent pushes cannot starve an
-          # earlier known-good build. This store lookup is intentionally
-          # evaluation-free: Hydra has already done the expensive fleet eval.
+          # Prefer the newest completed main evaluation, but walk back through
+          # recent evaluations so frequent pushes cannot starve an earlier
+          # known-good revision. Every expected production job must be present,
+          # finished, and successful; validation/template jobs do not gate the
+          # production fleet.
+          hydra_api=http://127.0.0.1:3000
+          expected_jobs_file=${lib.escapeShellArg (toString expectedProductionJobsFile)}
           candidate=
-          required_path=
-          while IFS= read -r revision; do
-            aggregate_name="thornixos-production-required-$revision"
-            evaluated=$(find /nix/store -mindepth 1 -maxdepth 1 -type d \
-              -name "*-$aggregate_name" -print -quit)
-            if [[ -n "$evaluated" ]] \
-              && nix-store --check-validity "$evaluated" >/dev/null 2>&1; then
-              candidate=$revision
-              required_path=$evaluated
+          candidate_builds_json=
+          for page in 1 2 3; do
+            evals_json=$(curl --fail --silent --show-error \
+              --connect-timeout 3 --max-time 30 \
+              --header 'Accept: application/json' \
+              "$hydra_api/jobset/thornixos/main/evals?page=$page")
+            eval_count=$(jq --raw-output '.evals | length' <<< "$evals_json")
+
+            while IFS=$'\t' read -r eval_id flake_ref; do
+              if [[ ! "$flake_ref" =~ ^github:GuildedThorn/ThornixOS/([0-9a-f]{40})(\?.*)?$ ]]; then
+                continue
+              fi
+              revision=''${BASH_REMATCH[1]}
+
+              if [[ "$revision" == "$production_commit" ]] \
+                || ! git -C "$repository" merge-base --is-ancestor \
+                  "$production_commit" "$revision" \
+                || ! git -C "$repository" merge-base --is-ancestor \
+                  "$revision" "$main_commit"; then
+                continue
+              fi
+
+              builds_json=$(curl --fail --silent --show-error \
+                --connect-timeout 3 --max-time 30 \
+                --header 'Accept: application/json' \
+                "$hydra_api/eval/$eval_id/builds")
+              complete=true
+              while IFS= read -r expected_job; do
+                [[ -n "$expected_job" ]] || continue
+                build_state=$(jq --raw-output --arg job "$expected_job" '
+                  [.[] | select(.job == $job)] as $matches
+                  | if ($matches | length) != 1 then "missing"
+                    elif $matches[0].finished != 1 then "unfinished"
+                    elif $matches[0].buildstatus != 0 then "failed"
+                    elif ([$matches[0].buildoutputs[]?.path] | length) == 0 then "no-output"
+                    else "succeeded"
+                    end
+                ' <<< "$builds_json")
+                if [[ "$build_state" != succeeded ]]; then
+                  printf 'Hydra evaluation %s job %s is %s\n' \
+                    "$eval_id" "$expected_job" "$build_state"
+                  complete=false
+                  break
+                fi
+              done < "$expected_jobs_file"
+
+              if [[ "$complete" == true ]]; then
+                candidate=$revision
+                candidate_builds_json=$builds_json
+                break
+              fi
+            done < <(jq --raw-output '.evals[] | [.id, .flake] | @tsv' <<< "$evals_json")
+
+            if [[ -n "$candidate" ]]; then
               break
             fi
-          done < <(
-            git -C "$repository" rev-list --first-parent --max-count=50 \
-              refs/remotes/origin/main '^refs/remotes/origin/production'
-          )
+            if ((eval_count < 20)); then
+              break
+            fi
+          done
 
           if [[ -z "$candidate" ]]; then
-            echo "Hydra has not completed a production aggregate newer than production"
+            echo "Hydra has not completed every production job for a revision newer than production"
             exit 0
           fi
 
-          # Confirm the aggregate closure is present in Cachix before comin
-          # can observe the branch update. The aggregate references every
-          # constituent system, so this recursively covers the whole fleet.
+          mapfile -t output_paths < <(
+            jq --raw-output --rawfile expected "$expected_jobs_file" '
+              ($expected | split("\n") | map(select(length > 0))) as $jobs
+              | .[]
+              | select(.job as $job | $jobs | index($job))
+              | .buildoutputs[]?.path
+            ' <<< "$candidate_builds_json" | sort --unique
+          )
+          if ((''${#output_paths[@]} == 0)); then
+            echo "Hydra reported success without any production output paths" >&2
+            exit 1
+          fi
+          for output_path in "''${output_paths[@]}"; do
+            nix-store --check-validity "$output_path"
+          done
+
+          # Confirm every production closure is present in Cachix before
+          # comin can observe the branch update.
           CACHIX_AUTH_TOKEN="$(<"$CREDENTIALS_DIRECTORY/cachix-token")"
           export CACHIX_AUTH_TOKEN
-          cachix push guildedthorn "$required_path"
+          cachix push guildedthorn "''${output_paths[@]}"
 
           git -C "$repository" push origin \
             "$candidate:refs/heads/production"
