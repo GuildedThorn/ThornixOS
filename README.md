@@ -456,13 +456,13 @@ Casebook and Oracle—the HTTPS blackbox probe. Then rerun
 
 Forge runs Hydra behind ThornCloud TLS at
 `https://forge.guildedthorn.arpa/`. Hydra evaluates the flake's `hydraJobs`:
-production hosts are constituents of `required`, while templates and test
-machines build under `validation` without blocking deployment. Forge builds
-locally today; additional Nix build machines can be attached later without
-changing the promotion or comin design.
+each production host builds independently under `production`, while templates
+and test machines build under `validation`. The promoter derives the required
+production job names from `hosts/inventory.nix` and refuses promotion unless
+every one succeeds. Forge builds locally today; additional Nix build machines
+can be attached later without changing the promotion or comin design.
 
-Provision VM 113 after the GitHub bootstrap workflow has created and promoted
-the shared `production` branch:
+Provision VM 113 after the shared `production` branch exists:
 
 ```sh
 ssh -A root@172.16.25.3
@@ -497,8 +497,8 @@ and Forge pins GitHub's published Ed25519 host key before using it. The Cachix
 credential needs write access to `guildedthorn.cachix.org`. Both secrets reach
 the promoter through systemd credentials rather than the Nix store. Remove the
 temporary key files after confirming SOPS can decrypt the committed ciphertext.
-Commit the SOPS ciphertext while GitHub bootstrap CI is still enabled so comin
-can activate the uploader and promoter.
+Commit the SOPS ciphertext and let the current production deployment activate
+the uploader and promoter before relying on Forge for the next promotion.
 
 Create the first Hydra administrator:
 
@@ -521,7 +521,7 @@ Forge runs at most two four-core local builds, updates Hydra's retained GC
 roots twice daily, and collects unreferenced build paths daily so the 200 GiB
 store does not fill with transient artifacts.
 
-After the `required` job succeeds, verify the handoff:
+After every `production.<host>` job succeeds, verify the handoff:
 
 ```sh
 systemctl status thornix-promote-production.timer
@@ -530,16 +530,10 @@ git ls-remote https://github.com/GuildedThorn/ThornixOS.git \
   refs/heads/main refs/heads/production
 ```
 
-Only after those refs match and at least one host has activated through comin,
-retire GitHub's temporary host-build matrix:
-
-```sh
-gh variable set FORGE_CI_ENABLED --body true \
-  --repo GuildedThorn/ThornixOS
-```
-
-GitHub continues its lightweight flake evaluation on pushes and pull requests;
-Forge owns fleet builds, Cachix publication, and promotion from that point on.
+Once those refs match and at least one host has activated through comin, the
+handoff is complete. GitHub performs lightweight flake evaluation on pushes
+and pull requests; Forge exclusively owns fleet builds, Cachix publication,
+and production promotion.
 
 ## guildedthorn.com
 
@@ -685,20 +679,12 @@ the way `services-suricata` does.
 ## CI
 
 GitHub Actions performs lock hygiene and evaluates every declared
-configuration on pushes and pull requests (`.github/workflows/ci.yml`). Until
-Forge is proven, it also derives the production matrix from
-`hosts/inventory.nix`, builds every production system, uploads through Cachix,
-and advances `production` only after the complete matrix succeeds. Its first
-promotion atomically creates `production` and advances the legacy per-host
-branches so no running comin instance can switch to a branch that does not yet
-exist.
-
-After `FORGE_CI_ENABLED=true`, Hydra builds the `hydraJobs.production` and
-`hydraJobs.validation` sets. The `hydraJobs.required` aggregate is the only
-promotion gate; Forge confirms that exact closure in Cachix before a
-fast-forward-only branch update. Do not delete the legacy `deploy-*` branches
-until every installed host reports the shared production revision in the
-Fleet Deploys dashboard.
+configuration on pushes and pull requests (`.github/workflows/ci.yml`). Hydra
+builds the `hydraJobs.production` and `hydraJobs.validation` sets. Forge checks
+every production job independently, confirms all production closures in
+Cachix, and then performs a fast-forward-only `production` branch update. Do
+not delete the legacy `deploy-*` branches until every installed host reports
+the shared production revision in the Fleet Deploys dashboard.
 
 ## Secrets (sops)
 
