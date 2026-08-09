@@ -15,7 +15,10 @@ keys:
   - &host_anvil age16w0602dq7rph35lplgzxqlq8xmkac329vvtep595vv9e7kp28yzqp938pn
   - &host_sieve age1m5vf62709qgm27m2d0xefsa5cszw98e087txafmzmjlhpsszc9lqupkv0n
   - &host_hound age12xprza92ashsmvvduxnx5e6czwqnuxvnnu0w6xmm542s426ew4eqr0jsx9
+  - &host_casebook age17fu6s2m3rw7vrrtsxxa3s97u3kn0wv04jzr88fhrpdcpl70upe8sfxl3ka
   - &host_forge age1um2glewsxfgfkjr36cgjxmtn88396jul5x6xq9vsadwjv4pdzqastfej7c
+  - &host_lure age1chlxr0hsuf79vkkvaaxhhxs9nqe695nhpejp07smhceuy2ne4gjq6skms3
+  - &host_oracle age1n4q4dg0399qlu839yx00zdhc3a9aaehks7m593pevr6yyn27f4uqsywyse
 
 creation_rules:
   # Shared Alloy writer identity. Every telemetry-enrolled host must be able
@@ -32,7 +35,11 @@ creation_rules:
       age1h0wm9stquj2h0v6ep4wrv5xq40255zrth8a6a6t3075sakafjcdqc93fph,
       age16w0602dq7rph35lplgzxqlq8xmkac329vvtep595vv9e7kp28yzqp938pn,
       age1m5vf62709qgm27m2d0xefsa5cszw98e087txafmzmjlhpsszc9lqupkv0n,
-      age12xprza92ashsmvvduxnx5e6czwqnuxvnnu0w6xmm542s426ew4eqr0jsx9
+      age12xprza92ashsmvvduxnx5e6czwqnuxvnnu0w6xmm542s426ew4eqr0jsx9,
+      age17fu6s2m3rw7vrrtsxxa3s97u3kn0wv04jzr88fhrpdcpl70upe8sfxl3ka,
+      age1um2glewsxfgfkjr36cgjxmtn88396jul5x6xq9vsadwjv4pdzqastfej7c,
+      age1chlxr0hsuf79vkkvaaxhhxs9nqe695nhpejp07smhceuy2ne4gjq6skms3,
+      age1n4q4dg0399qlu839yx00zdhc3a9aaehks7m593pevr6yyn27f4uqsywyse
   - path_regex: hosts/mac/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_mac
