@@ -33,6 +33,9 @@
         OPENCTI_HEALTHCHECK_ACCESS_KEY=00000000-0000-4000-8000-000000000002
         CONNECTOR_OPENCTI_ID=00000000-0000-4000-8000-000000000003
         CONNECTOR_MITRE_ID=00000000-0000-4000-8000-000000000004
+        CONNECTOR_CISA_KEV_ID=00000000-0000-4000-8000-000000000005
+        CONNECTOR_THREATFOX_ID=00000000-0000-4000-8000-000000000006
+        CONNECTOR_FIRST_EPSS_ID=00000000-0000-4000-8000-000000000007
       '';
       composeCheck =
         pkgs.runCommand "oracle-opencti-compose-check" { nativeBuildInputs = [ pkgs.docker-compose ]; }
@@ -59,6 +62,9 @@
           health_access_key=$(${pkgs.util-linux}/bin/uuidgen)
           connector_opencti_id=$(${pkgs.util-linux}/bin/uuidgen)
           connector_mitre_id=$(${pkgs.util-linux}/bin/uuidgen)
+          connector_cisa_kev_id=$(${pkgs.util-linux}/bin/uuidgen)
+          connector_threatfox_id=$(${pkgs.util-linux}/bin/uuidgen)
+          connector_first_epss_id=$(${pkgs.util-linux}/bin/uuidgen)
 
           {
             printf 'MINIO_ROOT_USER=opencti\n'
@@ -72,6 +78,9 @@
             printf 'OPENCTI_HEALTHCHECK_ACCESS_KEY=%s\n' "$health_access_key"
             printf 'CONNECTOR_OPENCTI_ID=%s\n' "$connector_opencti_id"
             printf 'CONNECTOR_MITRE_ID=%s\n' "$connector_mitre_id"
+            printf 'CONNECTOR_CISA_KEV_ID=%s\n' "$connector_cisa_kev_id"
+            printf 'CONNECTOR_THREATFOX_ID=%s\n' "$connector_threatfox_id"
+            printf 'CONNECTOR_FIRST_EPSS_ID=%s\n' "$connector_first_epss_id"
           } > "$temporary_secrets"
 
           printf '%s\n' "$admin_password" > ${lib.escapeShellArg adminPasswordFile}
@@ -93,6 +102,25 @@
         : "''${OPENCTI_HEALTHCHECK_ACCESS_KEY:?missing OPENCTI_HEALTHCHECK_ACCESS_KEY}"
         : "''${CONNECTOR_OPENCTI_ID:?missing CONNECTOR_OPENCTI_ID}"
         : "''${CONNECTOR_MITRE_ID:?missing CONNECTOR_MITRE_ID}"
+
+        # Existing Oracle installs predate these feed connectors. Extend the
+        # persistent environment in place so deployment adds stable connector
+        # identities without rotating any platform or database credential.
+        if [[ -z "''${CONNECTOR_CISA_KEV_ID:-}" ]]; then
+          printf 'CONNECTOR_CISA_KEV_ID=%s\n' "$(${pkgs.util-linux}/bin/uuidgen)" >> ${lib.escapeShellArg secretsFile}
+        fi
+        if [[ -z "''${CONNECTOR_THREATFOX_ID:-}" ]]; then
+          printf 'CONNECTOR_THREATFOX_ID=%s\n' "$(${pkgs.util-linux}/bin/uuidgen)" >> ${lib.escapeShellArg secretsFile}
+        fi
+        if [[ -z "''${CONNECTOR_FIRST_EPSS_ID:-}" ]]; then
+          printf 'CONNECTOR_FIRST_EPSS_ID=%s\n' "$(${pkgs.util-linux}/bin/uuidgen)" >> ${lib.escapeShellArg secretsFile}
+        fi
+
+        # shellcheck disable=SC1090
+        source ${lib.escapeShellArg secretsFile}
+        : "''${CONNECTOR_CISA_KEV_ID:?missing CONNECTOR_CISA_KEV_ID}"
+        : "''${CONNECTOR_THREATFOX_ID:?missing CONNECTOR_THREATFOX_ID}"
+        : "''${CONNECTOR_FIRST_EPSS_ID:?missing CONNECTOR_FIRST_EPSS_ID}"
 
         if [[ ! -s ${lib.escapeShellArg adminPasswordFile} ]]; then
           printf '%s\n' "$OPENCTI_ADMIN_PASSWORD" > ${lib.escapeShellArg adminPasswordFile}
@@ -120,7 +148,11 @@
       healthCheck = pkgs.writeShellScript "oracle-opencti-health" ''
         set -o errexit -o nounset -o pipefail
 
-        for service in redis elasticsearch minio rabbitmq opencti worker connector-opencti connector-mitre; do
+        for service in \
+          redis elasticsearch minio rabbitmq opencti worker \
+          connector-opencti connector-mitre connector-cisa-kev \
+          connector-threatfox connector-first-epss
+        do
           container_id=$(${compose} ps --quiet --status running "$service")
           if [[ -z "$container_id" ]]; then
             echo "error: critical Oracle container is not running: $service" >&2

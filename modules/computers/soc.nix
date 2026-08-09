@@ -1,6 +1,7 @@
 { config, inputs, ... }:
 let
   fleetInventory = import ../../hosts/inventory.nix;
+  securityWorkflowReady = builtins.pathExists "${inputs.self}/hosts/soc/security-workflow.nix";
 in
 {
   flake.nixosConfigurations.soc = inputs.nixpkgs.lib.nixosSystem {
@@ -12,6 +13,7 @@ in
       # can rewrite the record of how they got in.
       config.nixos.modules.services-crowdsec
       config.nixos.modules.services-canary
+      config.nixos.modules.services-security-workflow
       config.nixos.modules.services-ssh
 
       ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
@@ -1098,6 +1100,36 @@ in
                       }
                     ];
                   }
+                ]
+                ++ lib.optionals securityWorkflowReady [
+                  {
+                    orgId = 1;
+                    name = "security-casebook";
+                    receivers = [
+                      {
+                        # Preserve the existing page while the same grouped
+                        # notification is delivered to the incident system.
+                        uid = "discord-security-casebook";
+                        type = "discord";
+                        settings.url = "$__file{${config.sops.secrets.grafana_discord_webhook.path}}";
+                      }
+                      {
+                        uid = "thehive-security-relay";
+                        type = "webhook";
+                        disableResolveMessage = true;
+                        settings = {
+                          url = "http://127.0.0.1:9088/grafana";
+                          httpMethod = "POST";
+                          maxAlerts = "0";
+                          hmacConfig = {
+                            secret = "$__file{${config.sops.secrets.grafana_security_webhook_hmac.path}}";
+                            header = "X-Grafana-Alerting-Signature";
+                            timestampHeader = "X-Grafana-Alerting-Signature-Timestamp";
+                          };
+                        };
+                      }
+                    ];
+                  }
                 ];
               };
 
@@ -1125,23 +1157,51 @@ in
                     group_wait = "30s";
                     group_interval = "5m";
                     repeat_interval = "4h";
-                    routes = [
-                      {
-                        receiver = "discord";
-                        object_matchers = [
-                          [
-                            "severity"
-                            "="
-                            "critical"
+                    routes =
+                      lib.optionals securityWorkflowReady [
+                        {
+                          receiver = "security-casebook";
+                          object_matchers = [
+                            [
+                              "severity"
+                              "="
+                              "critical"
+                            ]
+                            [
+                              "category"
+                              "="
+                              "security"
+                            ]
+                          ];
+                          group_wait = "10s";
+                          group_interval = "1m";
+                          repeat_interval = "1h";
+                        }
+                      ]
+                      ++ [
+                        {
+                          receiver = "discord";
+                          object_matchers = [
+                            [
+                              "severity"
+                              "="
+                              "critical"
+                            ]
                           ]
-                        ];
-                        group_wait = "10s";
-                        group_interval = "1m";
-                        # Re-notify hourly rather than 4-hourly: a critical
-                        # that's still firing is one nobody has actioned yet.
-                        repeat_interval = "1h";
-                      }
-                    ];
+                          ++ lib.optionals securityWorkflowReady [
+                            [
+                              "category"
+                              "!="
+                              "security"
+                            ]
+                          ];
+                          group_wait = "10s";
+                          group_interval = "1m";
+                          # Re-notify hourly rather than 4-hourly: a critical
+                          # that's still firing is one nobody has actioned yet.
+                          repeat_interval = "1h";
+                        }
+                      ];
                   }
                 ];
               };
@@ -1542,7 +1602,14 @@ in
                           uid = "siem-ssh-bruteforce";
                           title = "SSH brute force";
                           datasourceUid = "loki";
-                          expr = "sum by (host) (count_over_time({job=\"systemd-journal\", unit=\"sshd.service\"} |~ \"Failed password|Invalid user\" [10m]))";
+                          expr = ''
+                            topk(20, sum by (host, src_ip) (count_over_time(
+                              {job="systemd-journal", unit="sshd.service"}
+                                |~ "Failed password|Invalid user"
+                                | regexp `from (?P<src_ip>(?:[0-9]{1,3}\.){3}[0-9]{1,3})`
+                                | src_ip != "" [10m]
+                            )))
+                          '';
                           evaluator = {
                             type = "gt";
                             params = [ 10 ];
@@ -1556,7 +1623,14 @@ in
                           uid = "siem-suricata-alert";
                           title = "Suricata IDS alert";
                           datasourceUid = "loki";
-                          expr = "sum by (host) (count_over_time({job=\"suricata\"} | json | event_type = \"alert\" [10m]))";
+                          expr = ''
+                            topk(20, sum by (host, src_ip, dest_ip) (count_over_time(
+                              {job="suricata"}
+                                | json
+                                | event_type = "alert"
+                                | src_ip != "" [10m]
+                            )))
+                          '';
                           evaluator = {
                             type = "gt";
                             params = [ 0 ];
@@ -1631,10 +1705,13 @@ in
                           title = "Zeek detected SSH password guessing";
                           datasourceUid = "loki";
                           expr = ''
-                            sum(count_over_time({job="zeek", host="mac", zeek_log="notice"}
-                              | json
-                              | note = "SSH::Password_Guessing"
-                              | dst =~ `172\.16\.25\..*` [10m]))
+                            topk(20, sum by (src, dst) (count_over_time(
+                              {job="zeek", host="mac", zeek_log="notice"}
+                                | json
+                                | note = "SSH::Password_Guessing"
+                                | src != ""
+                                | dst =~ `172\.16\.25\..*` [10m]
+                            )))
                           '';
                           evaluator = {
                             type = "gt";
@@ -1650,9 +1727,12 @@ in
                           title = "Zeek detected TLS Heartbleed activity";
                           datasourceUid = "loki";
                           expr = ''
-                            sum(count_over_time({job="zeek", host="mac", zeek_log="notice"}
-                              | json
-                              | note =~ "Heartbleed::SSL_Heartbeat_(Attack(_Success)?|Odd_Length|Many_Requests)" [10m]))
+                            topk(20, sum by (src, dst) (count_over_time(
+                              {job="zeek", host="mac", zeek_log="notice"}
+                                | json
+                                | note =~ "Heartbleed::SSL_Heartbeat_(Attack(_Success)?|Odd_Length|Many_Requests)"
+                                | src != "" [10m]
+                            )))
                           '';
                           evaluator = {
                             type = "gt";
@@ -1694,7 +1774,13 @@ in
                           uid = "siem-pfsense-suricata";
                           title = "pfSense Suricata high-severity alert";
                           datasourceUid = "loki";
-                          expr = "sum(count_over_time({job=\"syslog\"} |~ \"Priority: [12]\" [10m]))";
+                          expr = ''
+                            topk(20, sum by (geoip_src_ip) (count_over_time(
+                              {job="syslog", pfsense_log="suricata"}
+                                |~ "Priority: [12]"
+                                | geoip_src_ip != "" [10m]
+                            )))
+                          '';
                           evaluator = {
                             type = "gt";
                             params = [ 0 ];
@@ -1870,6 +1956,37 @@ in
                           summary = "Prometheus can't scrape Loki on soc — the SIEM may be blind to new logs.";
                         })
                       ]
+                      ++ lib.optionals securityWorkflowReady [
+                        (rule {
+                          uid = "siem-security-relay-down";
+                          title = "Security incident relay is down";
+                          datasourceUid = "prometheus";
+                          expr = ''up{job="security-relay"}'';
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "5m";
+                          noDataState = "Alerting";
+                          severity = "critical";
+                          category = "pipeline";
+                          summary = "SOC cannot deliver critical security detections to OpenCTI and TheHive; Discord remains active.";
+                        })
+                        (rule {
+                          uid = "siem-security-relay-delivery-failed";
+                          title = "Security incident delivery failed";
+                          datasourceUid = "prometheus";
+                          expr = "increase(thorn_security_relay_alerts_failed_total[15m])";
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          severity = "critical";
+                          category = "pipeline";
+                          summary = "The security relay could not create at least one TheHive alert; Grafana will retry and Discord remains active.";
+                        })
+                      ]
                       # OpenCanary is deliberately excluded from blackbox
                       # probes: touching any decoy port is itself an event.
                       # Alert directly from its structured JSON instead.
@@ -1981,6 +2098,9 @@ in
           };
         }
       )
+    ]
+    ++ inputs.nixpkgs.lib.optionals securityWorkflowReady [
+      "${inputs.self}/hosts/soc/security-workflow.nix"
     ];
   };
 }

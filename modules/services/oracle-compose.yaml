@@ -197,6 +197,80 @@ services:
         condition: service_healthy
     mem_limit: 1g
 
+  connector-cisa-kev:
+    image: opencti/connector-cisa-known-exploited-vulnerabilities:7.260728.0@sha256:90535ba5464e35284c3c89b1d916a73f8bd7c0b67f76e725bffe196db488cb2b
+    container_name: oracle-connector-cisa-kev
+    restart: unless-stopped
+    environment:
+      OPENCTI_URL: http://opencti:8080
+      OPENCTI_TOKEN: ${OPENCTI_ADMIN_TOKEN}
+      CONNECTOR_ID: ${CONNECTOR_CISA_KEV_ID}
+      CONNECTOR_NAME: CISA Known Exploited Vulnerabilities
+      CONNECTOR_SCOPE: cisa
+      CONNECTOR_LOG_LEVEL: info
+      CONNECTOR_DURATION_PERIOD: P1D
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT: "true"
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL: "100"
+      CISA_CATALOG_URL: https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+      CISA_CREATE_INFRASTRUCTURES: "false"
+      CISA_KEV_FLAG_ONLY: "false"
+      CISA_TLP: TLP:CLEAR
+    networks:
+      - oracle
+    depends_on:
+      opencti:
+        condition: service_healthy
+    mem_limit: 768m
+
+  connector-threatfox:
+    image: opencti/connector-threatfox:7.260728.0@sha256:d2fa2e0c1f20eeeaaad594162f71d4c18446d48d0951ca4f1e5efc1ba53b4b16
+    container_name: oracle-connector-threatfox
+    restart: unless-stopped
+    environment:
+      OPENCTI_URL: http://opencti:8080
+      OPENCTI_TOKEN: ${OPENCTI_ADMIN_TOKEN}
+      CONNECTOR_ID: ${CONNECTOR_THREATFOX_ID}
+      CONNECTOR_NAME: Abuse.ch ThreatFox
+      CONNECTOR_SCOPE: ThreatFox
+      CONNECTOR_LOG_LEVEL: info
+      CONNECTOR_DURATION_PERIOD: PT1H
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT: "true"
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL: "80"
+      THREATFOX_CSV_URL: https://threatfox.abuse.ch/export/csv/recent/
+      THREATFOX_IMPORT_OFFLINE: "false"
+      THREATFOX_CREATE_INDICATORS: "true"
+      THREATFOX_DEFAULT_X_OPENCTI_SCORE: "80"
+      THREATFOX_IOC_TO_IMPORT: all_types
+    networks:
+      - oracle
+    depends_on:
+      opencti:
+        condition: service_healthy
+    mem_limit: 768m
+
+  connector-first-epss:
+    image: opencti/connector-first-epss:7.260728.0@sha256:3f566b241d8289246fa5743d4a45ab46a8b9cecf2d2c9837f1210b2ed0d3b405
+    container_name: oracle-connector-first-epss
+    restart: unless-stopped
+    environment:
+      OPENCTI_URL: http://opencti:8080
+      OPENCTI_TOKEN: ${OPENCTI_ADMIN_TOKEN}
+      CONNECTOR_ID: ${CONNECTOR_FIRST_EPSS_ID}
+      CONNECTOR_NAME: FIRST EPSS Enrichment
+      CONNECTOR_SCOPE: vulnerability
+      CONNECTOR_LOG_LEVEL: info
+      CONNECTOR_AUTO: "true"
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT: "true"
+      CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL: "100"
+      FIRST_EPSS_API_BASE_URL: https://api.first.org/data/v1/epss
+      FIRST_EPSS_MAX_TLP: TLP:CLEAR
+    networks:
+      - oracle
+    depends_on:
+      opencti:
+        condition: service_healthy
+    mem_limit: 768m
+
 networks:
   oracle:
     driver: bridge
