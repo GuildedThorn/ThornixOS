@@ -1,0 +1,207 @@
+{
+  "id": "ThornHydraStatus",
+  "name": "ThornixOS | Hydra production gate → Herald",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-920, -100],
+      "id": "7c405b38-3df7-40bf-a931-c9c27fcc7eaf",
+      "name": "Test Hydra gate"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-920, 100],
+      "id": "4162993f-61fb-482f-87ee-975056321dfd",
+      "name": "Every 5 minutes"
+    },
+    {
+      "parameters": {
+        "content": "## Hydra production gate\n\nWatches the newest `thornixos/main` evaluation and reports one result per evaluation. A failed production job alerts immediately; success is reported only after every inventory-derived production job has finished with an output.\n\nThis workflow only observes Hydra. Forge remains the sole authority that uploads closures and fast-forwards `production`. Select the **Herald ntfy publisher** Bearer Auth credential before publishing.",
+        "height": 320,
+        "width": 520
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1160, -520],
+      "id": "38461a65-b81c-4389-b6c7-eb8073858008",
+      "name": "Setup"
+    },
+    {
+      "parameters": {
+        "url": "https://forge.guildedthorn.arpa/jobset/thornixos/main/evals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-660, 0],
+      "id": "c1520d75-67d4-4436-b23e-50358f4fc59e",
+      "name": "Read Hydra evaluations"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const evaluations = items.flatMap((item) => Array.isArray(item.json.evals) ? item.json.evals : []);\nif (evaluations.length === 0) {\n  throw new Error('Hydra returned no thornixos/main evaluations');\n}\nconst latest = evaluations[0];\nreturn [{ json: {\n  evaluationId: latest.id,\n  flake: latest.flake ?? '',\n  buildsUrl: `https://forge.guildedthorn.arpa/eval/${latest.id}/builds`,\n  evaluationUrl: `https://forge.guildedthorn.arpa/eval/${latest.id}`,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-380, 0],
+      "id": "eb10aa71-1014-4709-b0d2-eaf3237296f8",
+      "name": "Select newest evaluation"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.buildsUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-100, 0],
+      "id": "b36ec25b-8f53-4d4e-a6b2-e4675365edfd",
+      "name": "Read evaluation builds"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const metadata = $('Select newest evaluation').first().json;\nconst builds = items.flatMap((item) => Array.isArray(item.json) ? item.json : [item.json]);\nconst expected = [\n  'anvil', 'atlas', 'casebook', 'courier', 'forge', 'herald', 'hound',\n  'identity', 'loom', 'lure', 'mac', 'mitm', 'nixos', 'oracle', 'pixie',\n  'scout', 'sieve', 'soc', 'websites',\n].map((host) => `production.${host}`);\nconst byJob = new Map(builds.map((build) => [build.job, build]));\nconst states = expected.map((job) => {\n  const build = byJob.get(job);\n  if (!build) return { job, state: 'missing' };\n  if (Number(build.finished) !== 1) return { job, state: 'unfinished' };\n  if (Number(build.buildstatus) !== 0) return { job, state: 'failed' };\n  const outputs = Object.values(build.buildoutputs ?? {}).filter((output) => output?.path);\n  if (outputs.length === 0) return { job, state: 'no-output' };\n  return { job, state: 'succeeded' };\n});\n\nconst failed = states.filter((entry) => ['failed', 'no-output'].includes(entry.state));\nconst pending = states.filter((entry) => ['missing', 'unfinished'].includes(entry.state));\nif (failed.length === 0 && pending.length > 0) return [];\n\nconst result = failed.length > 0 ? 'failed' : 'succeeded';\nconst state = $getWorkflowStaticData('global');\nconst notificationKey = `${metadata.evaluationId}:${result}`;\nif (state.lastNotificationKey === notificationKey) return [];\nstate.lastNotificationKey = notificationKey;\n\nconst revision = String(metadata.flake).match(/[0-9a-f]{40}/)?.[0];\nconst shortRevision = revision ? revision.slice(0, 8) : `eval ${metadata.evaluationId}`;\nconst message = result === 'succeeded'\n  ? `All ${expected.length} production hosts built successfully for ${shortRevision}. Forge can promote this revision after Cachix verification.`\n  : `Hydra evaluation ${metadata.evaluationId} failed: ${failed.map((entry) => `${entry.job} (${entry.state})`).join(', ')}`;\n\nreturn [{ json: {\n  topic: 'thornixos-ops',\n  title: result === 'succeeded' ? 'Hydra production gate passed' : 'Hydra production gate failed',\n  message,\n  priority: result === 'succeeded' ? 3 : 5,\n  tags: result === 'succeeded' ? ['heavy_check_mark', 'hydra'] : ['x', 'hydra'],\n  click: metadata.evaluationUrl,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [180, 0],
+      "id": "2efaeab9-97ea-4f37-b376-51a003d6775f",
+      "name": "Evaluate production gate"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://herald.guildedthorn.arpa/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 0],
+      "id": "df529434-034f-44c6-a456-446352543494",
+      "name": "Notify Herald"
+    }
+  ],
+  "connections": {
+    "Test Hydra gate": {
+      "main": [
+        [
+          {
+            "node": "Read Hydra evaluations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Read Hydra evaluations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Hydra evaluations": {
+      "main": [
+        [
+          {
+            "node": "Select newest evaluation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select newest evaluation": {
+      "main": [
+        [
+          {
+            "node": "Read evaluation builds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read evaluation builds": {
+      "main": [
+        [
+          {
+            "node": "Evaluate production gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate production gate": {
+      "main": [
+        [
+          {
+            "node": "Notify Herald",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago",
+    "errorWorkflow": "ThornN8nFailure"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -10,6 +10,8 @@
     let
       hostname = "loom.guildedthorn.arpa";
       secretStateDirectory = "/var/lib/loom-n8n-secrets";
+      seedStateDirectory = "/var/lib/loom-n8n-seed";
+      starterWorkflowDirectory = ../../hosts/loom/workflows;
       workflowFilesDirectory = "/var/lib/n8n-files";
       createSecrets = pkgs.writeShellScript "loom-n8n-create-secrets" ''
         set -o errexit -o nounset -o pipefail
@@ -134,7 +136,27 @@
           N8N_RESTRICT_FILE_ACCESS_TO = workflowFilesDirectory;
           N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS = true;
           N8N_COMMUNITY_PACKAGES_ENABLED = false;
+          N8N_COMMUNITY_PACKAGES_MANAGED_BY_ENV = true;
+          N8N_COMMUNITY_PACKAGES = "";
           NODES_EXCLUDE = ''["n8n-nodes-base.executeCommand"]'';
+
+          # Loom does not currently use n8n's hosted AI, MCP registry, or
+          # public chat surfaces. Keep them policy-controlled and disabled so
+          # a UI setting cannot silently introduce a new outbound trust path.
+          N8N_AI_ENABLED = false;
+          N8N_AI_ALLOW_SENDING_PARAMETER_VALUES = false;
+          N8N_MCP_MANAGED_BY_ENV = true;
+          N8N_MCP_ACCESS_ENABLED = false;
+          N8N_MCP_BUILDER_ENABLED = false;
+          N8N_MCP_APPS_ENABLED = false;
+          N8N_DISABLE_PUBLIC_CHAT_TRIGGER = true;
+          N8N_DISABLED_MODULES = "mcp,mcp-registry,workflow-builder,chat-hub";
+
+          # Keep the authenticated API available for future ThornixOS
+          # automation, but do not publish its interactive documentation.
+          N8N_PUBLIC_API_DISABLED = false;
+          N8N_PUBLIC_API_SWAGGERUI_DISABLED = true;
+          N8N_PUBLIC_API_PACKAGES_ENABLED = false;
 
           # Block requests to private IP literals while permitting the
           # controlled internal DNS namespace used by ThornixOS services.
@@ -155,6 +177,10 @@
           N8N_LOG_LEVEL = "info";
           N8N_LOG_OUTPUT = "console";
 
+          # Bound CPU/memory pressure on this 2-vCPU, 4-GiB automation host.
+          N8N_CONCURRENCY_PRODUCTION_LIMIT = 4;
+          EXECUTIONS_TIMEOUT = 1800;
+          EXECUTIONS_TIMEOUT_MAX = 3600;
           EXECUTIONS_DATA_PRUNE = true;
           EXECUTIONS_DATA_MAX_AGE = 336;
           EXECUTIONS_DATA_PRUNE_MAX_COUNT = 10000;
@@ -166,6 +192,7 @@
           environment = {
             N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT = 15;
             N8N_RUNNERS_MAX_CONCURRENCY = 4;
+            N8N_RUNNERS_TASK_TIMEOUT = 300;
             NODE_EXTRA_CA_CERTS = config.security.pki.caBundle;
             SSL_CERT_FILE = config.security.pki.caBundle;
             REQUESTS_CA_BUNDLE = config.security.pki.caBundle;
@@ -209,6 +236,93 @@
           ProtectClock = true;
           ProtectHostname = true;
           ProtectKernelLogs = true;
+        };
+      };
+
+      # Import an inactive starter pack after the first owner account is
+      # created. Each workflow gets its own immutable marker: later additions
+      # are imported automatically, while deployments never overwrite a
+      # workflow that has since been edited in the UI. A timer handles both
+      # the already-configured VM and clean reinstalls where owner setup
+      # happens after the first boot.
+      systemd.services.loom-n8n-workflow-seed = {
+        description = "Seed Loom n8n starter workflows";
+        after = [
+          "loom-n8n-secrets.service"
+          "n8n.service"
+          "postgresql.service"
+        ];
+        requires = [
+          "loom-n8n-secrets.service"
+          "n8n.service"
+          "postgresql.service"
+        ];
+        environment = {
+          DB_TYPE = "postgresdb";
+          DB_POSTGRESDB_HOST = "/run/postgresql";
+          DB_POSTGRESDB_PORT = "5432";
+          DB_POSTGRESDB_DATABASE = "n8n";
+          DB_POSTGRESDB_USER = "n8n";
+          DB_POSTGRESDB_SCHEMA = "public";
+          N8N_USER_FOLDER = "/var/lib/n8n";
+          N8N_ENCRYPTION_KEY_FILE = "%d/n8n_encryption_key_file";
+          NODE_EXTRA_CA_CERTS = config.security.pki.caBundle;
+        };
+        serviceConfig = {
+          Type = "oneshot";
+          User = "n8n";
+          Group = "n8n";
+          StateDirectory = "loom-n8n-seed";
+          StateDirectoryMode = "0700";
+          LoadCredential = "n8n_encryption_key_file:${secretStateDirectory}/encryption-key";
+          UMask = "0077";
+          NoNewPrivileges = true;
+          PrivateTmp = true;
+          ProtectHome = true;
+          ProtectSystem = "strict";
+          ReadWritePaths = [
+            "/var/lib/n8n"
+            seedStateDirectory
+          ];
+          ExecStart = pkgs.writeShellScript "loom-n8n-seed-workflows" ''
+            set -o errexit -o nounset -o pipefail
+            shopt -s nullglob
+
+            owner_count="$(${config.services.postgresql.package}/bin/psql \
+              --host=/run/postgresql \
+              --dbname=n8n \
+              --username=n8n \
+              --no-align \
+              --tuples-only \
+              --command='SELECT count(*) FROM "user";')"
+
+            if (( owner_count == 0 )); then
+              echo "n8n owner setup is incomplete; starter import deferred"
+              exit 0
+            fi
+
+            for workflow in ${starterWorkflowDirectory}/*.json; do
+              workflow_name="$(${pkgs.coreutils}/bin/basename "$workflow")"
+              marker=${seedStateDirectory}/$workflow_name.imported
+              if [[ -e "$marker" ]]; then
+                continue
+              fi
+
+              ${pkgs.n8n}/bin/n8n import:workflow --input="$workflow"
+              ${pkgs.coreutils}/bin/touch "$marker"
+            done
+          '';
+        };
+      };
+
+      systemd.timers.loom-n8n-workflow-seed = {
+        description = "Retry Loom n8n starter workflow import after owner setup";
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnBootSec = "30s";
+          OnUnitActiveSec = "5m";
+          AccuracySec = "15s";
+          Unit = "loom-n8n-workflow-seed.service";
         };
       };
 

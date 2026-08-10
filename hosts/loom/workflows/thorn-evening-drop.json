@@ -1,0 +1,301 @@
+{
+  "id": "ThornEveningDrop",
+  "name": "Thorn | Evening gaming drop",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1040, -100],
+      "id": "f3b9c47f-3417-45d5-a01e-fd7b9384cf41",
+      "name": "Test tonight's drop"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 17,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-1040, 100],
+      "id": "265d303b-4375-4706-a7a5-792e6041c91f",
+      "name": "Every day at 5:30 PM"
+    },
+    {
+      "parameters": {
+        "content": "## Thorn's Evening Drop\n\nA personal 5:30 PM digest built from the choices already in your ThornixOS Glance page: Alsip weather, gameranx, Skill Up, GameLinked, Digital Foundry, r/pcgaming, and r/gamingnews.\n\nIt contains no SOC or infrastructure data, uses no AI service, and stores no feed HTML. Create a dedicated **SMTP** credential named `GuildedThorn Gmail SMTP`, select it on the final node, test once, then publish.",
+        "height": 310,
+        "width": 520
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1260, -520],
+      "id": "00bbc881-6dab-41b8-b80c-b40a8dc1588a",
+      "name": "About your drop"
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=41.6689&longitude=-87.7387&current=temperature_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=America%2FChicago&forecast_days=1",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-780, 0],
+      "id": "0923ff7f-7006-45a9-a3a6-8d81472a71cc",
+      "name": "Get Alsip weather"
+    },
+    {
+      "parameters": {
+        "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCNvzD7Z-g64bPXxGzaQaa4g",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [-500, -320],
+      "id": "bbdf1327-f806-4d55-bac9-224df40e2cd8",
+      "name": "Read gameranx",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCZ7AeeVbyslLM_8-nVy2B8Q",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [-500, -160],
+      "id": "1b92575b-7014-44b8-9255-4adccfb5b99e",
+      "name": "Read Skill Up",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCHDxYLv8iovIbhrfl16CNyg",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [-500, 0],
+      "id": "d0c70673-7df9-4ae1-9d69-d611b234004e",
+      "name": "Read GameLinked",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC9PBzalIcEQCsiIkq36PyUA",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [-500, 160],
+      "id": "e414f90d-1dff-4825-ab45-d4d3b4d8beb9",
+      "name": "Read Digital Foundry",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://old.reddit.com/r/pcgaming+gamingnews/.rss",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [-500, 320],
+      "id": "71a3aa90-00c9-4bdf-ac01-cc0c45ff8b72",
+      "name": "Read Reddit gaming",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 5
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [-160, 0],
+      "id": "1b540998-f2f1-4fb4-bc84-99befda91ee4",
+      "name": "Combine gaming feeds"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const weather = $('Get Alsip weather').first().json;\nconst escapeHtml = (value) => String(value ?? '')\n  .replaceAll('&', '&amp;')\n  .replaceAll('<', '&lt;')\n  .replaceAll('>', '&gt;')\n  .replaceAll('\\\"', '&quot;')\n  .replaceAll(\"'\", '&#039;');\nconst safeUrl = (value) => /^https?:\\/\\//i.test(String(value ?? '')) ? String(value) : '#';\nconst asTime = (value) => {\n  const time = Date.parse(value ?? '');\n  return Number.isFinite(time) ? time : 0;\n};\n\nconst entries = items\n  .map(({ json }) => ({\n    title: String(json.title ?? '').trim(),\n    link: safeUrl(json.link),\n    creator: String(json.creator ?? json.author ?? json['dc:creator'] ?? '').trim(),\n    published: json.isoDate ?? json.pubDate ?? '',\n  }))\n  .filter((entry) => entry.title && entry.link !== '#')\n  .sort((left, right) => asTime(right.published) - asTime(left.published));\n\nconst reddit = entries.filter((entry) => entry.link.includes('reddit.com')).slice(0, 4);\nconst videosByCreator = new Map();\nfor (const entry of entries.filter((candidate) => !candidate.link.includes('reddit.com'))) {\n  const creator = entry.creator || 'Gaming video';\n  const creatorEntries = videosByCreator.get(creator) ?? [];\n  if (creatorEntries.length < 2) creatorEntries.push(entry);\n  videosByCreator.set(creator, creatorEntries);\n}\nconst videos = [...videosByCreator.entries()].flatMap(([creator, creatorEntries]) =>\n  creatorEntries.map((entry) => ({ ...entry, creator }))\n);\n\nconst current = weather.current ?? {};\nconst daily = weather.daily ?? {};\nconst currentTemp = Math.round(Number(current.temperature_2m ?? 0));\nconst feelsLike = Math.round(Number(current.apparent_temperature ?? currentTemp));\nconst high = Math.round(Number(daily.temperature_2m_max?.[0] ?? currentTemp));\nconst low = Math.round(Number(daily.temperature_2m_min?.[0] ?? currentTemp));\nconst rainChance = Math.round(Number(daily.precipitation_probability_max?.[0] ?? 0));\nconst weatherCode = Number(current.weather_code ?? daily.weather_code?.[0] ?? -1);\nconst weatherLabels = {\n  0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',\n  45: 'Foggy', 48: 'Icy fog', 51: 'Light drizzle', 53: 'Drizzle',\n  55: 'Heavy drizzle', 61: 'Light rain', 63: 'Rain', 65: 'Heavy rain',\n  71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 80: 'Rain showers',\n  81: 'Rain showers', 82: 'Heavy showers', 95: 'Thunderstorms',\n};\nconst conditions = weatherLabels[weatherCode] ?? 'Mixed conditions';\nconst stayInLine = rainChance >= 50\n  ? `A ${rainChance}% rain chance makes this a strong stay-in-and-play night.`\n  : currentTemp <= 35\n    ? `It is ${currentTemp}° outside. The backlog wins tonight.`\n    : `Weather is not trapping you inside, but the backlog might.`;\n\nconst chicagoDate = new Intl.DateTimeFormat('en-US', {\n  timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric',\n}).format(new Date());\nconst formatPublished = (value) => {\n  if (!asTime(value)) return '';\n  return new Intl.DateTimeFormat('en-US', {\n    timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',\n  }).format(new Date(value));\n};\nconst card = (entry, badge) => `\n  <a href=\"${escapeHtml(entry.link)}\" style=\"display:block;text-decoration:none;color:#f4f1ff;background:#17131f;border:1px solid #332943;border-radius:12px;padding:14px 16px;margin:0 0 10px\">\n    <span style=\"display:inline-block;color:#d8b65c;font:700 11px/1.2 monospace;letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px\">${escapeHtml(badge)}</span>\n    <span style=\"display:block;font:600 16px/1.35 system-ui,-apple-system,sans-serif\">${escapeHtml(entry.title)}</span>\n    <span style=\"display:block;color:#91879f;font:12px/1.4 system-ui,-apple-system,sans-serif;margin-top:6px\">${escapeHtml(formatPublished(entry.published))}</span>\n  </a>`;\n\nconst newsHtml = reddit.length\n  ? reddit.map((entry) => card(entry, 'Reddit gaming')).join('')\n  : '<p style=\"color:#91879f\">Reddit had nothing usable this run.</p>';\nconst videoHtml = videos.length\n  ? videos.map((entry) => card(entry, entry.creator)).join('')\n  : '<p style=\"color:#91879f\">The video feeds had nothing usable this run.</p>';\n\nconst html = `<!doctype html>\n<html><body style=\"margin:0;background:#09070d;color:#f4f1ff\">\n  <div style=\"max-width:680px;margin:0 auto;padding:34px 20px 48px\">\n    <div style=\"color:#d8b65c;font:700 12px/1.2 monospace;letter-spacing:.18em\">GUILDEDTHORN // EVENING DROP</div>\n    <h1 style=\"font:700 34px/1.1 system-ui,-apple-system,sans-serif;margin:12px 0 4px\">Evening, Thorn.</h1>\n    <p style=\"color:#91879f;font:14px/1.5 system-ui,-apple-system,sans-serif;margin:0 0 24px\">${escapeHtml(chicagoDate)}</p>\n\n    <div style=\"background:linear-gradient(135deg,#20152a,#12101a);border:1px solid #49365d;border-radius:16px;padding:20px;margin-bottom:28px\">\n      <div style=\"color:#d8b65c;font:700 11px/1.2 monospace;letter-spacing:.1em\">ALSIP TONIGHT</div>\n      <div style=\"font:700 28px/1.25 system-ui,-apple-system,sans-serif;margin-top:8px\">${escapeHtml(conditions)} · ${currentTemp}°F</div>\n      <div style=\"color:#c2b9cf;font:14px/1.55 system-ui,-apple-system,sans-serif;margin-top:6px\">Feels ${feelsLike}° · High ${high}° · Low ${low}° · Rain ${rainChance}%</div>\n      <div style=\"color:#f4f1ff;font:15px/1.55 system-ui,-apple-system,sans-serif;margin-top:12px\">${escapeHtml(stayInLine)}</div>\n    </div>\n\n    <h2 style=\"font:700 22px/1.2 system-ui,-apple-system,sans-serif;margin:28px 0 12px\">Tonight's gaming pulse</h2>\n    ${newsHtml}\n    <h2 style=\"font:700 22px/1.2 system-ui,-apple-system,sans-serif;margin:32px 0 12px\">Fresh from your channels</h2>\n    ${videoHtml}\n    <p style=\"color:#665d72;font:12px/1.5 system-ui,-apple-system,sans-serif;margin-top:28px\">Curated locally by Loom from the sources in your ThornixOS Glance configuration. No AI summary, no tracking pixels.</p>\n  </div>\n</body></html>`;\n\nconst textLines = [\n  `GUILDEDTHORN // EVENING DROP — ${chicagoDate}`,\n  '',\n  `Alsip: ${conditions}, ${currentTemp}°F (feels ${feelsLike}°), high ${high}°, low ${low}°, rain ${rainChance}%`,\n  stayInLine,\n  '',\n  \"TONIGHT'S GAMING PULSE\",\n  ...(reddit.length ? reddit.map((entry) => `- ${entry.title} — ${entry.link}`) : ['- No usable Reddit items this run.']),\n  '',\n  'FRESH FROM YOUR CHANNELS',\n  ...(videos.length ? videos.map((entry) => `- [${entry.creator}] ${entry.title} — ${entry.link}`) : ['- No usable video items this run.']),\n];\n\nreturn [{ json: {\n  subject: `Thorn's Evening Drop · ${chicagoDate}`,\n  html,\n  text: textLines.join('\\n'),\n  itemCount: reddit.length + videos.length,\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [140, 0],
+      "id": "58bc25ee-642a-45fd-83b4-74909527fc9a",
+      "name": "Compose evening drop"
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "send",
+        "fromEmail": "GuildedThorn <guildedthorn@gmail.com>",
+        "toEmail": "guildedthorn@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [440, 0],
+      "id": "98c23828-d97b-45d6-86b8-7d7d4a03aaec",
+      "name": "Email Thorn"
+    }
+  ],
+  "connections": {
+    "Test tonight's drop": {
+      "main": [
+        [
+          {
+            "node": "Get Alsip weather",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every day at 5:30 PM": {
+      "main": [
+        [
+          {
+            "node": "Get Alsip weather",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Alsip weather": {
+      "main": [
+        [
+          {
+            "node": "Read gameranx",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Skill Up",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read GameLinked",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Digital Foundry",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Reddit gaming",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read gameranx": {
+      "main": [
+        [
+          {
+            "node": "Combine gaming feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Skill Up": {
+      "main": [
+        [
+          {
+            "node": "Combine gaming feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Read GameLinked": {
+      "main": [
+        [
+          {
+            "node": "Combine gaming feeds",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Read Digital Foundry": {
+      "main": [
+        [
+          {
+            "node": "Combine gaming feeds",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Read Reddit gaming": {
+      "main": [
+        [
+          {
+            "node": "Combine gaming feeds",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Combine gaming feeds": {
+      "main": [
+        [
+          {
+            "node": "Compose evening drop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose evening drop": {
+      "main": [
+        [
+          {
+            "node": "Email Thorn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
