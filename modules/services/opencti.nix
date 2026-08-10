@@ -294,11 +294,6 @@
             TimeoutStartSec = "1min";
           };
         };
-
-        nginx = {
-          wants = [ "oracle-opencti.service" ];
-          after = [ "oracle-opencti.service" ];
-        };
       };
 
       systemd.timers.oracle-opencti-health = {

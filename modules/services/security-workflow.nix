@@ -77,11 +77,7 @@
           description = "Enrich critical Grafana security alerts and create TheHive alerts";
           wantedBy = [ "multi-user.target" ];
           wants = [ "network-online.target" ];
-          after = [
-            "network-online.target"
-            "sops-nix.service"
-          ];
-          requires = [ "sops-nix.service" ];
+          after = [ "network-online.target" ];
           serviceConfig = {
             Type = "simple";
             ExecStart = "${relayPackage}/bin/thorn-security-relay serve";

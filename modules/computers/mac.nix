@@ -14,6 +14,7 @@ in
 
       config.nixos.modules.services-canary
       config.nixos.modules.services-clamav
+      config.nixos.modules.services-ksm
       config.nixos.modules.services-proxmox
       config.nixos.modules.services-proxmox-provisioner
       config.nixos.modules.services-ssh
@@ -122,6 +123,18 @@ in
               "vmbr1"
               "vmbr2"
             ];
+          };
+
+          # All guests are single-tenant NixOS workloads on this physical
+          # host. Deduplicate their identical anonymous pages with a bounded,
+          # adaptive scan instead of overcommitting RAM blindly. KSM cannot
+          # share memory with a different physical host.
+          thorn.ksm = {
+            enable = true;
+            advisor = {
+              maxCpuPercent = 10;
+              targetScanTimeSeconds = 600;
+            };
           };
 
           # Keep a key-only recovery path after nixos-anywhere reboots into

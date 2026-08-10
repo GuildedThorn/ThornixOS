@@ -1463,6 +1463,22 @@ in
                           summary = "Processes have been fully stalled by memory pressure for over 10% of wall time.";
                         })
                         (rule {
+                          uid = "mac-ksm-disabled";
+                          title = "Proxmox KSM is not running";
+                          datasourceUid = "prometheus";
+                          expr = ''
+                            (node_ksmd_run{instance="proxmox.guildedthorn.arpa:9100"} != bool 1)
+                            or absent(node_ksmd_run{instance="proxmox.guildedthorn.arpa:9100"})
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "10m";
+                          noDataState = "OK";
+                          summary = "mac's adaptive KSM service or node_exporter ksmd collector is not reporting run=1; identical Proxmox guest pages are no longer being deduplicated.";
+                        })
+                        (rule {
                           uid = "fleet-oom-kill";
                           title = "Kernel OOM kill";
                           datasourceUid = "prometheus";

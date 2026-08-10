@@ -342,6 +342,56 @@
       ],
       "fieldConfig": { "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 20, "showPoints": "auto", "drawStyle": "bars" } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 105,
+      "type": "row",
+      "title": "Proxmox memory deduplication",
+      "gridPos": { "x": 0, "y": 66, "w": 24, "h": 1 }
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "KSM RAM saved now",
+      "description": "Host RAM reclaimed by merging identical anonymous pages across trusted QEMU guests on mac. This cannot deduplicate across physical hosts.",
+      "gridPos": { "x": 0, "y": 67, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "node_ksmd_pages_sharing{instance=\"proxmox.guildedthorn.arpa:9100\"} * 4096", "instant": true, "legendFormat": "saved" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "values": false } }
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "KSM saved and backing memory",
+      "description": "Saved is the extra mappings eliminated (pages_sharing); backing is the retained shared-page set (pages_shared).",
+      "gridPos": { "x": 8, "y": 67, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "node_ksmd_pages_sharing{instance=\"proxmox.guildedthorn.arpa:9100\"} * 4096", "legendFormat": "saved" },
+        { "refId": "B", "expr": "node_ksmd_pages_shared{instance=\"proxmox.guildedthorn.arpa:9100\"} * 4096", "legendFormat": "shared backing" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "KSM scan rate and yield",
+      "description": "Scans/hour shows advisor activity. Saved/unshared above 1 means KSM currently eliminates more pages than it repeatedly finds unique.",
+      "gridPos": { "x": 16, "y": 67, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "rate(node_ksmd_full_scans_total{instance=\"proxmox.guildedthorn.arpa:9100\"}[30m]) * 3600", "legendFormat": "full scans/hour" },
+        { "refId": "B", "expr": "node_ksmd_pages_sharing{instance=\"proxmox.guildedthorn.arpa:9100\"} / clamp_min(node_ksmd_pages_unshared{instance=\"proxmox.guildedthorn.arpa:9100\"}, 1)", "legendFormat": "saved/unshared yield" }
+      ],
+      "fieldConfig": { "defaults": { "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 8, "showPoints": "never" } }, "overrides": [
+        { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [{ "id": "unit", "value": "short" }] },
+        { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [{ "id": "unit", "value": "none" }, { "id": "custom.axisPlacement", "value": "right" }] }
+      ] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
     }
   ]
 }
