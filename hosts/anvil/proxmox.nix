@@ -12,7 +12,7 @@ in
   resources = {
     cores = 2;
     memoryMiB = 2048;
-    diskGiB = 20;
+    diskGiB = 40;
   };
 
   readiness =
