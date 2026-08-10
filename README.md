@@ -39,6 +39,8 @@ hosts/inventory.nix        authoritative production/deployment/monitoring member
 | `oracle` | Proxmox VM running OpenCTI threat-intelligence aggregation and enrichment |
 | `forge` | Proxmox VM running Hydra CI, Cachix publication, and production promotion |
 | `loom` | Proxmox VM running n8n workflow automation with isolated task runners |
+| `herald` | Proxmox VM running ntfy push notifications and internal SMTP-to-topic routing |
+| `courier` | Proxmox VM running Stalwart mailboxes, authenticated submission, and collaboration |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -96,6 +98,10 @@ thornix-provision oracle
 thornix-provision forge
 # or
 thornix-provision loom
+# or
+thornix-provision herald
+# or
+thornix-provision courier
 ```
 
 The currently declared profiles are soc (VM 103, `172.16.25.51`, 60 GiB),
@@ -105,7 +111,9 @@ identity (VM 104, `172.16.25.52`, 40 GiB), pixie (VM 105,
 hound (VM 109, `172.16.25.57`, 80 GiB), lure (VM 110,
 `172.16.25.58`, 40 GiB), casebook (VM 111, `172.16.25.59`, 100 GiB),
 oracle (VM 112, `172.16.25.60`, 150 GiB), Forge (VM 113,
-`172.16.25.61`, 200 GiB), and Loom (VM 114, `172.16.25.62`, 40 GiB).
+`172.16.25.61`, 200 GiB), Loom (VM 114, `172.16.25.62`, 40 GiB),
+Herald (VM 115, `172.16.25.63`, 20 GiB), and Courier (VM 116,
+`172.16.25.64`, 80 GiB).
 The utility prebuilds the promoted closure,
 boots a key-only static-IP installer, verifies the Proxmox ownership marker,
 NIC MAC, ISO label, disk serial and disk size, and then runs Disko plus
@@ -580,6 +588,87 @@ Verify Loom's Ed25519 SSH host-key fingerprint, derive its age recipient, add
 atomically enables Alloy journal shipping, the audit canary, node/comin and
 n8n Prometheus scrapes, log-silence rules, and the HTTPS blackbox probe. Run
 `thornix-netbox-seed` on Atlas afterward to add VM 114 and its services.
+
+### Herald notifications
+
+Herald runs the flake-pinned ntfy server behind nginx and a rotating
+ThornCloud certificate at `https://herald.guildedthorn.arpa/`. It is private
+by default: self-registration is disabled and unauthenticated callers cannot
+read or publish any topic. A generated installation-specific administrator
+credential is stored only in Herald's mode-0700 state directory.
+
+After promotion, provision it and add the pfSense override
+`herald.guildedthorn.arpa -> 172.16.25.63`:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision herald
+ssh root@172.16.25.63 herald-initial-password
+```
+
+Log in as `thorn`, change the generated password, reserve the notification
+topics, and issue a separate token for each publishing integration. HTTPS is
+the preferred publishing path. Legacy applications can instead send local
+SMTP to `172.16.25.63:25` with a recipient of the form
+`ntfy-TOPIC+TOKEN@herald.guildedthorn.arpa`; the SMTP listener is firewall
+limited to OPT1 and never serves as a mailbox or outbound relay.
+
+Herald has a dormant Courier relay file in private runtime state. After a
+dedicated Courier SMTP account and STARTTLS submission listener on port 587
+exist, connect outgoing ntfy e-mail notifications without committing the
+credential:
+
+```sh
+ssh -t root@172.16.25.63 herald-configure-courier-relay
+```
+
+### Courier mail
+
+Courier runs the current Stalwart 0.16 package pinned by the flake. Stalwart's
+0.16 configuration and directory are application data in its RocksDB store;
+the NixOS unit, package, permissions, network boundary, and one-time bootstrap
+remain declarative. The older `services.stalwart` module is intentionally not
+used because it is pinned to the incompatible 0.15 configuration format.
+
+Provision Courier after promotion and add the pfSense override
+`courier.guildedthorn.arpa -> 172.16.25.64`:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision courier
+ssh -L 8080:127.0.0.1:8080 root@172.16.25.64
+# In that root session:
+courier-bootstrap-password
+```
+
+Keep the SSH tunnel open and visit `http://127.0.0.1:8080/admin`. Use the
+temporary `admin` credential only for the setup wizard. Select the local
+RocksDB store and internal directory, enter `courier.guildedthorn.arpa` as the
+server hostname, choose the actual mailbox domain deliberately, keep public
+Let's Encrypt issuance disabled, and leave DNS management manual. The wizard
+returns a new permanent administrator credential; save it immediately. As
+soon as `config.json` is created, Courier's launcher stops injecting the
+temporary recovery credential on every subsequent start.
+
+Stalwart owns its HTTPS and mail listeners directly. Configure a custom ACME
+provider for Anvil's
+`https://anvil.guildedthorn.arpa/acme/thorncloud/directory` before trusting
+the internal HTTPS/IMAPS/submission endpoints. Only 443, 465, 587, and 993 are
+allowed from the trusted LAN/OPT1/VPN networks. Public SMTP port 25 remains
+closed until Courier has a public mail hostname, matching A/MX and PTR DNS,
+SPF, DKIM, DMARC, a deliberate inbound NAT rule, and either clean direct
+delivery or an upstream relay.
+
+Courier's mail store currently lives on its 80 GiB VM disk. It is not covered
+by the existing NAS assumption; move blobs/backups to the planned TrueNAS
+path before treating Courier as the only copy of important mail.
+
+After both machines are installed, enroll their SSH host identities into the
+shared telemetry secret and add `hosts/herald/telemetry.nix` and
+`hosts/courier/telemetry.nix`. Those marker files activate journal shipping,
+node/comin monitoring, blackbox probes, canaries, and Herald's native ntfy
+metrics. Rerun `thornix-netbox-seed` on Atlas to materialize VMs 115–116 and
+their services.
 
 ## guildedthorn.com
 

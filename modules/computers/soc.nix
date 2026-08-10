@@ -69,6 +69,7 @@ in
             name: fleetInventory.${name}.monitoring.mode == "scrape" && monitoringReady name
           ) (builtins.attrNames fleetInventory);
           houndTelemetryReady = monitoringReady "hound";
+          heraldTelemetryReady = monitoringReady "herald";
           lureTelemetryReady = monitoringReady "lure";
           loomTelemetryReady = monitoringReady "loom";
 
@@ -143,7 +144,7 @@ in
           # These endpoints intentionally use Anvil's 24-hour leaves. Keep
           # them out of the public 21/7-day expiry bands and instead alert
           # when automatic ACME renewal leaves less than four hours.
-          internalAcmeProbeRegex = "https://(anvil|atlas|sieve|hound|casebook|oracle|forge|loom)[.]guildedthorn[.]arpa/.*";
+          internalAcmeProbeRegex = "https://(anvil|atlas|sieve|hound|casebook|oracle|forge|loom|herald|courier)[.]guildedthorn[.]arpa/.*";
 
           # Hosts running services-canary — i.e. those with
           # thorn.audit.execScope = "all", where a systemd-timer process is
@@ -454,6 +455,19 @@ in
                 server_name = "loom.guildedthorn.arpa";
               };
               static_configs = [ { targets = [ "loom.guildedthorn.arpa:443" ]; } ];
+            }
+            ++ lib.optional heraldTelemetryReady {
+              # ntfy exposes metrics on a dedicated loopback listener; nginx
+              # publishes only the exact path and admits only the SOC host.
+              job_name = "ntfy";
+              scrape_interval = "60s";
+              scheme = "https";
+              metrics_path = "/metrics";
+              tls_config = {
+                ca_file = config.security.pki.caBundle;
+                server_name = "herald.guildedthorn.arpa";
+              };
+              static_configs = [ { targets = [ "herald.guildedthorn.arpa:443" ]; } ];
             };
           };
 

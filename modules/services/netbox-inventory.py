@@ -218,6 +218,8 @@ def seed():
         "threat-intelligence": ("Threat Intelligence", "00897b", True),
         "continuous-integration": ("Continuous Integration", "3949ab", True),
         "automation": ("Workflow Automation", "7e57c2", True),
+        "notifications": ("Notification Routing", "f9a825", True),
+        "mail": ("Mail and Collaboration", "8e24aa", True),
     }
     roles = {
         key: ensure(
@@ -707,6 +709,34 @@ def seed():
                 "The VM MAC must be inventoried after guarded provisioning."
             ),
         },
+        "herald": {
+            "role": roles["notifications"],
+            "vcpus": 1,
+            "memory": 2048,
+            "disk": 20480,
+            "start_on_boot": "on",
+            "ip": "172.16.25.63/24",
+            "vmid": 115,
+            "description": "ntfy push notifications and internal SMTP-to-topic routing",
+            "comments": (
+                "Proxmox VMID 115; declared by ThornixOS on 2026-08-10. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
+        "courier": {
+            "role": roles["mail"],
+            "vcpus": 2,
+            "memory": 4096,
+            "disk": 81920,
+            "start_on_boot": "on",
+            "ip": "172.16.25.64/24",
+            "vmid": 116,
+            "description": "Stalwart mailboxes, authenticated submission, and collaboration",
+            "comments": (
+                "Proxmox VMID 116; declared by ThornixOS on 2026-08-10. "
+                "Public SMTP ingress remains staged; the VM MAC must be inventoried after provisioning."
+            ),
+        },
     }
 
     vms = {}
@@ -827,6 +857,18 @@ def seed():
         (vms["loom"], "n8n HTTPS", "tcp", [443], "Workflow-automation web UI, API, and webhooks"),
         (vms["loom"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
         (vms["loom"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["herald"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["herald"], "ntfy HTTPS", "tcp", [443], "Authenticated push-notification UI and API"),
+        (vms["herald"], "ntfy SMTP ingest", "tcp", [25], "Internal e-mail-to-topic notification ingest"),
+        (vms["herald"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["herald"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["courier"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["courier"], "Stalwart HTTPS", "tcp", [443], "Mail administration, account portal, and JMAP"),
+        (vms["courier"], "SMTP submission", "tcp", [465, 587], "Authenticated implicit-TLS and STARTTLS submission"),
+        (vms["courier"], "IMAPS", "tcp", [993], "Encrypted mailbox access"),
+        (vms["courier"], "SMTP ingress (staged)", "tcp", [25], "Firewall-closed until public DNS, PTR, and routing are ready"),
+        (vms["courier"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["courier"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
     )
     for parent, name, protocol, ports, description in services:
         service = ensure_service(parent, name, protocol, ports, description)

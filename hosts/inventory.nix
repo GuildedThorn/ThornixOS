@@ -77,6 +77,19 @@ in
     };
   };
 
+  courier = mkHost {
+    address = "172.16.25.64";
+    fqdn = "courier.guildedthorn.arpa";
+    role = "mail";
+    monitoring = {
+      mode = "scrape";
+      journal = true;
+      canary = true;
+      readyFiles = [ "hosts/courier/telemetry.nix" ];
+      probes = [ "https://courier.guildedthorn.arpa/admin" ];
+    };
+  };
+
   firewall = mkHost {
     class = "retired";
     deploy = false;
@@ -94,6 +107,19 @@ in
       canary = true;
       readyFiles = [ "hosts/forge/telemetry.nix" ];
       probes = [ "https://forge.guildedthorn.arpa/" ];
+    };
+  };
+
+  herald = mkHost {
+    address = "172.16.25.63";
+    fqdn = "herald.guildedthorn.arpa";
+    role = "notifications";
+    monitoring = {
+      mode = "scrape";
+      journal = true;
+      canary = true;
+      readyFiles = [ "hosts/herald/telemetry.nix" ];
+      probes = [ "https://herald.guildedthorn.arpa/v1/health" ];
     };
   };
 
