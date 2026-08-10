@@ -217,6 +217,7 @@ def seed():
         "incident-response": ("Incident Response", "5c6bc0", True),
         "threat-intelligence": ("Threat Intelligence", "00897b", True),
         "continuous-integration": ("Continuous Integration", "3949ab", True),
+        "automation": ("Workflow Automation", "7e57c2", True),
     }
     roles = {
         key: ensure(
@@ -692,6 +693,20 @@ def seed():
                 "The VM MAC must be inventoried after guarded provisioning."
             ),
         },
+        "loom": {
+            "role": roles["automation"],
+            "vcpus": 2,
+            "memory": 4096,
+            "disk": 40960,
+            "start_on_boot": "on",
+            "ip": "172.16.25.62/24",
+            "vmid": 114,
+            "description": "n8n workflow automation and integration platform",
+            "comments": (
+                "Proxmox VMID 114; declared by ThornixOS on 2026-08-10. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
     }
 
     vms = {}
@@ -808,6 +823,10 @@ def seed():
         (vms["forge"], "Hydra HTTPS", "tcp", [443], "Continuous-integration web UI"),
         (vms["forge"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
         (vms["forge"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
+        (vms["loom"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["loom"], "n8n HTTPS", "tcp", [443], "Workflow-automation web UI, API, and webhooks"),
+        (vms["loom"], "Node exporter", "tcp", [9100], "SOC metrics scrape"),
+        (vms["loom"], "Comin exporter", "tcp", [4243], "Deployment metrics"),
     )
     for parent, name, protocol, ports, description in services:
         service = ensure_service(parent, name, protocol, ports, description)

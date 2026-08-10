@@ -38,6 +38,7 @@ hosts/inventory.nix        authoritative production/deployment/monitoring member
 | `casebook` | Proxmox VM running TheHive incident-response and case management |
 | `oracle` | Proxmox VM running OpenCTI threat-intelligence aggregation and enrichment |
 | `forge` | Proxmox VM running Hydra CI, Cachix publication, and production promotion |
+| `loom` | Proxmox VM running n8n workflow automation with isolated task runners |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
 | `firewall` | Firewall box |
@@ -93,16 +94,18 @@ thornix-provision casebook
 thornix-provision oracle
 # or
 thornix-provision forge
+# or
+thornix-provision loom
 ```
 
 The currently declared profiles are soc (VM 103, `172.16.25.51`, 60 GiB),
 identity (VM 104, `172.16.25.52`, 40 GiB), pixie (VM 105,
 `172.16.25.53`, 20 GiB), atlas (VM 106, `172.16.25.54`, 40 GiB), anvil
-(VM 107, `172.16.25.55`, 20 GiB), sieve (VM 108, `172.16.25.56`, 60 GiB),
+(VM 107, `172.16.25.55`, 40 GiB), sieve (VM 108, `172.16.25.56`, 60 GiB),
 hound (VM 109, `172.16.25.57`, 80 GiB), lure (VM 110,
-`172.16.25.58`, 20 GiB), casebook (VM 111, `172.16.25.59`, 100 GiB), and
-oracle (VM 112, `172.16.25.60`, 150 GiB), and Forge (VM 113,
-`172.16.25.61`, 200 GiB).
+`172.16.25.58`, 40 GiB), casebook (VM 111, `172.16.25.59`, 100 GiB),
+oracle (VM 112, `172.16.25.60`, 150 GiB), Forge (VM 113,
+`172.16.25.61`, 200 GiB), and Loom (VM 114, `172.16.25.62`, 40 GiB).
 The utility prebuilds the promoted closure,
 boots a key-only static-IP installer, verifies the Proxmox ownership marker,
 NIC MAC, ISO label, disk serial and disk size, and then runs Disko plus
@@ -534,6 +537,49 @@ Once those refs match and at least one host has activated through comin, the
 handoff is complete. GitHub performs lightweight flake evaluation on pushes
 and pull requests; Forge exclusively owns fleet builds, Cachix publication,
 and production promotion.
+
+### Loom workflow automation
+
+Loom runs the flake-pinned native n8n package behind nginx and a rotating
+ThornCloud certificate at `https://loom.guildedthorn.arpa/`. PostgreSQL uses
+only a local Unix socket with peer authentication. n8n's encryption key and
+task-runner token are generated into mode-0700 state on first boot and reach
+the services through systemd credentials, so there is no bootstrap secret to
+put in Git or SOPS. JavaScript and Python Code nodes use external task
+runners; environment access, arbitrary host-command execution, unreviewed
+community packages, and private-IP HTTP requests are disabled. Controlled
+`*.guildedthorn.arpa` destinations remain available for internal automation.
+
+After Loom has been promoted into `production`, provision it from Mac:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision loom
+```
+
+Add the pfSense host override
+`loom.guildedthorn.arpa -> 172.16.25.62`, then open the HTTPS URL and create
+the first n8n owner account with a unique password and enable two-factor
+authentication. The restricted workflow file exchange directory is
+`/var/lib/n8n-files`; normal API credentials belong in n8n's encrypted
+credential store. Do not expose port 5678 or PostgreSQL—nginx on 443 is the
+only application edge.
+
+The local PostgreSQL dump protects against a bad migration, not loss of the
+VM disk. Treat `/var/lib/loom-n8n-secrets/encryption-key` and the n8n database
+as one recovery set: without that exact key, restored credential rows cannot
+be decrypted. Before Loom carries irreplaceable workflows, copy both to the
+planned off-host/NAS backup path or import the existing key into Loom's SOPS
+file after host-key enrollment; never replace it with a newly generated key.
+
+Telemetry enrollment intentionally waits for the installed machine identity.
+Verify Loom's Ed25519 SSH host-key fingerprint, derive its age recipient, add
+`&host_loom` to the shared telemetry creation rule in `.sops.yaml`, run
+`sops updatekeys hosts/shared/telemetry-secrets.yaml`, and create
+`hosts/loom/telemetry.nix` following another enrolled headless VM. That marker
+atomically enables Alloy journal shipping, the audit canary, node/comin and
+n8n Prometheus scrapes, log-silence rules, and the HTTPS blackbox probe. Run
+`thornix-netbox-seed` on Atlas afterward to add VM 114 and its services.
 
 ## guildedthorn.com
 

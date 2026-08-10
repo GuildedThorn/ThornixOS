@@ -70,6 +70,7 @@ in
           ) (builtins.attrNames fleetInventory);
           houndTelemetryReady = monitoringReady "hound";
           lureTelemetryReady = monitoringReady "lure";
+          loomTelemetryReady = monitoringReady "loom";
 
           # Both public telemetry ports use the same server identity and
           # ThornCloud_CA client trust. The per-location CN checks below
@@ -139,6 +140,10 @@ in
           cominFetchInstanceRegex = lib.concatStringsSep "|" (
             map (host: escapePrometheusRegex "${host.metricsHost}:4243") fleet
           );
+          # These endpoints intentionally use Anvil's 24-hour leaves. Keep
+          # them out of the public 21/7-day expiry bands and instead alert
+          # when automatic ACME renewal leaves less than four hours.
+          internalAcmeProbeRegex = "https://(anvil|atlas|sieve|hound|casebook|oracle|forge|loom)[.]guildedthorn[.]arpa/.*";
 
           # Hosts running services-canary — i.e. those with
           # thorn.audit.execScope = "all", where a systemd-timer process is
@@ -435,6 +440,20 @@ in
               job_name = "velociraptor";
               scrape_interval = "60s";
               static_configs = [ { targets = [ "hound.guildedthorn.arpa:8003" ]; } ];
+            }
+            ++ lib.optional loomTelemetryReady {
+              # n8n exposes application and workflow counters through an
+              # exact nginx location available only to SOC. Keep them in a
+              # separate job from host metrics and verify the internal CA.
+              job_name = "n8n";
+              scrape_interval = "60s";
+              scheme = "https";
+              metrics_path = "/metrics";
+              tls_config = {
+                ca_file = config.security.pki.caBundle;
+                server_name = "loom.guildedthorn.arpa";
+              };
+              static_configs = [ { targets = [ "loom.guildedthorn.arpa:443" ]; } ];
             };
           };
 
@@ -1547,9 +1566,9 @@ in
                           title = "TLS certificate expires within 21 days";
                           datasourceUid = "prometheus";
                           expr = ''
-                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*"} - time() < 1814400)
+                            (probe_ssl_earliest_cert_expiry{instance!~"${internalAcmeProbeRegex}"} - time() < 1814400)
                             unless
-                            (probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*"} - time() < 604800)
+                            (probe_ssl_earliest_cert_expiry{instance!~"${internalAcmeProbeRegex}"} - time() < 604800)
                           '';
                           evaluator = {
                             type = "lt";
@@ -1562,7 +1581,7 @@ in
                           uid = "fleet-tls-expiry-critical";
                           title = "TLS certificate expires within 7 days";
                           datasourceUid = "prometheus";
-                          expr = ''probe_ssl_earliest_cert_expiry{instance!~"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*"} - time()'';
+                          expr = ''probe_ssl_earliest_cert_expiry{instance!~"${internalAcmeProbeRegex}"} - time()'';
                           evaluator = {
                             type = "lt";
                             params = [ 604800 ];
@@ -1575,7 +1594,7 @@ in
                           uid = "fleet-internal-acme-expiry-critical";
                           title = "Internal ACME certificate expires within 4 hours";
                           datasourceUid = "prometheus";
-                          expr = ''probe_ssl_earliest_cert_expiry{instance=~"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*"} - time()'';
+                          expr = ''probe_ssl_earliest_cert_expiry{instance=~"${internalAcmeProbeRegex}"} - time()'';
                           evaluator = {
                             type = "lt";
                             params = [ 14400 ];

@@ -132,6 +132,19 @@ in
     };
   };
 
+  loom = mkHost {
+    address = "172.16.25.62";
+    fqdn = "loom.guildedthorn.arpa";
+    role = "automation";
+    monitoring = {
+      mode = "scrape";
+      journal = true;
+      canary = true;
+      readyFiles = [ "hosts/loom/telemetry.nix" ];
+      probes = [ "https://loom.guildedthorn.arpa/healthz" ];
+    };
+  };
+
   mac = mkHost {
     address = "172.16.25.3";
     fqdn = "proxmox.guildedthorn.arpa";

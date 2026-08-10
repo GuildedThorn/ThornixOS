@@ -50,7 +50,7 @@
       "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "min((probe_ssl_earliest_cert_expiry{instance=~\"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*\"} - time()) / 3600)", "instant": true }
+        { "refId": "A", "expr": "min((probe_ssl_earliest_cert_expiry{instance=~\"https://(anvil|atlas|sieve|hound|casebook|oracle|forge|loom)[.]guildedthorn[.]arpa/.*\"} - time()) / 3600)", "instant": true }
       ],
       "fieldConfig": { "defaults": { "unit": "h", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 4 }, { "color": "yellow", "value": 8 }, { "color": "green", "value": 12 }] } }, "overrides": [] },
       "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
@@ -156,7 +156,7 @@
       "gridPos": { "x": 0, "y": 23, "w": 14, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "(probe_ssl_earliest_cert_expiry{instance!~\"https://(anvil|atlas|sieve|hound|casebook|oracle)[.]guildedthorn[.]arpa/.*\"} - time()) / 86400", "instant": true, "legendFormat": "{{instance}}" }
+        { "refId": "A", "expr": "(probe_ssl_earliest_cert_expiry{instance!~\"https://(anvil|atlas|sieve|hound|casebook|oracle|forge|loom)[.]guildedthorn[.]arpa/.*\"} - time()) / 86400", "instant": true, "legendFormat": "{{instance}}" }
       ],
       "fieldConfig": { "defaults": { "unit": "d", "decimals": 1, "min": 0, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 7 }, { "color": "yellow", "value": 21 }, { "color": "green", "value": 30 }] } }, "overrides": [] },
       "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "color", "reduceOptions": { "calcs": ["lastNotNull"] } }
