@@ -12,7 +12,17 @@
       stateDirectory = "/var/lib/stalwart";
       configPath = "${stateDirectory}/config.json";
       bootstrapPasswordPath = "${stateDirectory}/bootstrap-admin-password";
-      stalwartPackage = pkgs.stalwart_0_16;
+      # nixpkgs links Stalwart 0.16.14's librocksdb-sys 10.4.2 bindings to
+      # system RocksDB 10.10.1. That combination reliably segfaults during
+      # compaction as soon as bootstrap creates the persistent registry.
+      # Build the crate's matching bundled RocksDB instead; this preserves the
+      # existing database format and removes the unstable cross-version ABI.
+      stalwartPackage = pkgs.stalwart_0_16.overrideAttrs (old: {
+        env = builtins.removeAttrs old.env [
+          "ROCKSDB_INCLUDE_DIR"
+          "ROCKSDB_LIB_DIR"
+        ];
+      });
 
       launcher = pkgs.writeShellScript "courier-stalwart-launch" ''
         set -o errexit -o nounset -o pipefail
@@ -57,6 +67,19 @@
           tr -d '\n' < ${lib.escapeShellArg bootstrapPasswordPath}
           printf '\n'
         '';
+      };
+
+      reconcileStalwart = pkgs.writeShellApplication {
+        name = "courier-reconcile-stalwart";
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.gnugrep
+          pkgs.gnused
+          pkgs.stalwart-cli
+          pkgs.systemd
+        ];
+        text = builtins.readFile ./courier-reconcile-stalwart.sh;
       };
     in
     {
@@ -146,6 +169,21 @@
         };
       };
 
+      # Stalwart owns 443 and every mail protocol directly, so Courier uses
+      # lego's temporary standalone HTTP-01 listener instead of adding a
+      # second reverse proxy solely for certificate issuance. Anvil is the
+      # only source admitted to port 80 by the shared ACME module.
+      thorn.acme = {
+        enable = true;
+        domain = hostname;
+        group = "stalwart";
+        reloadServices = [ "stalwart.service" ];
+      };
+      security.acme.certs.${hostname} = {
+        webroot = lib.mkForce null;
+        listenHTTP = ":80";
+      };
+
       security.pki.certificates = [
         (builtins.readFile "${inputs.self}/certs/ThornCloud_CA.crt")
       ];
@@ -153,6 +191,7 @@
       environment.systemPackages = [
         stalwartPackage
         pkgs.stalwart-cli
+        reconcileStalwart
         showBootstrapPassword
       ];
     };

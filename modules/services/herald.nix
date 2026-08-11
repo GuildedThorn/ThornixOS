@@ -56,7 +56,9 @@
         name = "herald-configure-courier-relay";
         runtimeInputs = [
           pkgs.coreutils
+          pkgs.gnugrep
           pkgs.gnused
+          pkgs.openssl
           pkgs.systemd
         ];
         text = ''
@@ -75,6 +77,39 @@
             echo "error: username, from address, and password are required" >&2
             exit 1
           }
+          if [[ ! "$smtp_user" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+            echo "error: Courier SMTP username must be a full e-mail address" >&2
+            exit 1
+          fi
+          if [[ ! "$smtp_from" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+            echo "error: envelope/from must be a full e-mail address" >&2
+            exit 1
+          fi
+
+          # Prove both the ThornCloud certificate and supplied credentials
+          # before replacing the last known relay configuration. AUTH PLAIN is
+          # carried only inside the verified TLS session, and the secret never
+          # appears in a process argument or command output.
+          auth_payload=$(printf '\0%s\0%s' "$smtp_user" "$smtp_password" | base64 -w0)
+          smtp_response=$(
+            {
+              printf 'AUTH PLAIN %s\r\n' "$auth_payload"
+              printf 'QUIT\r\n'
+            } | timeout 15 openssl s_client \
+              -quiet \
+              -verify_return_error \
+              -CAfile ${lib.escapeShellArg config.security.pki.caBundle} \
+              -servername courier.guildedthorn.arpa \
+              -connect courier.guildedthorn.arpa:587 \
+              -starttls smtp 2>&1 || true
+          )
+          unset auth_payload
+          if ! printf '%s\n' "$smtp_response" | grep -q '^235 '; then
+            unset smtp_response smtp_password
+            echo "error: Courier rejected the credentials or STARTTLS verification failed" >&2
+            exit 1
+          fi
+          unset smtp_response
 
           escape_environment_value() {
             printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'

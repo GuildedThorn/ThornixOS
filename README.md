@@ -636,25 +636,36 @@ Provision Courier after promotion and add the pfSense override
 ```sh
 ssh -A root@172.16.25.3
 thornix-provision courier
-ssh -L 8080:127.0.0.1:8080 root@172.16.25.64
+ssh -L 8081:127.0.0.1:8080 root@172.16.25.64
 # In that root session:
 courier-bootstrap-password
 ```
 
-Keep the SSH tunnel open and visit `http://127.0.0.1:8080/admin`. Use the
+Keep the SSH tunnel open and visit `http://127.0.0.1:8081/admin`. The local
+port avoids colliding with Glance while Stalwart remains on the
+firewall-private port 8080 inside Courier. Use the
 temporary `admin` credential only for the setup wizard. Select the local
 RocksDB store and internal directory, enter `courier.guildedthorn.arpa` as the
 server hostname, choose the actual mailbox domain deliberately, keep public
 Let's Encrypt issuance disabled, and leave DNS management manual. The wizard
 returns a new permanent administrator credential; save it immediately. As
 soon as `config.json` is created, Courier's launcher stops injecting the
-temporary recovery credential on every subsequent start.
+temporary recovery credential on every subsequent start. Then attach the
+NixOS-managed certificate and create the authenticated STARTTLS listener:
 
-Stalwart owns its HTTPS and mail listeners directly. Configure a custom ACME
-provider for Anvil's
-`https://anvil.guildedthorn.arpa/acme/thorncloud/directory` before trusting
-the internal HTTPS/IMAPS/submission endpoints. Only 443, 465, 587, and 993 are
-allowed from the trusted LAN/OPT1/VPN networks. Public SMTP port 25 remains
+```sh
+courier-reconcile-stalwart
+```
+
+The command briefly stops Stalwart, makes a timestamped stopped-state backup,
+reconciles the file-backed ThornCloud certificate and port-587 listener through
+the local recovery API, and restores the production service even if a registry
+operation fails.
+
+Stalwart owns its HTTPS and mail listeners directly. NixOS obtains and renews
+its 24-hour certificate from Anvil, with HTTP-01 port 80 restricted to the CA,
+and restarts Stalwart after renewal. Only 443, 465, 587, and 993 are allowed
+from the trusted LAN/OPT1/VPN networks. Public SMTP port 25 remains
 closed until Courier has a public mail hostname, matching A/MX and PTR DNS,
 SPF, DKIM, DMARC, a deliberate inbound NAT rule, and either clean direct
 delivery or an upstream relay.

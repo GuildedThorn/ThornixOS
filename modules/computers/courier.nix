@@ -10,6 +10,7 @@ in
     modules = [
       config.nixos.modules.thorn-core
 
+      config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.services-courier-mail
       config.nixos.modules.services-ssh
 

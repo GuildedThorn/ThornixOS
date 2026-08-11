@@ -18,8 +18,8 @@
     units = [ "stalwart.service" ];
     readyLines = [
       "Courier bootstrap is available only through an SSH tunnel."
-      "Run: ssh -L 8080:127.0.0.1:8080 root@172.16.25.64"
-      "Then open http://127.0.0.1:8080/admin and use 'courier-bootstrap-password' for the temporary admin credential."
+      "Run: ssh -L 8081:127.0.0.1:8080 root@172.16.25.64"
+      "Then open http://127.0.0.1:8081/admin and use 'courier-bootstrap-password' for the temporary admin credential."
       "Keep automatic public TLS disabled during bootstrap; Courier is internal-only until its public mail prerequisites are configured."
     ];
   };
