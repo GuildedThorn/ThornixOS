@@ -1,4 +1,8 @@
 {
+  inputs,
+  ...
+}:
+{
   # LSP servers, buffer-local LSP keymaps (via LspAttach autocmd), and
   # formatting (conform + the formatter binaries it shells out to).
   # Kill-switch: thorn.programs.nixvim.lsp.enable = false.
@@ -6,11 +10,14 @@
     {
       config,
       lib,
+      osConfig,
       pkgs,
       ...
     }:
     let
       cfg = config.thorn.programs.nixvim;
+      hostName = osConfig.networking.hostName;
+      thornixFlake = toString inputs.self;
     in
     {
       options.thorn.programs.nixvim.lsp.enable = lib.mkOption {
@@ -25,28 +32,38 @@
             # formatters / linters
             stylua
             black
+            isort
+            nixfmt
             prettier
+            shfmt
           ];
 
           extraConfigLua = ''
             vim.api.nvim_create_autocmd("LspAttach", {
               callback = function(args)
                 local bufnr = args.buf
-                local opts = { buffer = bufnr, silent = true }
+                local function map(mode, lhs, rhs, desc)
+                  vim.keymap.set(mode, lhs, rhs, {
+                    buffer = bufnr,
+                    silent = true,
+                    desc = desc,
+                  })
+                end
 
-                vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
-                vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
-                vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
-                vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
-                vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
-                vim.keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, opts)
-                vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, opts)
-                vim.keymap.set("n", "[d", function()
-                  vim.diagnostic.jump({ count = -1, float = true })
-                end, opts)
-                vim.keymap.set("n", "]d", function()
-                  vim.diagnostic.jump({ count = 1, float = true })
-                end, opts)
+                -- Neovim already provides K, grn, gra, gri, grr, gO, [d, and ]d.
+                map("n", "gd", vim.lsp.buf.definition, "Go to definition")
+                map("n", "gD", vim.lsp.buf.declaration, "Go to declaration")
+                map({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, "Code action")
+                map("n", "<leader>cr", vim.lsp.buf.rename, "Rename symbol")
+                map("n", "<leader>cd", vim.diagnostic.open_float, "Line diagnostics")
+                map("n", "<leader>cf", function()
+                  require("conform").format({
+                    async = true,
+                    lsp_format = "fallback",
+                  })
+                end, "Format buffer")
+                map("n", "<leader>cs", "<cmd>Trouble symbols toggle focus=false<CR>", "Document symbols")
+                map("n", "<leader>cl", "<cmd>Trouble lsp toggle focus=false win.position=right<CR>", "LSP locations")
               end,
             })
           '';
@@ -64,12 +81,16 @@
             };
 
             lsp.servers = {
+              bashls.enable = true;
               lua_ls.enable = true;
               pyright.enable = true;
               clangd.enable = true;
+              jsonls.enable = true;
+              marksman.enable = true;
               ts_ls.enable = true;
               eslint.enable = true;
               intelephense.enable = true;
+              yamlls.enable = true;
               rust_analyzer = {
                 enable = true;
                 installRustc = true;
@@ -77,17 +98,58 @@
               };
               nixd = {
                 enable = true;
-                settings.nixd = {
+                settings = {
                   nixpkgs = {
-                    expr = "import <nixpkgs> {}";
+                    expr = "import ${inputs.nixpkgs} { }";
                   };
                   formatting = {
-                    command = [ "nixpkgs-fmt" ];
+                    command = [ "nixfmt" ];
+                  };
+                  options = {
+                    nixos.expr = ''
+                      (builtins.getFlake "${thornixFlake}").nixosConfigurations.${hostName}.options
+                    '';
+                    "home-manager".expr = ''
+                      let
+                        flake = builtins.getFlake "${thornixFlake}";
+                        host = flake.nixosConfigurations.${hostName};
+                      in
+                      (flake.inputs.home-manager.lib.homeManagerConfiguration {
+                        pkgs = host.pkgs;
+                        modules = [
+                          flake.inputs.stylix.homeModules.stylix
+                          flake.homeManagerModules.thorn
+                          {
+                            home.username = "thorn";
+                            home.homeDirectory = "/home/thorn";
+                            nix.package = host.config.nix.package;
+                          }
+                        ];
+                        extraSpecialArgs.osConfig = host.config;
+                      }).options
+                    '';
                   };
                 };
               };
 
               typos_lsp.enable = true;
+            };
+
+            #################################################
+            # LINTING (COMPLEMENTARY TO LSP DIAGNOSTICS)
+            #################################################
+
+            lint = {
+              enable = true;
+              autoInstall.enable = true;
+              autoCmd.event = [
+                "BufEnter"
+                "BufWritePost"
+                "InsertLeave"
+              ];
+              # nixd already exposes libnixf parser/semantic diagnostics;
+              # Statix adds non-overlapping Nix anti-pattern checks.
+              lintersByFt.nix = [ "statix" ];
             };
 
             #################################################
@@ -101,14 +163,27 @@
                 formatters_by_ft = {
                   nix = [ "nixfmt" ];
                   lua = [ "stylua" ];
-                  python = [ "black" ];
+                  python = [
+                    "isort"
+                    "black"
+                  ];
 
+                  javascript = [ "prettier" ];
+                  javascriptreact = [ "prettier" ];
                   typescript = [ "prettier" ];
                   typescriptreact = [ "prettier" ];
+                  json = [ "prettier" ];
+                  jsonc = [ "prettier" ];
+                  css = [ "prettier" ];
+                  scss = [ "prettier" ];
+                  html = [ "prettier" ];
+                  markdown = [ "prettier" ];
+                  yaml = [ "prettier" ];
+                  sh = [ "shfmt" ];
                 };
 
                 format_on_save = {
-                  lsp_fallback = true;
+                  lsp_format = "fallback";
                   timeout_ms = 1000;
                 };
               };

@@ -41,7 +41,11 @@
                 auto_show = true;
               };
 
+              completion.documentation.auto_show = true;
+
               signature.enabled = true;
+
+              snippets.preset = "luasnip";
 
               sources = {
                 default = [
@@ -49,7 +53,29 @@
                   "path"
                   "buffer"
                   "snippets"
+                  "emoji"
+                  "git"
                 ];
+
+                providers = {
+                  emoji = {
+                    module = "blink-emoji";
+                    name = "Emoji";
+                    score_offset = 15;
+                    opts.insert = true;
+                  };
+
+                  git = {
+                    module = "blink-cmp-git";
+                    name = "Git";
+                    score_offset = 100;
+                    enabled.__raw = ''
+                      function()
+                        return vim.tbl_contains({ "gitcommit", "markdown", "octo" }, vim.bo.filetype)
+                      end
+                    '';
+                  };
+                };
               };
             };
           };
@@ -57,7 +83,6 @@
           blink-cmp-git.enable = true;
 
           blink-emoji.enable = true;
-          blink-indent.enable = true;
 
           #################################################
           # Snippets (low-noise setup)
