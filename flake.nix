@@ -98,13 +98,6 @@
 
     guildedthorn-com.url = "github:GuildedThorn/GuildedThorn.com";
 
-    # Upstream currently exposes plain NixOS module files. Keep this as a
-    # source-only input until its flake module interface is merged.
-    audit-stack = {
-      url = "github:Kalanik0a/audit-stack";
-      flake = false;
-    };
-
     nix-flatpak.url = "github:gmodena/nix-flatpak/";
   };
 

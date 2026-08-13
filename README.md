@@ -769,20 +769,33 @@ Prometheus on soc scrapes each host's `:9100`. Both directions depend on
 reservation or their Prometheus target shows down.
 
 **audit-stack source integration:** upstream currently provides three plain
-NixOS modules rather than a flake interface. The `audit-stack` input is
-therefore declared with `flake = false`, and
-`modules/services/audit-stack.nix` imports `rpc-auditor.nix`,
-`ipc-auditor.nix`, and `session-auditor.nix` from the locked source tree.
+NixOS modules rather than a flake interface, and this checkout cannot publish
+the required sensor revision there. The exact runtime sources are therefore
+vendored under `vendor/audit-stack`; `modules/services/audit-stack.nix`
+imports those local modules. ThornixOS builds are self-contained and do not
+fetch audit-stack from GitHub.
 
-Once the upstream flake PR exposes `nixosModules.default`, remove
-`flake = false` from the input and replace those three imports with:
+Once the upstream flake PR exposes `nixosModules.default`, add this input to
+`flake.nix`:
 
 ```nix
-imports = [ inputs.audit-stack.nixosModules.default ];
+audit-stack.url = "github:Kalanik0a/audit-stack";
 ```
 
-Then run `nix flake update audit-stack`. That migration changes only how the
-same modules are exported; it does not replace the SOC or its telemetry path.
+Then replace the local wrapper with:
+
+```nix
+{ inputs, ... }:
+{
+  nixos.modules.services-audit-stack.imports = [
+    inputs.audit-stack.nixosModules.default
+  ];
+}
+```
+
+Run `nix flake update audit-stack`, validate both workstation and SOC builds,
+and remove `vendor/audit-stack`. That migration changes only how the same
+modules are sourced; it does not replace the SOC or its telemetry path.
 
 The two telemetry client private keys are separate from the SOC server key:
 
@@ -832,11 +845,10 @@ visible in Grafana while it is unable to page.
 The Audit Stack dashboard is the tuning workbench. It keeps the unfiltered
 RPC/IPC/session stream available, while its egress review panels exclude
 destination-port-zero route/source-address probes observed heavily on the
-`nixos` workstation. The corresponding audit-stack sensor revision drops the
-same no-packet probes at source once this flake's `audit-stack` input is bumped;
-the dashboard applies the filter to historical records and hosts still on the
-older pin. Real routable TCP/UDP destinations with nonzero ports remain
-recorded. There is deliberately no alert for generic `kernel_connect`,
+`nixos` workstation. The vendored sensor drops the same no-packet probes at
+source after the next rebuild; the dashboard also filters historical records
+and hosts not yet rebuilt. Real routable TCP/UDP destinations with nonzero
+ports remain recorded. There is deliberately no alert for generic `kernel_connect`,
 `kernel_accept`, or egress warnings.
 
 Promote one detection at a time after reviewing at least a representative

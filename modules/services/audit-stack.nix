@@ -1,12 +1,12 @@
-{ inputs, ... }:
+{ ... }:
 {
   nixos.modules.services-audit-stack = {
-    # audit-stack does not have an upstream flake interface yet, so consume
-    # the three source modules directly from its locked non-flake input.
+    # Keep the unpublished audit-stack snapshot inside ThornixOS so builds
+    # do not depend on a GitHub revision the maintainer cannot push.
     imports = [
-      "${inputs.audit-stack}/rpc-auditor.nix"
-      "${inputs.audit-stack}/ipc-auditor.nix"
-      "${inputs.audit-stack}/session-auditor.nix"
+      ../../vendor/audit-stack/rpc-auditor.nix
+      ../../vendor/audit-stack/ipc-auditor.nix
+      ../../vendor/audit-stack/session-auditor.nix
     ];
   };
 }

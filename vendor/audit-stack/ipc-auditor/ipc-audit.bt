@@ -1,0 +1,96 @@
+// ipc-audit.bt — kernel IPC sensor for ipc-auditord (observe-only).
+//
+// Hooks the LSM socket paths (all address families, process context):
+//   security_socket_connect  connect() — unix/inet/netlink, pre-connect
+//   inet_csk_accept (kret)   server-side accepted TCP connection
+//   security_socket_sendmsg  datagram egress WITH an explicit dest
+//                            (connectionless UDP sendto / raw ICMP) —
+//                            the C2 channels that never call connect()
+//
+// One pipe-delimited line per event on stdout; ipc-auditord parses,
+// filters, enriches, and journals.
+//
+//   C|<family>|<pid>|<uid>|<comm>|<dest>     connect attempt
+//   A|tcp|<pid>|<uid>|<comm>|:<local port>   accepted TCP connection
+//   S|<family>|<pid>|<uid>|<comm>|<dest>     connectionless datagram send
+//
+// Address families: 1=unix 2=inet4 10=inet6 16=netlink. Abstract unix
+// names (leading NUL) are emitted with a literal '@' prefix.
+
+kprobe:security_socket_connect
+{
+  $addr = (struct sockaddr *)arg1;
+  $fam = $addr->sa_family;
+
+  if ($fam == 1) {
+    $b = (uint8 *)arg1;              // sun_path starts at byte 2
+    // Read sun_path through the byte pointer, never the struct char[108]
+    // field: bpftrace < 0.21 (prod runs 0.20.2) types sun_path as `string`
+    // and rejects both `str(array)` and `array[i]` indexing on it. The
+    // pointer form ($b[2]=sun_path[0], $b[3]=sun_path[1], str($b+2)=path)
+    // compiles identically on 0.20 and 0.26.
+    if ($b[2] == 0 && $b[3] != 0) {
+      printf("C|unix|%d|%d|%s|@%s\n", pid, uid, comm, str($b + 3));
+    } else {
+      printf("C|unix|%d|%d|%s|%s\n", pid, uid, comm, str($b + 2));
+    }
+  }
+  if ($fam == 2) {
+    $in = (struct sockaddr_in *)arg1;
+    $p4 = (uint16)$in->sin_port;
+    printf("C|inet4|%d|%d|%s|%s:%d\n", pid, uid, comm,
+           ntop(2, $in->sin_addr.s_addr),
+           (($p4 & 0xff) << 8) | ($p4 >> 8));
+  }
+  if ($fam == 10) {
+    $in6 = (struct sockaddr_in6 *)arg1;
+    $p6 = (uint16)$in6->sin6_port;
+    printf("C|inet6|%d|%d|%s|%s:%d\n", pid, uid, comm,
+           ntop(10, $in6->sin6_addr.in6_u.u6_addr8),
+           (($p6 & 0xff) << 8) | ($p6 >> 8));
+  }
+  if ($fam == 16) {
+    printf("C|netlink|%d|%d|%s|netlink\n", pid, uid, comm);
+  }
+}
+
+kretprobe:inet_csk_accept
+/retval != 0/
+{
+  $sk = (struct sock *)retval;
+  printf("A|tcp|%d|%d|%s|:%d\n", pid, uid, comm,
+         $sk->__sk_common.skc_num);
+}
+
+// Connectionless egress: only fires when the caller supplied an explicit
+// destination (msg_name != NULL) — i.e. sendto() on an unconnected UDP
+// or raw socket. Connected datagrams (msg_name == NULL) already went
+// through security_socket_connect above, so this adds no duplication.
+// In-kernel family + non-NULL filtering keeps the event rate sane;
+// userspace drops loopback/multicast and dedupes.
+kprobe:security_socket_sendmsg
+{
+  $msg = (struct msghdr *)arg1;
+  $name = (struct sockaddr *)$msg->msg_name;
+  if ($name != 0) {
+    $fam = $name->sa_family;
+    if ($fam == 2) {
+      $in = (struct sockaddr_in *)$name;
+      $a = $in->sin_addr.s_addr;                 // network byte order
+      // drop loopback (127/8 → low byte 0x7f) and unspecified in-kernel;
+      // systemd-resolved alone emits ~200 loopback datagrams/sec.
+      if (($a & 0xff) != 0x7f && $a != 0) {
+        $p4 = (uint16)$in->sin_port;
+        printf("S|inet4|%d|%d|%s|%s:%d\n", pid, uid, comm,
+               ntop(2, $a), (($p4 & 0xff) << 8) | ($p4 >> 8));
+      }
+    }
+    if ($fam == 10) {
+      $in6 = (struct sockaddr_in6 *)$name;
+      $p6 = (uint16)$in6->sin6_port;
+      printf("S|inet6|%d|%d|%s|%s:%d\n", pid, uid, comm,
+             ntop(10, $in6->sin6_addr.in6_u.u6_addr8),
+             (($p6 & 0xff) << 8) | ($p6 >> 8));
+    }
+  }
+}
