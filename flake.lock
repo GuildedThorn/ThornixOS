@@ -33,6 +33,22 @@
         "type": "github"
       }
     },
+    "audit-stack": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786095917,
+        "narHash": "sha256-n+7Dz8MphOAdUCFDDw1vvFQ9TWZp/d2TifZXKGJIEHU=",
+        "owner": "Kalanik0a",
+        "repo": "audit-stack",
+        "rev": "6821bef48a4d8ce50705e927381653791baabdd3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Kalanik0a",
+        "repo": "audit-stack",
+        "type": "github"
+      }
+    },
     "awww": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -1197,6 +1213,7 @@
     },
     "root": {
       "inputs": {
+        "audit-stack": "audit-stack",
         "awww": "awww",
         "comin": "comin",
         "disko": "disko",

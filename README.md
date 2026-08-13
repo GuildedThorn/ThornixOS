@@ -715,10 +715,13 @@ installed/enrolled host ships logs to it, and it pulls metrics back.
   and `:9090` endpoints behind ThornCloud_CA mTLS, source-network ACLs, and
   an exact API allowlist: the fleet certificate can only ingest, while the
   workstation certificate can only query.
-- **every host** (via `services-observability` + `services-audit`, both in
-  `thorn-core`): `node_exporter` exposes metrics on :9100 only to the SOC,
-  and auditd adds a baseline of security rules (identity/sudoers/sshd
-  changes, module loads, privilege exec, and `execve`).
+- **every host** (via `services-observability`, `services-audit`, and
+  `services-audit-stack`, all in `thorn-core`): `node_exporter` exposes
+  metrics on :9100 only to the SOC, auditd adds a baseline of security rules
+  (identity/sudoers/sshd changes, module loads, privilege exec, and
+  `execve`), and audit-stack emits structured journal events for local RPC,
+  short-lived IPC/eBPF activity, and remote-session activity. The auditors
+  are observe-only; Alloy ships their journal output on enrolled hosts.
 - **nixos, mac, scout, soc, websites, atlas, anvil, sieve, hound** (`thorn.telemetry.enable = true`):
   Grafana Alloy tails the systemd journal and pushes it to Loki using the
   fleet writer certificate. Enrollment is explicit because a host must be a
@@ -764,6 +767,22 @@ Prometheus on soc scrapes each host's `:9100`. Both directions depend on
 `<host>.guildedthorn.arpa` resolving — static hosts are pinned in
 `modules/core/lan-hosts.nix`; DHCP hosts (the laptops) need a pfSense static
 reservation or their Prometheus target shows down.
+
+**audit-stack source integration:** upstream currently provides three plain
+NixOS modules rather than a flake interface. The `audit-stack` input is
+therefore declared with `flake = false`, and
+`modules/services/audit-stack.nix` imports `rpc-auditor.nix`,
+`ipc-auditor.nix`, and `session-auditor.nix` from the locked source tree.
+
+Once the upstream flake PR exposes `nixosModules.default`, remove
+`flake = false` from the input and replace those three imports with:
+
+```nix
+imports = [ inputs.audit-stack.nixosModules.default ];
+```
+
+Then run `nix flake update audit-stack`. That migration changes only how the
+same modules are exported; it does not replace the SOC or its telemetry path.
 
 The two telemetry client private keys are separate from the SOC server key:
 

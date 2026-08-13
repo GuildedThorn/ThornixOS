@@ -98,6 +98,7 @@ in
               client_max_body_size 32m;
 
               allow 172.16.25.0/24;
+              allow 192.168.1.6;
               allow 10.10.10.3;
               deny all;
             '';

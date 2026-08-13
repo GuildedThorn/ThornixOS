@@ -8,5 +8,6 @@
     config.nixos.modules.services-geoip
     config.nixos.modules.services-observability
     config.nixos.modules.services-audit
+    config.nixos.modules.services-audit-stack
   ];
 }
