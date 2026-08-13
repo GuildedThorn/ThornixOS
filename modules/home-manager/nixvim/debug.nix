@@ -1,6 +1,7 @@
 {
-  # Everything DAP: plugins, adapters (netcoredbg, vscode-js-debug,
-  # codelldb), the auto-open/close UI listeners, and the <leader>d keymaps.
+  # Shared DAP core, UI listeners, non-language-specific adapters, and the
+  # <leader>d keymaps. TypeScript and C# adapters live with their language
+  # stacks so their kill-switches remove the whole integration.
   # Kill-switch: thorn.programs.nixvim.debug.enable = false.
   homeManager.modules.thorn =
     {
@@ -204,37 +205,6 @@
                 end,
               },
             }
-
-            -- JavaScript / TypeScript: vscode-js-debug
-            dap.adapters["pwa-node"] = {
-              type = "server",
-              host = "localhost",
-              port = "''${port}",
-              executable = {
-                command = "${pkgs.vscode-js-debug}/bin/js-debug",
-                args = { "''${port}" },
-              },
-            }
-            local js_config = {
-              {
-                type = "pwa-node",
-                request = "launch",
-                name = "Launch file",
-                program = "''${file}",
-                cwd = "''${workspaceFolder}",
-              },
-              {
-                type = "pwa-node",
-                request = "attach",
-                name = "Attach to process",
-                processId = require("dap.utils").pick_process,
-                cwd = "''${workspaceFolder}",
-              },
-            }
-            dap.configurations.javascript = js_config
-            dap.configurations.typescript = js_config
-            dap.configurations.typescriptreact = js_config
-            dap.configurations.javascriptreact = js_config
           '';
 
           plugins = {

@@ -87,8 +87,6 @@
               clangd.enable = true;
               jsonls.enable = true;
               marksman.enable = true;
-              ts_ls.enable = true;
-              eslint.enable = true;
               intelephense.enable = true;
               yamlls.enable = true;
               rust_analyzer = {
@@ -168,10 +166,6 @@
                     "black"
                   ];
 
-                  javascript = [ "prettier" ];
-                  javascriptreact = [ "prettier" ];
-                  typescript = [ "prettier" ];
-                  typescriptreact = [ "prettier" ];
                   json = [ "prettier" ];
                   jsonc = [ "prettier" ];
                   css = [ "prettier" ];
