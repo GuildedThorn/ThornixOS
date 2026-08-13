@@ -113,9 +113,10 @@
     {
       "id": 8,
       "type": "alertlist",
-      "title": "Active Grafana alerts",
+      "title": "Active Grafana paging alerts",
+      "description": "Excludes delivery=record-only audit observations; review those on the Audit Stack dashboard.",
       "gridPos": { "x": 14, "y": 5, "w": 10, "h": 9 },
-      "options": { "alertName": "", "dashboardAlerts": false, "dashboardTitle": "", "folder": { "title": "SIEM" }, "groupBy": ["alertname"], "maxItems": 30, "sortOrder": 1, "stateFilter": { "error": true, "firing": true, "noData": true, "normal": false, "pending": true } }
+      "options": { "alertName": "", "alertInstanceLabelFilter": "{delivery!=\"record-only\"}", "dashboardAlerts": false, "dashboardTitle": "", "folder": { "title": "SIEM" }, "groupBy": ["alertname"], "maxItems": 30, "sortOrder": 1, "stateFilter": { "error": true, "firing": true, "noData": true, "normal": false, "pending": true } }
     },
     {
       "id": 101,

@@ -1167,13 +1167,39 @@ in
                 ];
               };
 
-              # Route everything to Discord, but split by the `severity`
-              # label the rule helper sets. There's still only one webhook —
-              # the split buys timing, not destination: critical alerts
-              # (active hostility, or the SIEM going blind) page out fast and
-              # keep re-notifying until dealt with, while warnings batch up
-              # and stay quiet. Without this, a Suricata hit waits behind the
-              # same 30s/4h treatment as a systemd unit that failed once.
+              # Grafana still evaluates and records audit-stack detections,
+              # but this all-week mute keeps them out of Discord and TheHive
+              # while their baseline/noise is being reviewed. The matching
+              # notification-policy child route is deliberately first and
+              # does not continue into any paging route.
+              alerting.muteTimings.settings = {
+                apiVersion = 1;
+                muteTimes = [
+                  {
+                    orgId = 1;
+                    name = "audit-stack-record-only";
+                    time_intervals = [
+                      {
+                        weekdays = [
+                          "monday"
+                          "tuesday"
+                          "wednesday"
+                          "thursday"
+                          "friday"
+                          "saturday"
+                          "sunday"
+                        ];
+                      }
+                    ];
+                  }
+                ];
+              };
+
+              # Route paging rules to Discord, split by the `severity` label
+              # the rule helper sets. Audit-stack's `delivery=record-only`
+              # rules are intercepted by the permanently-muted first child
+              # route: their state remains visible in Grafana, but they cannot
+              # reach Discord or the security-case workflow.
               #
               # Group by alertname and host so one flapping host doesn't spam
               # per-series.
@@ -1191,51 +1217,66 @@ in
                     group_wait = "30s";
                     group_interval = "5m";
                     repeat_interval = "4h";
-                    routes =
-                      lib.optionals securityWorkflowReady [
-                        {
-                          receiver = "security-casebook";
-                          object_matchers = [
-                            [
-                              "severity"
-                              "="
-                              "critical"
-                            ]
-                            [
-                              "category"
-                              "="
-                              "security"
-                            ]
-                          ];
-                          group_wait = "10s";
-                          group_interval = "1m";
-                          repeat_interval = "1h";
-                        }
-                      ]
-                      ++ [
-                        {
-                          receiver = "discord";
-                          object_matchers = [
-                            [
-                              "severity"
-                              "="
-                              "critical"
-                            ]
+                    routes = [
+                      {
+                        receiver = "discord";
+                        object_matchers = [
+                          [
+                            "delivery"
+                            "="
+                            "record-only"
                           ]
-                          ++ lib.optionals securityWorkflowReady [
-                            [
-                              "category"
-                              "!="
-                              "security"
-                            ]
-                          ];
-                          group_wait = "10s";
-                          group_interval = "1m";
-                          # Re-notify hourly rather than 4-hourly: a critical
-                          # that's still firing is one nobody has actioned yet.
-                          repeat_interval = "1h";
-                        }
-                      ];
+                        ];
+                        mute_time_intervals = [ "audit-stack-record-only" ];
+                        group_wait = "30s";
+                        group_interval = "5m";
+                        repeat_interval = "4h";
+                      }
+                    ]
+                    ++ lib.optionals securityWorkflowReady [
+                      {
+                        receiver = "security-casebook";
+                        object_matchers = [
+                          [
+                            "severity"
+                            "="
+                            "critical"
+                          ]
+                          [
+                            "category"
+                            "="
+                            "security"
+                          ]
+                        ];
+                        group_wait = "10s";
+                        group_interval = "1m";
+                        repeat_interval = "1h";
+                      }
+                    ]
+                    ++ [
+                      {
+                        receiver = "discord";
+                        object_matchers = [
+                          [
+                            "severity"
+                            "="
+                            "critical"
+                          ]
+                        ]
+                        ++ lib.optionals securityWorkflowReady [
+                          [
+                            "category"
+                            "!="
+                            "security"
+                          ]
+                        ];
+                        group_wait = "10s";
+                        group_interval = "1m";
+                        # Re-notify hourly rather than 4-hourly: a critical
+                        # that's still firing is one nobody has actioned yet.
+                        repeat_interval = "1h";
+                      }
+                    ];
                   }
                 ];
               };
@@ -1271,6 +1312,9 @@ in
                             # Broad routing/search label shared by Discord
                             # notifications and Grafana's alert list.
                             category ? "operations",
+                            # Evaluate and retain state/history in Grafana,
+                            # but match the permanently-muted policy route.
+                            recordOnly ? false,
                             noDataState ? "OK",
                             # Lookback the rule evaluates over, in seconds.
                             # Keep in sync with the range selector in `expr`
@@ -1303,6 +1347,9 @@ in
                             };
                             labels = {
                               inherit severity category;
+                            }
+                            // lib.optionalAttrs recordOnly {
+                              delivery = "record-only";
                             };
                             data = [
                               {
@@ -1412,10 +1459,18 @@ in
                           summary = "The topology reducer cannot read Zeek conn.log; its graph may be empty even while the renderer and Prometheus scrape remain healthy.";
                         })
                         (rule {
+                          # Audit-stack services have a dedicated inactive
+                          # detector below. Keep them out of this established
+                          # paging rule during the recording-only stage.
                           uid = "siem-unit-failed";
                           title = "systemd unit failed";
                           datasourceUid = "prometheus";
-                          expr = "node_systemd_unit_state{state=\"failed\"} == 1";
+                          expr = ''
+                            node_systemd_unit_state{
+                              state="failed",
+                              name!~"(rpc-auditor|ipc-auditor|session-auditor)\\.service"
+                            } == 1
+                          '';
                           evaluator = {
                             type = "gt";
                             params = [ 0 ];
@@ -1668,6 +1723,130 @@ in
                           severity = "critical";
                           category = "security";
                           summary = "More than 10 failed SSH logins on one host in 10 minutes.";
+                        })
+                        # Audit-stack observation phase. These five detection
+                        # families plus service health evaluate every minute
+                        # and preserve Grafana state/history, but the helper's
+                        # recordOnly label sends them through the permanently
+                        # muted policy route above. Remove recordOnly from an
+                        # individual rule only after its dashboard evidence has
+                        # been reviewed and its paging threshold is intentional.
+                        (rule {
+                          uid = "audit-container-exec";
+                          title = "Audit: container exec observed";
+                          datasourceUid = "loki";
+                          expr = ''
+                            topk(50, sum by (host, container, image) (count_over_time(
+                              {job="systemd-journal", unit="session-auditor.service"}
+                                | json
+                                | event = "container_exec" [10m]
+                            )))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          recordOnly = true;
+                          category = "security";
+                          summary = "A docker exec_create event was attributed to a container; review the container, image, and command in the Audit Stack dashboard.";
+                        })
+                        (rule {
+                          uid = "audit-tunnel-listener-new";
+                          title = "Audit: new SSH tunnel listener";
+                          datasourceUid = "loki";
+                          expr = ''
+                            topk(50, sum by (host, listener) (count_over_time(
+                              {job="systemd-journal", unit="session-auditor.service"}
+                                | json
+                                | event = "tunnel_listener_new" [10m]
+                            )))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          recordOnly = true;
+                          category = "security";
+                          summary = "An ssh/sshd-owned listener appeared on a nonstandard local port; confirm the port forward was intentional.";
+                        })
+                        (rule {
+                          uid = "audit-sensor-error";
+                          title = "Audit: sensor error event";
+                          datasourceUid = "loki";
+                          expr = ''
+                            topk(50, sum by (host, unit, event, watcher) (count_over_time(
+                              {job="systemd-journal", unit=~"(rpc|ipc|session)-auditor.service"}
+                                | json
+                                | event =~ "sensor_exit|cycle_failed|state_save_failed|watcher_failed|watcher_degraded|rate_overflow|cycle_overflow" [10m]
+                            )))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          recordOnly = true;
+                          category = "pipeline";
+                          summary = "An audit-stack component reported a sensor, watcher, persistence, or overflow failure.";
+                        })
+                        (rule {
+                          uid = "audit-sensor-inactive";
+                          title = "Audit: sensor service inactive";
+                          datasourceUid = "prometheus";
+                          expr = ''
+                            1 - node_systemd_unit_state{name=~"(rpc-auditor|ipc-auditor|session-auditor)\\.service",state="active"}
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "5m";
+                          recordOnly = true;
+                          category = "pipeline";
+                          summary = "One of the three audit-stack systemd services has not remained active for five minutes.";
+                        })
+                        (rule {
+                          uid = "audit-ssh-auth-anomaly";
+                          title = "Audit: unusual SSH authentication";
+                          datasourceUid = "loki";
+                          expr = ''
+                            topk(50, sum by (host, user, rhost, method) (count_over_time(
+                              {job="systemd-journal", unit="session-auditor.service"}
+                                | json
+                                | service = "ssh"
+                                | event = "auth_failure" [10m]
+                            )))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          recordOnly = true;
+                          category = "security";
+                          summary = "At least one SSH authentication failed; use the attributed user and remote host to decide whether it is routine or suspicious.";
+                        })
+                        (rule {
+                          uid = "audit-rpc-listener-new";
+                          title = "Audit: new RPC listener";
+                          datasourceUid = "loki";
+                          expr = ''
+                            topk(50, sum by (host, endpoint) (count_over_time(
+                              {job="systemd-journal", unit="rpc-auditor.service"}
+                                | json
+                                | event = "rpc_listener_new" [10m]
+                            )))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          recordOnly = true;
+                          category = "security";
+                          summary = "A loopback TCP or Unix-domain RPC listener appeared outside the persisted listener baseline.";
                         })
                         (rule {
                           uid = "siem-suricata-alert";

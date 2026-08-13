@@ -1,0 +1,242 @@
+{
+  "uid": "audit-stack",
+  "title": "Audit Stack — Observation",
+  "description": "Observe-only RPC, IPC/egress, remote-session, tunnel, and container telemetry. Audit detections are evaluated but muted from notifications during the tuning stage.",
+  "tags": ["siem", "security", "audit", "record-only"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "type": "query",
+        "label": "Host",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": { "type": 1, "label": "host", "stream": "{job=\"systemd-journal\",unit=~\"(rpc|ipc|session)-auditor.service\"}", "refId": "LokiVariableQueryEditor-VariableQuery" },
+        "definition": "label_values({job=\"systemd-journal\",unit=~\"(rpc|ipc|session)-auditor.service\"},host)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" },
+        "refresh": 2,
+        "sort": 1
+      },
+      {
+        "name": "range",
+        "type": "interval",
+        "label": "Summary window",
+        "query": "15m,1h,6h,24h,7d",
+        "current": { "text": "6h", "value": "6h" },
+        "auto": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Observation status — no notifications",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "High-signal observations ($range)",
+      "description": "Container exec, new SSH tunnel listener, SSH authentication failure, or new RPC listener. These are recording-only detections: Grafana evaluates them, but the notification policy mutes delivery.",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 5 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\",host=~\"$host\",unit=~\"(rpc|session)-auditor.service\"} | json | event =~ \"container_exec|tunnel_listener_new|auth_failure|rpc_listener_new\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Sensor errors ($range)",
+      "description": "Auditor exits, watcher failures/degradation, state-write failures, and rate/cycle overflows. A zero value is healthy; unit inactivity is also checked by a recording-only Prometheus rule.",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 5 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\",host=~\"$host\",unit=~\"(rpc|ipc|session)-auditor.service\"} | json | event =~ \"sensor_exit|cycle_failed|state_save_failed|watcher_failed|watcher_degraded|rate_overflow|cycle_overflow\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 10 }] } },
+        "overrides": []
+      },
+      "options": { "colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Reviewable egress ($range)",
+      "description": "New nonzero-port egress destinations after baseline learning. Destination-port-zero resolver/route probes are excluded because they do not transmit application traffic; no egress rule pages.",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 5 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum(count_over_time({job=\"systemd-journal\",host=~\"$host\",unit=\"ipc-auditor.service\"} | json | event =~ \"egress_connect|egress_sendmsg\" | new_dest = \"true\" | dest !~ \".*:0$\" [$range]))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "text" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Hosts reporting ($range)",
+      "description": "Distinct Loki hosts with any audit-stack event in the selected window. Roaming/offline machines are not expected to report continuously.",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 5 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "count(sum by (host) (count_over_time({job=\"systemd-journal\",host=~\"$host\",unit=~\"(rpc|ipc|session)-auditor.service\"} [$range])))", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "text" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] } },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 104,
+      "type": "row",
+      "title": "Recording-only rule state",
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 12,
+      "type": "alertlist",
+      "title": "Firing / pending audit observations",
+      "description": "Only delivery=record-only rule instances. Firing means evidence matched; the permanently muted notification route prevents delivery to Discord and TheHive.",
+      "gridPos": { "x": 0, "y": 7, "w": 24, "h": 6 },
+      "options": {
+        "viewMode": "list",
+        "groupMode": "default",
+        "maxItems": 50,
+        "sortOrder": 3,
+        "dashboardAlerts": false,
+        "alertInstanceLabelFilter": "{delivery=\"record-only\"}",
+        "datasource": "Grafana",
+        "stateFilter": { "firing": true, "pending": true, "noData": false, "normal": false, "error": true }
+      }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Detection baseline",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "High-signal events by host and family",
+      "description": "Use this shape to establish normal frequency before removing recordOnly from any rule.",
+      "gridPos": { "x": 0, "y": 14, "w": 14, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (host, event) (count_over_time({job=\"systemd-journal\",host=~\"$host\",unit=~\"(rpc|session)-auditor.service\"} | json | event =~ \"container_exec|tunnel_listener_new|auth_failure|rpc_listener_new\" [$__auto]))", "queryType": "range", "legendFormat": "{{host}} · {{event}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 12, "showPoints": "never", "gradientMode": "opacity" } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["sum", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Reviewable egress by executable",
+      "description": "New executable/destination pairs with a real destination port. Raw IPC telemetry is retained; this panel removes the observed desktop port-zero route-probe flood so the remaining process identities can be reviewed.",
+      "gridPos": { "x": 14, "y": 14, "w": 10, "h": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "topk(25, sum by (host, client_exe) (count_over_time({job=\"systemd-journal\",host=~\"$host\",unit=\"ipc-auditor.service\"} | json | event =~ \"egress_connect|egress_sendmsg\" | new_dest = \"true\" | dest !~ \".*:0$\" | client_exe != \"\" [$range])))", "instant": true, "legendFormat": "{{host}} · {{client_exe}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "continuous-GrYlRd" } }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "showUnfilled": true, "valueMode": "text", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Evidence",
+      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "High-signal evidence",
+      "description": "Exact JSON evidence behind the four security observation rules.",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\",host=~\"$host\",unit=~\"(rpc|session)-auditor.service\"} | json | event =~ \"container_exec|tunnel_listener_new|auth_failure|rpc_listener_new\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 8,
+      "type": "logs",
+      "title": "Sensor health evidence",
+      "description": "Failure, degradation, state persistence, and overflow events from all three auditors.",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\",host=~\"$host\",unit=~\"(rpc|ipc|session)-auditor.service\"} | json | event =~ \"sensor_exit|cycle_failed|state_save_failed|watcher_failed|watcher_degraded|rate_overflow|cycle_overflow\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "Reviewable egress evidence",
+      "description": "New nonzero-port IPC-auditor egress records. This is a review queue, not an alert source; switch to Explore for the unfiltered raw stream.",
+      "gridPos": { "x": 0, "y": 34, "w": 12, "h": 11 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\",host=~\"$host\",unit=\"ipc-auditor.service\"} | json | event =~ \"egress_connect|egress_sendmsg\" | new_dest = \"true\" | dest !~ \".*:0$\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "New RPC pairs and listeners",
+      "description": "Novel attributed client/server RPC edges and listener-surface drift after baseline learning.",
+      "gridPos": { "x": 12, "y": 34, "w": 12, "h": 11 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\",host=~\"$host\",unit=\"rpc-auditor.service\"} | json | event =~ \"rpc_listener_new|rpc_listener_gone|rpc_connect\" | new_pair != \"false\"", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Raw audit streams",
+      "gridPos": { "x": 0, "y": 45, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 11,
+      "type": "logs",
+      "title": "All RPC / IPC / session events",
+      "description": "Unfiltered evidence for the selected host(s), including routine local IPC warnings that intentionally do not create alert rules.",
+      "gridPos": { "x": 0, "y": 46, "w": 24, "h": 12 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "refId": "A", "expr": "{job=\"systemd-journal\",host=~\"$host\",unit=~\"(rpc|ipc|session)-auditor.service\"} | json", "queryType": "range" }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none" }
+    }
+  ]
+}

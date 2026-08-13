@@ -206,7 +206,8 @@
     {
       "id": 7,
       "type": "alertlist",
-      "title": "Firing & pending SIEM alerts",
+      "title": "Firing & pending paging alerts",
+      "description": "Actionable alert instances only. delivery=record-only audit observations live on the Audit Stack dashboard and are excluded here.",
       "gridPos": { "x": 0, "y": 6, "w": 24, "h": 7 },
       "options": {
         "viewMode": "list",
@@ -214,7 +215,7 @@
         "maxItems": 20,
         "sortOrder": 3,
         "dashboardAlerts": false,
-        "alertInstanceLabelFilter": "",
+        "alertInstanceLabelFilter": "{delivery!=\"record-only\"}",
         "datasource": "Grafana",
         "stateFilter": { "firing": true, "pending": true, "noData": false, "normal": false, "error": true }
       }

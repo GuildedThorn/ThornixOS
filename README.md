@@ -803,20 +803,48 @@ rebuilds and aren't hand-clicked:
 
 - Dashboards: `hosts/soc/dashboards/*.json` (SOC Overview, Fleet Health,
   Fleet Capacity & Performance, Service & Monitoring Health, Authentication
-  & Access, Endpoint Activity, Network Visibility, Log Pipeline Health, Fleet
-  Deploys), wired in via `services.grafana.provision.dashboards` — the whole
-  directory is provisioned, so a new file needs no other edit.
+  & Access, Endpoint Activity, Audit Stack — Observation, Network Visibility,
+  Log Pipeline Health, Fleet Deploys), wired in via
+  `services.grafana.provision.dashboards` — the whole directory is provisioned,
+  so a new file needs no other edit.
 - Alert rules: inline in `modules/computers/soc.nix` under
   `provision.alerting` (host down, unit failed, SSH brute force, Suricata
   alert, CrowdSec scenario, Loki down, disk/inode pressure, read-only roots,
   OOM kills, clock sync, stale backups, endpoint/TLS failures, comin state,
   Zeek sensor silence/capture loss, SSH password guessing, Heartbleed, local
-  certificate failures, plus one log-silence rule generated per always-on
-  host). All deliver to Discord via a webhook held in sops.
+  certificate failures, audit-stack observation detections, plus one
+  log-silence rule generated per always-on host). Paging rules deliver to
+  Discord via a webhook held in sops.
 - Each rule carries a `severity` label (`critical` / `warning`). The
   notification policy routes both to the same Discord webhook but gives
   `critical` faster grouping and hourly re-notification, so an IDS hit
   doesn't sit behind a once-failed systemd unit.
+
+**Audit-stack observation stage:** the rules for `container_exec`,
+`tunnel_listener_new`, SSH `auth_failure`, `rpc_listener_new`, audit sensor
+error events, and inactive auditor units carry `delivery=record-only`.
+Grafana evaluates them every minute and retains their state/history, but the
+first notification-policy route matches that label and applies the all-week
+`audit-stack-record-only` mute timing without continuing to Discord or
+TheHive. This is a delivery guarantee, not a UI convention: a firing rule is
+visible in Grafana while it is unable to page.
+
+The Audit Stack dashboard is the tuning workbench. It keeps the unfiltered
+RPC/IPC/session stream available, while its egress review panels exclude
+destination-port-zero route/source-address probes observed heavily on the
+`nixos` workstation. The corresponding audit-stack sensor revision drops the
+same no-packet probes at source once this flake's `audit-stack` input is bumped;
+the dashboard applies the filter to historical records and hosts still on the
+older pin. Real routable TCP/UDP destinations with nonzero ports remain
+recorded. There is deliberately no alert for generic `kernel_connect`,
+`kernel_accept`, or egress warnings.
+
+Promote one detection at a time after reviewing at least a representative
+work week: confirm expected hosts/actors, decide its threshold and `for`
+duration, then remove `recordOnly = true` only from that rule. Leave the mute
+timing and record-only route in place for every rule still being tuned. Sensor
+health should graduate first once the fleet is clean; never promote all IPC
+warnings as a group.
 
 **Deploy visibility:** Prometheus scrapes comin's metrics endpoint (`:4243`,
 opened fleet-wide by `services-observability`) alongside node metrics.
