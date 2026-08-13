@@ -194,7 +194,6 @@
             # Language-specific extras
             #################################################
 
-            dotnet.enable = true;
             nix.enable = true;
             nix-develop.enable = true;
             yuck.enable = true;

@@ -188,23 +188,6 @@
             dap.listeners.before.event_exited["dapui_config"] = function()
               dapui.close()
             end
-
-            -- C#: netcoredbg
-            dap.adapters.coreclr = {
-              type = "executable",
-              command = "${pkgs.netcoredbg}/bin/netcoredbg",
-              args = { "--interpreter=vscode" },
-            }
-            dap.configurations.cs = {
-              {
-                type = "coreclr",
-                name = "Launch - netcoredbg",
-                request = "launch",
-                program = function()
-                  return vim.fn.input("Path to dll: ", vim.fn.getcwd() .. "/bin/Debug/", "file")
-                end,
-              },
-            }
           '';
 
           plugins = {
