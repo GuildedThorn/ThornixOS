@@ -35,9 +35,9 @@
             {
               mode = "n";
               key = "<leader>do";
-              action.__raw = "function() require('dap').step_over() end";
+              action.__raw = "function() require('dap').step_out() end";
               options = {
-                desc = "Debug: Step Over";
+                desc = "Debug: Step Out";
                 silent = true;
               };
             }
@@ -55,9 +55,9 @@
             {
               mode = "n";
               key = "<leader>dO";
-              action.__raw = "function() require('dap').step_out() end";
+              action.__raw = "function() require('dap').step_over() end";
               options = {
-                desc = "Debug: Step Out";
+                desc = "Debug: Step Over";
                 silent = true;
               };
             }
@@ -108,6 +108,68 @@
               action.__raw = "function() require('dapui').toggle() end";
               options = {
                 desc = "Debug: Toggle UI";
+                silent = true;
+              };
+            }
+
+            {
+              mode = "n";
+              key = "<leader>dl";
+              action.__raw = "function() require('dap').run_last() end";
+              options = {
+                desc = "Debug: Run Last";
+                silent = true;
+              };
+            }
+
+            # Familiar IDE function keys, in addition to the discoverable
+            # <leader>d mappings above.
+            {
+              mode = "n";
+              key = "<F5>";
+              action.__raw = "function() require('dap').continue() end";
+              options = {
+                desc = "Debug: Continue";
+                silent = true;
+              };
+            }
+
+            {
+              mode = "n";
+              key = "<F9>";
+              action.__raw = "function() require('dap').toggle_breakpoint() end";
+              options = {
+                desc = "Debug: Toggle Breakpoint";
+                silent = true;
+              };
+            }
+
+            {
+              mode = "n";
+              key = "<F10>";
+              action.__raw = "function() require('dap').step_over() end";
+              options = {
+                desc = "Debug: Step Over";
+                silent = true;
+              };
+            }
+
+            {
+              mode = "n";
+              key = "<F11>";
+              action.__raw = "function() require('dap').step_into() end";
+              options = {
+                desc = "Debug: Step Into";
+                silent = true;
+              };
+            }
+
+            {
+              mode = "n";
+              key = "<S-F11>";
+              action.__raw = "function() require('dap').step_out() end";
+              options = {
+                desc = "Debug: Step Out";
                 silent = true;
               };
             }
