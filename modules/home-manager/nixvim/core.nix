@@ -35,7 +35,26 @@
           ];
 
           opts = {
+            confirm = true;
+            cursorline = true;
+            foldlevel = 99;
+            foldlevelstart = 99;
+            ignorecase = true;
+            inccommand = "split";
             mouse = "";
+            number = true;
+            relativenumber = true;
+            scrolloff = 6;
+            showmode = false;
+            sidescrolloff = 8;
+            signcolumn = "yes";
+            smartcase = true;
+            splitbelow = true;
+            splitright = true;
+            timeoutlen = 300;
+            undofile = true;
+            updatetime = 250;
+            wrap = false;
           };
 
           plugins = {
@@ -49,18 +68,59 @@
             };
             lualine.enable = true;
             web-devicons.enable = true;
-            which-key.enable = true;
+            which-key = {
+              enable = true;
+              settings.spec = [
+                {
+                  __unkeyed-1 = "<leader>b";
+                  group = "Buffers";
+                }
+                {
+                  __unkeyed-1 = "<leader>c";
+                  group = "Code";
+                }
+                {
+                  __unkeyed-1 = "<leader>d";
+                  group = "Debug";
+                }
+                {
+                  __unkeyed-1 = "<leader>f";
+                  group = "Find";
+                }
+                {
+                  __unkeyed-1 = "<leader>g";
+                  group = "Git";
+                }
+                {
+                  __unkeyed-1 = "<leader>h";
+                  group = "Git hunks";
+                }
+                {
+                  __unkeyed-1 = "<leader>x";
+                  group = "Diagnostics";
+                }
+              ];
+            };
 
             barbar.enable = true;
             yazi.enable = true;
 
-            toggleterm.enable = true;
+            toggleterm = {
+              enable = true;
+              settings = {
+                direction = "float";
+                open_mapping = "[[<c-\\>]]";
+              };
+            };
 
             #################################################
             # Search
             #################################################
 
-            telescope.enable = true;
+            telescope = {
+              enable = true;
+              extensions.fzf-native.enable = true;
+            };
 
             #################################################
             # Git
@@ -71,14 +131,22 @@
               settings.on_attach = ''
                 function(bufnr)
                   local gs = package.loaded.gitsigns
-                  local opts = { buffer = bufnr, silent = true }
+                  local function map(mode, lhs, rhs, desc)
+                    vim.keymap.set(mode, lhs, rhs, {
+                      buffer = bufnr,
+                      silent = true,
+                      desc = desc,
+                    })
+                  end
 
-                  vim.keymap.set("n", "]h", gs.next_hunk, opts)
-                  vim.keymap.set("n", "[h", gs.prev_hunk, opts)
-                  vim.keymap.set("n", "<leader>hs", gs.stage_hunk, opts)
-                  vim.keymap.set("n", "<leader>hr", gs.reset_hunk, opts)
-                  vim.keymap.set("n", "<leader>hp", gs.preview_hunk, opts)
-                  vim.keymap.set("n", "<leader>hb", gs.blame_line, opts)
+                  map("n", "]h", gs.next_hunk, "Next Git hunk")
+                  map("n", "[h", gs.prev_hunk, "Previous Git hunk")
+                  map("n", "<leader>hs", gs.stage_hunk, "Stage hunk")
+                  map("v", "<leader>hs", ":Gitsigns stage_hunk<CR>", "Stage selected hunk")
+                  map("n", "<leader>hr", gs.reset_hunk, "Reset hunk")
+                  map("v", "<leader>hr", ":Gitsigns reset_hunk<CR>", "Reset selected hunk")
+                  map("n", "<leader>hp", gs.preview_hunk, "Preview hunk")
+                  map("n", "<leader>hb", gs.blame_line, "Blame line")
                 end
               '';
             };
@@ -88,7 +156,6 @@
             # Editing quality-of-life
             #################################################
 
-            comment.enable = true;
             todo-comments.enable = true;
             nvim-autopairs.enable = true;
             nvim-surround.enable = true;
@@ -110,15 +177,9 @@
 
             treesitter = {
               enable = true;
-              settings = {
-                highlight = {
-                  enable = true;
-                };
-                indent_enable = true;
-                folding = true;
-                autoLoad = true;
-                incremental_selection.enable = true;
-              };
+              highlight.enable = true;
+              indent.enable = true;
+              folding.enable = true;
             };
 
             treesitter-context = {
@@ -150,12 +211,39 @@
             #################################################
 
             wakatime.enable = true;
-            project-nvim.enable = true;
+            project-nvim = {
+              enable = true;
+              enableTelescope = true;
+            };
             auto-session.enable = true;
 
             cloak.enable = true;
-            neocord.enable = true;
+            neocord = {
+              enable = true;
+              # Upstream currently assumes a UI channel exists during setup,
+              # which breaks `nvim --headless`. Configure it on UIEnter below.
+              callSetup = false;
+            };
           };
+
+          extraConfigLua = ''
+            vim.api.nvim_create_autocmd("TextYankPost", {
+              callback = function()
+                vim.highlight.on_yank({ timeout = 150 })
+              end,
+              desc = "Highlight yanked text",
+            })
+
+            vim.api.nvim_create_autocmd("UIEnter", {
+              once = true,
+              callback = function()
+                if #vim.api.nvim_list_uis() > 0 then
+                  require("neocord").setup({})
+                end
+              end,
+              desc = "Start Discord Rich Presence for interactive sessions",
+            })
+          '';
         };
 
         stylix.targets.nixvim.enable = true;
