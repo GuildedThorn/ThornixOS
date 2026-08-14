@@ -8,7 +8,10 @@
   resources = {
     cores = 1;
     memoryMiB = 2048;
-    diskGiB = 20;
+    # A current NixOS closure plus one rollback generation no longer fits in
+    # the original 20 GiB disk. Keep enough headroom for atomic upgrades and
+    # garbage collection instead of relying on emergency store deletion.
+    diskGiB = 40;
   };
 
   readiness = {

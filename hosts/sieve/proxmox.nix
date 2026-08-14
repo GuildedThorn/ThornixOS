@@ -8,7 +8,11 @@
   resources = {
     cores = 4;
     memoryMiB = 8192;
-    diskGiB = 60;
+    # Greenbone's feed images, SCAP data, and PostgreSQL state need roughly
+    # 50 GiB before update headroom. The original 60 GiB disk filled during a
+    # feed refresh and took PostgreSQL, ACME, logrotate, and Home Manager down
+    # together. Match the live VM's expanded capacity.
+    diskGiB = 120;
   };
 
   readiness = {
