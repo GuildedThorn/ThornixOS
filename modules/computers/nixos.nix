@@ -17,7 +17,7 @@
       config.nixos.modules.services-fingerprint
       config.nixos.modules.services-keybase
       config.nixos.modules.services-obs
-      #config.nixos.modules.services-ollama
+      config.nixos.modules.services-ollama
       config.nixos.modules.services-retroarch
       config.nixos.modules.services-spicetify
       config.nixos.modules.services-sdr
