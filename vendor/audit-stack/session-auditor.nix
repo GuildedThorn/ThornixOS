@@ -1,6 +1,13 @@
-{ pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
+  dockerEnabled = config.virtualisation.docker.enable;
+
   # session-auditord — remote session & RCE auditor (observe-only,
   # 2026-08-04). Third audit layer beside rpc-auditor (poller) and
   # ipc-auditor (eBPF): watches the remote plane — SSH auth, logind
@@ -20,15 +27,18 @@ in
   systemd.services.session-auditor = {
     description = "Remote session & RCE auditor (observe-only)";
     wantedBy = [ "multi-user.target" ];
-    after = [ "network.target" ];
+    after = [ "network.target" ] ++ lib.optional dockerEnabled "docker.service";
+    wants = lib.optional dockerEnabled "docker.service";
     path = [
       pkgs.iproute2
       pkgs.systemd
-      pkgs.docker
-    ];
+    ]
+    ++ lib.optional dockerEnabled pkgs.docker;
 
     serviceConfig = {
-      ExecStart = "${sessionAuditord}/bin/session-auditord";
+      ExecStart = "${sessionAuditord}/bin/session-auditord${
+        lib.optionalString (!dockerEnabled) " --no-docker"
+      }";
       Restart = "on-failure";
       RestartSec = 15;
       SyslogIdentifier = "session-auditor";

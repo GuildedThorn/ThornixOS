@@ -48,7 +48,18 @@
           wants = [ "suid-sgid-wrappers.service" ];
         };
 
-        security.auditd.enable = true;
+        security.auditd = {
+          enable = true;
+          # Headless hosts audit every daemon exec and ship the same records
+          # to Loki. Bound the redundant local copy so one unrotated audit.log
+          # cannot consume the root filesystem (Sieve reached 2.6 GiB in two
+          # days). Ten 100 MiB files retain a useful local incident window.
+          settings = {
+            max_log_file = 100;
+            max_log_file_action = "ROTATE";
+            num_logs = 10;
+          };
+        };
         security.audit = {
           enable = true;
           backlogLimit = 8192;

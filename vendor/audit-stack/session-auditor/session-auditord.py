@@ -29,8 +29,8 @@ auth_success (remote), priv_exec, container_exec, inbound_ssh_conn =
 notice; the rest info. Repeat flow events dedupe on a persisted 1h TTL.
 
 Needs uid 0 with CAP_SYS_PTRACE + CAP_DAC_READ_SEARCH + CAP_DAC_OVERRIDE
-(journal read, /proc enrichment, docker.sock). iproute2 + systemd +
-docker CLIs pinned on PATH by the unit. State:
+(journal read, /proc enrichment, docker.sock). iproute2 + systemd are
+pinned on PATH by the unit; Docker is included when the host enables it. State:
 /var/lib/session-auditor/state.json. Pure stdlib.
 """
 
@@ -369,12 +369,23 @@ def _wrap(fn, name, stop, *args):
         stop.wait(5)
 
 
+def docker_watching_enabled(argv: list[str]) -> bool:
+    """Return whether this host's service contract includes Docker.
+
+    The watcher remains enabled by default for standalone and existing
+    deployments. NixOS passes --no-docker only when its Docker service is
+    disabled, avoiding a guaranteed watcher failure on Dockerless hosts.
+    """
+    return "--no-docker" not in argv
+
+
 def main() -> int:
     smoke = "--smoke" in sys.argv
+    watch_docker = docker_watching_enabled(sys.argv[1:])
     state = State()
     stop = threading.Event()
     emit("info", "daemon_start", first_run=state.first_run,
-         known_flows=len(state.dedupe))
+         known_flows=len(state.dedupe), docker_watcher=watch_docker)
 
     signal.signal(signal.SIGTERM, lambda *_a: stop.set())
     signal.signal(signal.SIGINT, lambda *_a: stop.set())
@@ -384,10 +395,12 @@ def main() -> int:
                          daemon=True),
         threading.Thread(target=_wrap,
                          args=(poll_watcher, "poll", stop, state), daemon=True),
-        threading.Thread(target=_wrap,
-                         args=(docker_watcher, "docker", stop, state),
-                         daemon=True),
     ]
+    if watch_docker:
+        threads.append(
+            threading.Thread(target=_wrap,
+                             args=(docker_watcher, "docker", stop, state),
+                             daemon=True))
     for t in threads:
         t.start()
 
