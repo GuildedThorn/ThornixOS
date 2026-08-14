@@ -493,6 +493,10 @@ in
                     proxyPass = "http://127.0.0.1:3101";
                     extraConfig = readerOnly;
                   };
+                  "= /loki/api/v1/query_range" = {
+                    proxyPass = "http://127.0.0.1:3101";
+                    extraConfig = readerOnly;
+                  };
                   "= /loki/api/v1/tail" = {
                     proxyPass = "http://127.0.0.1:3101";
                     proxyWebsockets = true;

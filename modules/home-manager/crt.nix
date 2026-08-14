@@ -10,6 +10,7 @@
     }:
     let
       cfg = config.thorn.desktop.crt;
+      hyprlandPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
 
       # nginx exposes only the read APIs to this ThornCloud_CA client
       # identity. The key is workstation-scoped in sops; it cannot push or
@@ -19,6 +20,158 @@
       telemetryReaderCertificate = "${inputs.self}/certs/telemetry-reader.crt";
       telemetryReaderKey = osConfig.sops.secrets.telemetry_reader_key.path;
       telemetryCaBundle = osConfig.security.pki.caBundle;
+
+      # Threshold alerts remain Grafana's real-time path. This scheduled pass
+      # gives an analyst model a bounded cross-source window so it can spot
+      # first-seen behavior and inconsistencies that static rules miss.
+      siemReview = pkgs.writeShellScriptBin "siem-review" ''
+        #!${pkgs.runtimeShell}
+        set -u
+
+        LOKI=${lib.escapeShellArg lokiUrl}
+        PROM=${lib.escapeShellArg promUrl}
+        WINDOW=9h
+        VAULT_LOG=${lib.escapeShellArg "${config.home.homeDirectory}/Documents/knowledge-base/09 Observability/SIEM Review Log.md"}
+        STAMP="$(${pkgs.coreutils}/bin/date '+%Y-%m-%d %H:%M')"
+
+        curl_mtls() {
+          ${pkgs.curl}/bin/curl \
+            --cacert ${lib.escapeShellArg telemetryCaBundle} \
+            --cert ${lib.escapeShellArg telemetryReaderCertificate} \
+            --key ${lib.escapeShellArg telemetryReaderKey} \
+            "$@"
+        }
+
+        # Avoid piping curl directly into head: when a response exceeds the
+        # model budget, head closes the pipe and curl reports a misleading
+        # write failure. Download the server-bounded response first, then
+        # apply the byte cap locally.
+        bounded_curl() {
+          local limit="$1" response result
+          shift
+          response="$(${pkgs.coreutils}/bin/mktemp --tmpdir siem-review.XXXXXX)" \
+            || return 1
+          if ! curl_mtls --output "$response" "$@"; then
+            ${pkgs.coreutils}/bin/rm -f -- "$response"
+            return 1
+          fi
+          ${pkgs.coreutils}/bin/head -c "$limit" "$response"
+          result=$?
+          ${pkgs.coreutils}/bin/rm -f -- "$response"
+          return "$result"
+        }
+
+        # Bound every result before it reaches the model. No telemetry API
+        # exposed to this certificate permits writes, deletes, or admin calls.
+        loki_instant() {
+          bounded_curl 8000 -fsS --max-time 20 -G \
+            "$LOKI/loki/api/v1/query" --data-urlencode "query=$1"
+        }
+        loki_range() {
+          bounded_curl 20000 -fsS --max-time 20 -G \
+            "$LOKI/loki/api/v1/query_range" \
+            --data-urlencode "query=$1" \
+            --data-urlencode "since=$WINDOW" \
+            --data-urlencode "limit=$2"
+        }
+        prom() {
+          bounded_curl 8000 -fsS --max-time 20 -G \
+            "$PROM/api/v1/query" --data-urlencode "query=$1"
+        }
+
+        # Query APIs are the only remotely exposed readiness surface. Probe
+        # both backends so a partial review cannot be mistaken for success.
+        if ! curl_mtls -fsS --max-time 10 --retry 3 --retry-delay 10 \
+          --retry-all-errors -G "$LOKI/loki/api/v1/query" \
+          --data-urlencode 'query=vector(1)' >/dev/null \
+          || ! curl_mtls -fsS --max-time 10 --retry 3 --retry-delay 10 \
+          --retry-all-errors -G "$PROM/api/v1/query" \
+          --data-urlencode 'query=vector(1)' >/dev/null; then
+          ${pkgs.libnotify}/bin/notify-send -u critical "SIEM review" \
+            "A protected SOC query endpoint is unreachable; review skipped."
+          ${pkgs.coreutils}/bin/mkdir -p \
+            "$(${pkgs.coreutils}/bin/dirname "$VAULT_LOG")"
+          printf '\n## %s\n\nSTATUS: ALERT — SOC query endpoint unreachable; review skipped.\n' \
+            "$STAMP" >> "$VAULT_LOG"
+          exit 1
+        fi
+
+        DATA=$(
+          set -e
+          echo '=== per-host journal volume (window) ==='
+          loki_instant "sum by (host) (count_over_time({job=\"systemd-journal\"}[$WINDOW]))"
+          echo; echo '=== suricata EVE alerts ==='
+          loki_range '{job="suricata"} | json | event_type = "alert"' 100
+          echo; echo '=== pfSense perimeter suricata priority 1-2 ==='
+          loki_range '{job="syslog"} |~ "Priority: [12]"' 50
+          echo; echo '=== SSH authentication failures ==='
+          loki_range '{job="systemd-journal", unit=~"sshd(-session)?.service"} |~ "Failed password|Invalid user"' 100
+          echo; echo '=== CrowdSec scenario hits ==='
+          loki_range '{unit="crowdsec.service"} |~ "performed"' 50
+          echo; echo '=== audit identity, privilege, modules, and time changes ==='
+          loki_range '{job="systemd-journal"} |~ "key=.(identity|privilege|priv-exec|sshd-config|modules|time-change)."' 100
+          echo; echo '=== audit-stack high-signal and sensor-health events ==='
+          loki_range '{job="systemd-journal", unit=~"(rpc|ipc|session)-auditor.service"} | json | event =~ "container_exec|tunnel_listener_new|inbound_ssh_conn|rpc_listener_new|sensor_exit|cycle_failed|state_save_failed|watcher_failed|watcher_degraded|rate_overflow|cycle_overflow"' 100
+          echo; echo '=== Prometheus targets ==='
+          prom 'up'
+          echo; echo '=== failed systemd units ==='
+          prom 'node_systemd_unit_state{state="failed"} == 1'
+          echo; echo '=== comin deployment failures ==='
+          prom 'comin_last_deployment_failed > 0 or comin_last_build_failed > 0 or comin_last_eval_failed > 0'
+        )
+        DATA_STATUS=$?
+        if (( DATA_STATUS != 0 )); then
+          ${pkgs.libnotify}/bin/notify-send -u critical "SIEM review" \
+            "A protected SOC query failed; analyst pass skipped."
+          ${pkgs.coreutils}/bin/mkdir -p \
+            "$(${pkgs.coreutils}/bin/dirname "$VAULT_LOG")"
+          printf '\n## %s\n\nSTATUS: ALERT — SOC query failed during review; analyst pass skipped.\n' \
+            "$STAMP" >> "$VAULT_LOG"
+          exit "$DATA_STATUS"
+        fi
+
+        if ! ${pkgs.claude-code}/bin/claude auth status >/dev/null 2>&1; then
+          ${pkgs.libnotify}/bin/notify-send -u critical "SIEM review" \
+            "Claude CLI authentication is required; run claude auth login."
+          ${pkgs.coreutils}/bin/mkdir -p \
+            "$(${pkgs.coreutils}/bin/dirname "$VAULT_LOG")"
+          printf '\n## %s\n\nSTATUS: ALERT — analyst authentication unavailable; run `claude auth login`.\n' \
+            "$STAMP" >> "$VAULT_LOG"
+          exit 1
+        fi
+
+        VERDICT=$(printf '%s' "$DATA" | ${pkgs.claude-code}/bin/claude -p \
+          "You are the scheduled tier-1 SOC review for the ThornixOS homelab fleet. stdin holds the last $WINDOW of bounded Loki and Prometheus data, section-headed. Grafana already pages on hard thresholds, so focus on first-seen behavior, suspicious under-threshold patterns, failed sensors or units, deployment failures, and cross-source inconsistencies. Internet scanner traffic against public services is expected background unless its pattern is unusual. 192.168.1.6 is the administrator's device; port and banner scans from it are normally authorized, but authentication attempts, exploits, or lateral movement are not. Output exactly: first line 'STATUS: OK', 'STATUS: NOTABLE — <reason>', or 'STATUS: ALERT — <reason>'; then 3-8 Markdown bullets, most important first. No preamble." 2>&1)
+        ANALYST_STATUS=$?
+
+        if (( ANALYST_STATUS != 0 )); then
+          ${pkgs.libnotify}/bin/notify-send -u critical "SIEM review" \
+            "Claude analyst invocation failed; review did not complete."
+          ${pkgs.coreutils}/bin/mkdir -p \
+            "$(${pkgs.coreutils}/bin/dirname "$VAULT_LOG")"
+          printf '\n## %s\n\nSTATUS: ALERT — analyst invocation failed; review did not complete.\n' \
+            "$STAMP" >> "$VAULT_LOG"
+          exit "$ANALYST_STATUS"
+        elif [[ -z "$VERDICT" ]]; then
+          VERDICT="STATUS: ALERT — analyst pass produced no output."
+        fi
+
+        ${pkgs.coreutils}/bin/mkdir -p \
+          "$(${pkgs.coreutils}/bin/dirname "$VAULT_LOG")"
+        printf '\n## %s\n\n%s\n' "$STAMP" "$VERDICT" >> "$VAULT_LOG"
+
+        FIRST=$(printf '%s' "$VERDICT" | ${pkgs.coreutils}/bin/head -n1)
+        case "$FIRST" in
+          "STATUS: OK"*) ;;
+          "STATUS: NOTABLE"*)
+            ${pkgs.libnotify}/bin/notify-send "SIEM review" "''${FIRST#STATUS: }"
+            ;;
+          *)
+            ${pkgs.libnotify}/bin/notify-send -u critical "SIEM review" \
+              "''${FIRST#STATUS: }"
+            ;;
+        esac
+      '';
 
       # One-shot poller: instant queries against Prometheus + Loki, emits a
       # single JSON object for eww's defpoll. Any unreachable backend turns
@@ -75,6 +228,71 @@
               ids_1h: ($ids_1h | tonumber? // $ids_1h),
               ssh_1h: ($ssh_1h | tonumber? // $ssh_1h),
               canary: ($canary | tonumber? // $canary)
+            }'
+        '';
+      };
+
+      # Local desktop context for the CRT. A two-second poll keeps this
+      # robust across compositor/player/network restarts while still making
+      # workspace, media, and connectivity changes feel immediate on a tube.
+      desktopState = pkgs.writeShellApplication {
+        name = "crt-desktop-state";
+        runtimeInputs = [
+          hyprlandPackage
+          pkgs.coreutils
+          pkgs.jq
+          pkgs.networkmanager
+          pkgs.playerctl
+        ];
+        text = ''
+          workspace="?"
+          app="DESKTOP"
+
+          if active_workspace="$(hyprctl activeworkspace -j 2>/dev/null)"; then
+            workspace="$(printf '%s' "$active_workspace" | jq -r '.name // (.id | tostring) // "?"')"
+          fi
+
+          if active_window="$(hyprctl activewindow -j 2>/dev/null)"; then
+            app="$(printf '%s' "$active_window" | jq -r \
+              '(.class // "DESKTOP") as $class | (.title // "") as $title |
+               if $title == "" then $class else "\($class) · \($title)" end' \
+              | cut -c1-46)"
+          fi
+
+          media_state="$(playerctl status 2>/dev/null || true)"
+          media=""
+          if [ "$media_state" = "Playing" ] || [ "$media_state" = "Paused" ]; then
+            media="$(playerctl metadata --format '{{title}} · {{artist}}' 2>/dev/null | cut -c1-42 || true)"
+          fi
+
+          network_state="$(nmcli -t -f STATE general 2>/dev/null | head -n1 || true)"
+          connection="$(nmcli -g NAME connection show --active 2>/dev/null | head -n1 || true)"
+          online=false
+          case "$network_state" in
+            connected*) online=true ;;
+          esac
+          if [ -n "$connection" ]; then
+            network="$connection"
+          elif [ -n "$network_state" ]; then
+            network="$network_state"
+          else
+            network="UNKNOWN"
+          fi
+
+          jq -cn \
+            --arg workspace "$workspace" \
+            --arg app "$app" \
+            --arg media "$media" \
+            --arg media_state "$media_state" \
+            --arg network "$network" \
+            --argjson online "$online" \
+            '{
+              workspace: $workspace,
+              app: $app,
+              media: $media,
+              media_state: $media_state,
+              network: $network,
+              online: $online
             }'
         '';
       };
@@ -168,6 +386,10 @@
           :initial '{"nodes_up":"?","nodes_total":"?","failed_units":"?","deploy_failed":"?","ids_1h":"?","ssh_1h":"?","canary":"?"}'
           "crt-soc-stats")
 
+        (defpoll desktop :interval "2s"
+          :initial '{"workspace":"?","app":"DESKTOP","media":"","media_state":"Stopped","network":"UNKNOWN","online":false}'
+          "crt-desktop-state")
+
         (deflisten feed :initial "[]" "crt-soc-feed")
 
         (defpoll clock :interval "1s" "date '+%H:%M:%S'")
@@ -183,12 +405,40 @@
               (label :class "feed-line tag-''${entry.tag}" :halign "start" :xalign 0 :truncate true
                      :text "''${entry.ts} ''${entry.host} ''${entry.text}"))))
 
+        (defwidget context-strip []
+          (box :class "context" :orientation "v" :space-evenly false :spacing 4
+            (box :class "context-row" :space-evenly false :spacing 6
+              (label :class "context-chip workspace-state" :text "WS ''${desktop.workspace}")
+              (label :class "context-chip app-state" :hexpand true :halign "fill" :xalign 0
+                     :truncate true :text {desktop.app})
+              (label :class "context-chip network ''${desktop.online ? 'ok' : 'bad'}"
+                     :text "NET ''${desktop.network}"))
+            (box :class "context-row" :space-evenly false :spacing 6
+              (label :class "context-chip media ''${desktop.media_state == 'Playing' ? 'playing' : 'paused'}"
+                     :visible {desktop.media != ""} :hexpand true :halign "fill" :xalign 0
+                     :truncate true :text "MEDIA ''${desktop.media}")
+              (box :hexpand true :visible {desktop.media == ""})
+              (label
+                :class "context-chip posture ''${
+                  stats.nodes_up != stats.nodes_total || stats.failed_units != 0 || stats.deploy_failed != 0 || stats.canary == 0
+                    ? 'alert'
+                    : stats.ids_1h != 0 || stats.ssh_1h != 0 ? 'watch' : 'ok'
+                }"
+                :text {stats.nodes_up != stats.nodes_total || stats.failed_units != 0 || stats.deploy_failed != 0 || stats.canary == 0
+                  ? "POSTURE ALERT"
+                  : stats.ids_1h != 0 || stats.ssh_1h != 0 ? "POSTURE WATCH" : "POSTURE NOMINAL"}))))
+
         (defwidget display []
-          (box :class "root" :orientation "v" :space-evenly false
+          (box :class "root ''${
+            stats.nodes_up != stats.nodes_total || stats.failed_units != 0 || stats.deploy_failed != 0 || stats.canary == 0
+              ? 'critical'
+              : stats.ids_1h != 0 || stats.ssh_1h != 0 ? 'watch' : 'nominal'
+          }" :orientation "v" :space-evenly false
             (box :class "header" :space-evenly false
-              (label :class "title" :halign "start" :text "SOC // GUILDEDTHORN.ARPA")
+              (label :class "title" :halign "start" :text "THORNIX // SOC")
               (box :hexpand true)
               (label :class "clock" :halign "end" :text clock))
+            (context-strip)
             (box :class "tiles" :orientation "v" :space-evenly false :spacing 6
               (box :spacing 6
                 (tile :label "NODES UP" :value "''${stats.nodes_up}/''${stats.nodes_total}"
@@ -223,6 +473,18 @@
           background-color: #030503;
           color: #46f07d;
           padding: 32px 52px;
+          transition: background-color 240ms ease-out,
+                      box-shadow 240ms ease-out;
+        }
+
+        .root.watch {
+          background-color: #070603;
+          box-shadow: inset 0 0 28px rgba(255, 180, 84, 0.11);
+        }
+
+        .root.critical {
+          background-color: #080403;
+          box-shadow: inset 0 0 34px rgba(255, 90, 80, 0.16);
         }
 
         .title {
@@ -238,8 +500,52 @@
           text-shadow: 0 0 6px rgba(70, 240, 125, 0.5);
         }
 
-        .tiles {
+        .context {
           margin-top: 8px;
+          font-size: 12px;
+        }
+
+        .context-chip {
+          min-height: 18px;
+          padding: 1px 6px;
+          color: rgba(70, 240, 125, 0.72);
+          background-color: rgba(70, 240, 125, 0.055);
+          border: 1px solid rgba(70, 240, 125, 0.22);
+          border-radius: 2px;
+          transition: color 180ms ease-out,
+                      background-color 180ms ease-out,
+                      border-color 180ms ease-out;
+        }
+
+        .workspace-state {
+          color: #59d6e0;
+          border-color: rgba(89, 214, 224, 0.42);
+          text-shadow: 0 0 5px rgba(89, 214, 224, 0.45);
+        }
+
+        .media.playing {
+          color: #b4befe;
+          border-color: rgba(180, 190, 254, 0.42);
+          text-shadow: 0 0 5px rgba(180, 190, 254, 0.38);
+        }
+
+        .network.bad,
+        .posture.alert {
+          color: #ff5a50;
+          border-color: rgba(255, 90, 80, 0.62);
+          background-color: rgba(255, 90, 80, 0.08);
+          text-shadow: 0 0 6px rgba(255, 90, 80, 0.5);
+        }
+
+        .posture.watch {
+          color: #ffb454;
+          border-color: rgba(255, 180, 84, 0.55);
+          background-color: rgba(255, 180, 84, 0.07);
+          text-shadow: 0 0 6px rgba(255, 180, 84, 0.45);
+        }
+
+        .tiles {
+          margin-top: 7px;
         }
 
         .tile {
@@ -347,9 +653,36 @@
           Install.WantedBy = [ "eww.service" ];
         };
 
+        systemd.user.services.siem-review = {
+          Unit = {
+            Description = "Scheduled SIEM log review (Claude analyst pass)";
+            After = [ "network-online.target" ];
+          };
+          Service = {
+            Type = "oneshot";
+            ExecStart = "${siemReview}/bin/siem-review";
+          };
+        };
+
+        systemd.user.timers.siem-review = {
+          Unit.Description = "SIEM review three times daily";
+          Timer = {
+            OnCalendar = [
+              "06:52"
+              "14:52"
+              "22:52"
+            ];
+            Persistent = true;
+            RandomizedDelaySec = "5m";
+          };
+          Install.WantedBy = [ "timers.target" ];
+        };
+
         home.packages = [
+          desktopState
           socStats
           socFeed
+          siemReview
         ];
       };
     };
