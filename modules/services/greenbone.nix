@@ -67,7 +67,22 @@
 
         # Only Greenbone's data containers roll automatically. Executable
         # services remain on the reviewed amd64 digests in composeFile.
-        ${compose} pull --quiet ${feedServiceArguments}
+        # The Community registry occasionally times out one manifest HEAD.
+        # Pull feeds independently so successful downloads are retained, and
+        # retry only the failed service rather than aborting all eight pulls.
+        for service in ${feedServiceArguments}; do
+          for attempt in 1 2 3; do
+            if ${compose} pull --quiet "$service"; then
+              break
+            fi
+            if [[ "$attempt" == 3 ]]; then
+              echo "error: failed to pull Greenbone feed image: $service" >&2
+              exit 1
+            fi
+            echo "warning: retrying Greenbone feed image $service ($attempt/3)" >&2
+            sleep $((attempt * 30))
+          done
+        done
         ${compose} up --detach --remove-orphans
       '';
 
@@ -203,6 +218,14 @@
       virtualisation.docker = {
         enable = true;
         enableOnBoot = true;
+        # Feed refreshes replace rolling data images. Reclaim superseded
+        # layers after they are no longer referenced, but never prune volumes
+        # containing Greenbone's feeds or PostgreSQL state.
+        autoPrune = {
+          enable = true;
+          dates = "weekly";
+          flags = [ "--all" ];
+        };
         daemon.settings = {
           "live-restore" = true;
           "log-driver" = "journald";
@@ -252,7 +275,10 @@
             Restart = "on-failure";
             RestartSec = "30s";
             TimeoutStartSec = "45min";
-            TimeoutStopSec = "2min";
+            # Compose may wait up to 60 seconds for several database/scanner
+            # containers. Two minutes cut a clean stop short in production
+            # and left data containers killed with status 137.
+            TimeoutStopSec = "5min";
           };
         };
 
@@ -283,10 +309,18 @@
             "network-online.target"
             "sieve-greenbone.service"
           ];
-          unitConfig.ConditionPathExists = securedMarker;
+          unitConfig = {
+            ConditionPathExists = securedMarker;
+            # A registry outage should retry during the same maintenance
+            # window instead of leaving stale feeds until the next day.
+            StartLimitBurst = 4;
+            StartLimitIntervalSec = "2h";
+          };
           serviceConfig = {
             Type = "oneshot";
             ExecStart = feedUpdate;
+            Restart = "on-failure";
+            RestartSec = "15min";
             TimeoutStartSec = "60min";
           };
         };
