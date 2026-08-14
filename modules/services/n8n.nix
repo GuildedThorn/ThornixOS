@@ -264,7 +264,10 @@
           DB_POSTGRESDB_DATABASE = "n8n";
           DB_POSTGRESDB_USER = "n8n";
           DB_POSTGRESDB_SCHEMA = "public";
-          N8N_USER_FOLDER = "/var/lib/n8n";
+          # The main n8n StateDirectory is id-mapped for its DynamicUser and
+          # intentionally inaccessible from this separate oneshot. Keep the
+          # import CLI's private config in the seed service's own state.
+          N8N_USER_FOLDER = seedStateDirectory;
           N8N_ENCRYPTION_KEY_FILE = "%d/n8n_encryption_key_file";
           NODE_EXTRA_CA_CERTS = config.security.pki.caBundle;
         };
@@ -280,10 +283,7 @@
           PrivateTmp = true;
           ProtectHome = true;
           ProtectSystem = "strict";
-          ReadWritePaths = [
-            "/var/lib/n8n"
-            seedStateDirectory
-          ];
+          ReadWritePaths = [ seedStateDirectory ];
           ExecStart = pkgs.writeShellScript "loom-n8n-seed-workflows" ''
             set -o errexit -o nounset -o pipefail
             shopt -s nullglob
