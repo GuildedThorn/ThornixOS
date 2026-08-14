@@ -12,6 +12,7 @@
       ];
 
       home.stateVersion = "26.11";
+      home.pointerCursor.enable = true;
 
       # Add required packages to the user's environment
       home.packages = with pkgs; [
@@ -72,6 +73,13 @@
         plugins = {
           inherit (pkgs.yaziPlugins) mount;
         };
+        keymap.mgr.prepend_keymap = [
+          {
+            on = "M";
+            run = "plugin mount";
+            desc = "Mount, unmount, or eject a drive";
+          }
+        ];
         settings = {
           mgr = {
             show_hidden = true;

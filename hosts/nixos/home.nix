@@ -136,53 +136,92 @@ in
         }
       ];
 
-      services.wayle.settings = {
-        inset-edge = 0.5;
-        inset-ends = 0.5;
-        layout = [
-          {
-            center = [
-              "cava"
-              "media"
-            ];
-            left = [
-              "dashboard"
-              "weather"
-              "separator"
-              "hyprland-workspaces"
-              "separator"
-              "clock"
-              "world-clock"
-            ];
-            monitor = "DP-2";
-            right = [
-              "network"
-              "netstat"
-              "separator"
-              "systray"
-            ];
-            show = true;
-          }
-          {
-            center = [ "window-title" ];
-            left = [
-              "hyprland-workspaces"
-              "separator"
-              "cpu"
-              "ram"
-              "storage"
-            ];
-            monitor = "DP-3";
-            right = [
-              "volume"
-              "hyprsunset"
-              "bluetooth"
-              "notifications"
-            ];
-            show = true;
-          }
-        ];
-      };
+      # Keep the live Wayle layout reproducible. Wayle 0.6 nests layouts
+      # under `bar`; root-level `layout` is ignored and previously left the
+      # unmanaged runtime.toml as the only working copy.
+      services.wayle.settings.bar.layout = [
+        {
+          monitor = "DP-2";
+          show = true;
+          left = [
+            "custom-thornix"
+            "hyprland-workspaces"
+            "idle-inhibit"
+          ];
+          center = [
+            {
+              name = "now-playing";
+              modules = [
+                "cava"
+                "media"
+              ];
+            }
+          ];
+          right = [
+            {
+              name = "net";
+              modules = [
+                {
+                  module = "clock";
+                  class = "primary-clock";
+                }
+                "world-clock"
+              ];
+            }
+            "systray"
+          ];
+        }
+        {
+          monitor = "DP-3";
+          show = true;
+          left = [
+            "hyprland-workspaces"
+            {
+              name = "specs";
+              modules = [
+                "cpu"
+                "ram"
+                "storage"
+                "netstat"
+              ];
+            }
+          ];
+          center = [ "window-title" ];
+          right = [
+            {
+              name = "audio";
+              modules = [
+                "volume"
+                "microphone"
+              ];
+            }
+            {
+              name = "quick";
+              modules = [
+                "bluetooth"
+                "network"
+                "hyprsunset"
+                "notifications"
+              ];
+            }
+          ];
+        }
+        {
+          # Eww owns the CRT; retain a fallback layout but keep its Wayle bar
+          # hidden when the adapter appears as DP-1.
+          monitor = "DP-1";
+          show = false;
+          left = [ "media" ];
+          center = [ "clock" ];
+          right = [
+            "battery"
+            "bluetooth"
+            "network"
+            "microphone"
+            "volume"
+          ];
+        }
+      ];
     })
   ];
 }

@@ -170,12 +170,6 @@
             enable = true;
           };
 
-          programs.thunar.enable = true;
-          programs.thunar.plugins = with pkgs; [
-            thunar-archive-plugin
-            thunar-volman
-          ];
-
           programs.gnupg.agent = {
             enable = true;
             enableSSHSupport = false;

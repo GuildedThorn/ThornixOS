@@ -9,6 +9,7 @@
       home.stateVersion = "26.11";
       thorn.desktop.hyprland.enable = true;
       thorn.desktop.rice.enable = true;
+      thorn.desktop.wallpaper.enable = true;
       thorn.programs.vesktop.enable = true;
       thorn.programs.firefox.enable = true;
       thorn.programs.ghostty.enable = true;
@@ -31,33 +32,52 @@
         }
       ];
 
-      programs.hyprpanel.settings.bar.layouts = {
-        "eDP-1" = {
+      # HyprPanel is archived and the shared desktop now runs Wayle. A
+      # wildcard layout follows the ThinkPad between its panel and docks.
+      services.wayle.settings.bar.layout = [
+        {
+          monitor = "*";
+          show = true;
           left = [
             "dashboard"
-            "workspaces"
-            "separator"
-            "cpu"
-            "cputemp"
-            "ram"
-            "storage"
+            "hyprland-workspaces"
+            {
+              name = "system";
+              modules = [
+                "cpu"
+                "ram"
+                "storage"
+              ];
+            }
           ];
-          middle = [
-            "windowtitle"
-            "separator"
-            "media"
+          center = [
+            {
+              name = "now-playing";
+              modules = [
+                "window-title"
+                "media"
+              ];
+            }
           ];
           right = [
-            "volume"
-            "battery"
-            "network"
-            "bluetooth"
+            {
+              name = "controls";
+              modules = [
+                "volume"
+                "battery"
+                "network"
+                "bluetooth"
+              ];
+            }
             "systray"
-            "clock"
+            {
+              module = "clock";
+              class = "primary-clock";
+            }
             "notifications"
           ];
-        };
-      };
+        }
+      ];
     })
   ];
 }

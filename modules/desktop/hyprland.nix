@@ -6,6 +6,10 @@
       ...
     }:
     let
+      rice = import ../../lib/rice.nix;
+      inherit (rice) colors geometry;
+      thornixMark = rice.branding.svg pkgs;
+
       # Same image as in ~/Pictures/walls-catppuccin-mocha, but fetched into
       # the store so the greeter user can read it before anyone logs in.
       regreetWallpaper = pkgs.fetchurl {
@@ -47,6 +51,12 @@
         };
       };
 
+      # Provide the Secret portal backend selected above and unlock the
+      # login keyring through greetd's PAM stack. Keep the GCR SSH agent off:
+      # services-ssh already owns SSH_AUTH_SOCK through programs.ssh.startAgent.
+      services.gnome.gnome-keyring.enable = true;
+      services.gnome.gcr-ssh-agent.enable = false;
+
       #################################
       # Login Manager (greetd + ReGreet)
       #################################
@@ -58,57 +68,56 @@
       programs.regreet = {
         enable = true;
 
-        cursorTheme = {
-          name = "Bibata-Modern-Ice";
-          package = pkgs.bibata-cursors;
-        };
-
         settings = {
           background = {
             path = regreetWallpaper;
             fit = "Cover";
           };
-          appearance.greeting_msg = "Welcome back, Thorn";
+          appearance.greeting_msg = "THORNIX // Welcome back, Thorn";
           widget.clock = {
             format = "%A %d %B · %H:%M";
             resolution = "500ms";
           };
         };
 
-        # Catppuccin Mocha: base #1e1e2e, crust #11111b, surface0 #313244,
-        # surface1 #45475a, text #cdd6f4, lavender #b4befe, mauve #cba6f7
+        # Shared Mocha surfaces and geometry carry the same visual hierarchy
+        # through the greeter, lock screen, launcher, bar, and logout overlay.
         extraCss = ''
           frame {
-            background-color: rgba(30, 30, 46, 0.82);
-            border: 1px solid rgba(180, 190, 254, 0.25);
-            border-radius: 18px;
-            padding: 18px;
+            background-color: rgba(30, 30, 46, 0.86);
+            background-image: image(url("${thornixMark}"));
+            background-repeat: no-repeat;
+            background-position: center 18px;
+            background-size: 62px;
+            border: ${toString geometry.border}px solid #${colors.mauve}55;
+            border-radius: ${toString geometry.radiusLarge}px;
+            padding: 92px 18px 18px;
             box-shadow: 0 12px 32px rgba(17, 17, 27, 0.6);
           }
 
           label {
-            color: #cdd6f4;
+            color: #${colors.text};
           }
 
           entry {
             background-color: rgba(49, 50, 68, 0.9);
-            color: #cdd6f4;
-            caret-color: #cba6f7;
-            border: 1px solid transparent;
-            border-radius: 10px;
+            color: #${colors.text};
+            caret-color: #${colors.mauve};
+            border: ${toString geometry.border}px solid transparent;
+            border-radius: ${toString geometry.radiusSmall}px;
             min-height: 34px;
             padding: 0 10px;
           }
 
           entry:focus-within {
-            border-color: #cba6f7;
+            border-color: #${colors.mauve};
           }
 
           button {
             background-color: rgba(49, 50, 68, 0.9);
-            color: #cdd6f4;
+            color: #${colors.text};
             border: none;
-            border-radius: 10px;
+            border-radius: ${toString geometry.radiusSmall}px;
           }
 
           button:hover {
@@ -116,13 +125,13 @@
           }
 
           button.suggested-action {
-            background-color: #cba6f7;
-            color: #11111b;
+            background-color: #${colors.mauve};
+            color: #${colors.crust};
             font-weight: 600;
           }
 
           button.suggested-action:hover {
-            background-color: #b4befe;
+            background-color: #${colors.lavender};
           }
         '';
       };

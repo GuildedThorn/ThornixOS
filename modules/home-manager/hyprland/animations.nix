@@ -72,6 +72,18 @@
                   }
                 ];
               }
+
+              {
+                # Shared shell choreography: brisk at the start, then a soft
+                # settle. Hyprlock uses these same control points below.
+                _args = [
+                  "shell"
+                  {
+                    type = "bezier";
+                    points = lua "{ {0.22, 1.0}, {0.36, 1.0} }";
+                  }
+                ];
+              }
             ];
 
             #################################
@@ -128,6 +140,13 @@
               }
 
               {
+                leaf = "fadeDim";
+                enabled = true;
+                speed = 3.5;
+                bezier = "shell";
+              }
+
+              {
                 leaf = "workspaces";
                 enabled = true;
                 speed = 5;
@@ -138,16 +157,53 @@
               {
                 leaf = "layers";
                 enabled = true;
-                speed = 5;
-                bezier = "gentle";
+                speed = 4;
+                bezier = "shell";
                 style = "fade";
+              }
+
+              {
+                leaf = "layersIn";
+                enabled = true;
+                speed = 3.6;
+                bezier = "shell";
+                style = "popin 94%";
+              }
+
+              {
+                leaf = "layersOut";
+                enabled = true;
+                speed = 2.8;
+                bezier = "fast";
+                style = "popin 96%";
+              }
+
+              {
+                leaf = "fadeLayersIn";
+                enabled = true;
+                speed = 3.2;
+                bezier = "shell";
+              }
+
+              {
+                leaf = "fadeLayersOut";
+                enabled = true;
+                speed = 2.6;
+                bezier = "fast";
+              }
+
+              {
+                leaf = "fadeDpms";
+                enabled = true;
+                speed = 4;
+                bezier = "shell";
               }
 
               {
                 leaf = "specialWorkspace";
                 enabled = true;
-                speed = 6;
-                bezier = "overshot";
+                speed = 4.5;
+                bezier = "shell";
                 style = "slidefadevert";
               }
 

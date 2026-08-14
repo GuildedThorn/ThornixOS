@@ -89,6 +89,12 @@
       options.thorn.desktop.wallpaper = {
         enable = lib.mkEnableOption "wallpaper spanning all monitors as one screen, rotated with animated transitions";
 
+        featured = lib.mkOption {
+          type = lib.types.path;
+          default = ../../assets/wallpapers/thornix-obsidian-span.png;
+          description = "Wallpaper shown when the graphical session starts before normal rotation begins.";
+        };
+
         directory = lib.mkOption {
           type = lib.types.str;
           default = "${config.home.homeDirectory}/Pictures/walls-catppuccin-mocha";
@@ -111,6 +117,24 @@
       config = lib.mkIf cfg.enable {
         home.packages = [ wall-span ];
 
+        # Keep the project artwork available alongside personal wallpapers so
+        # `wall-span thornix-obsidian-span.png` can always restore the intended
+        # screenshot composition without referring to a Nix store path.
+        home.file."Pictures/walls-catppuccin-mocha/thornix-obsidian-span.png".source = cfg.featured;
+
+        systemd.user.services.wall-span-featured = {
+          Unit = {
+            Description = "Set the featured ThornixOS spanning wallpaper";
+            After = [ "graphical-session.target" ];
+            PartOf = [ "graphical-session.target" ];
+          };
+          Service = {
+            Type = "oneshot";
+            ExecStart = "${lib.getExe wall-span} ${lib.escapeShellArg (toString cfg.featured)}";
+          };
+          Install.WantedBy = [ "graphical-session.target" ];
+        };
+
         systemd.user.services.wall-span = {
           Unit = {
             Description = "Spanning wallpaper across all monitors";
@@ -121,12 +145,14 @@
             Type = "oneshot";
             ExecStart = lib.getExe wall-span;
           };
-          Install.WantedBy = [ "graphical-session.target" ];
         };
 
         systemd.user.timers.wall-span = {
           Unit.Description = "Rotate spanning wallpaper";
-          Timer.OnUnitActiveSec = cfg.interval;
+          Timer = {
+            OnActiveSec = cfg.interval;
+            OnUnitActiveSec = cfg.interval;
+          };
           Install.WantedBy = [ "timers.target" ];
         };
       };

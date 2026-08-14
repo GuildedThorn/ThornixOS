@@ -2,6 +2,7 @@
 let
   homeManagerThorn = config.homeManager.modules.thorn;
   fleet = import ../../hosts/inventory.nix;
+  rice = import ../../lib/rice.nix;
 in
 {
   nixos.modules.thorn-user =
@@ -15,6 +16,57 @@ in
       hostName = config.networking.hostName;
       host = fleet.${hostName} or null;
       deployment = if host == null then { enable = false; } else host.deployment;
+      catppuccinPlymouth = pkgs.catppuccin-plymouth.override { variant = "mocha"; };
+      thornixPlymouthConfig = pkgs.writeText "thornix.plymouth" ''
+        [Plymouth Theme]
+        Name=thornix
+        Description=Thornix Catppuccin Mocha boot sequence
+        ModuleName=two-step
+
+        [two-step]
+        Font=Geist 12
+        TitleFont=Geist Light 30
+        ImageDir=@THEME_DIR@
+        DialogHorizontalAlignment=.5
+        DialogVerticalAlignment=.5
+        TitleHorizontalAlignment=.5
+        TitleVerticalAlignment=.5
+        HorizontalAlignment=.5
+        VerticalAlignment=.62
+        WatermarkHorizontalAlignment=.5
+        WatermarkVerticalAlignment=.42
+        Transition=none
+        TransitionDuration=0.0
+        BackgroundStartColor=0x${rice.colors.base}
+        BackgroundEndColor=0x${rice.colors.base}
+        ProgressBarBackgroundColor=0x${rice.colors.surface0}
+        ProgressBarForegroundColor=0x${rice.colors.mauve}
+        MessageBelowAnimation=true
+
+        [boot-up]
+        UseEndAnimation=false
+
+        [shutdown]
+        UseEndAnimation=false
+
+        [reboot]
+        UseEndAnimation=false
+      '';
+      thornixPlymouth =
+        pkgs.runCommand "thornix-plymouth-theme"
+          {
+            nativeBuildInputs = [ pkgs.librsvg ];
+          }
+          ''
+            theme_dir="$out/share/plymouth/themes/thornix"
+            mkdir -p "$theme_dir"
+            cp ${catppuccinPlymouth}/share/plymouth/themes/catppuccin-mocha/*.png "$theme_dir/"
+            cp ${thornixPlymouthConfig} "$theme_dir/thornix.plymouth"
+            substituteInPlace "$theme_dir/thornix.plymouth" \
+              --replace-fail '@THEME_DIR@' "$theme_dir"
+            rsvg-convert --width 164 --height 164 \
+              "${rice.branding.svg pkgs}" > "$theme_dir/watermark.png"
+          '';
     in
     {
 
@@ -154,18 +206,23 @@ in
       stylix = {
         enable = true;
         base16Scheme = "${pkgs.base16-schemes}/share/themes/catppuccin-mocha.yaml";
+        cursor = {
+          inherit (rice.cursor) name size;
+          package = pkgs.catppuccin-cursors.mochaMauve;
+        };
+        targets.plymouth.enable = false;
         fonts = {
           sansSerif = {
             package = pkgs.geist-font;
-            name = "Geist";
+            name = rice.fonts.sans;
           };
           serif = {
             package = pkgs.geist-font;
-            name = "Geist";
+            name = rice.fonts.sans;
           };
           monospace = {
             package = pkgs.nerd-fonts.geist-mono;
-            name = "GeistMono Nerd Font";
+            name = rice.fonts.mono;
           };
           emoji = {
             package = pkgs.noto-fonts-color-emoji;
@@ -177,6 +234,8 @@ in
       boot = {
         plymouth = {
           enable = true;
+          theme = "thornix";
+          themePackages = [ thornixPlymouth ];
         };
 
         # Enable "Silent boot"
