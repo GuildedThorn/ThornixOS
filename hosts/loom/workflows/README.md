@@ -32,6 +32,14 @@ In n8n:
 The workflow reads public feeds and Open-Meteo only. It sends no infrastructure
 data, uses no AI service, and includes no tracking pixel.
 
+## Personal Discord credential
+
+The evening drop can also send a mention-safe, Discord-sized version of the
+digest. In n8n, create a **Discord Webhook** credential named
+`GuildedThorn Gaming Drop Discord`, paste the private webhook URL, and select it
+on the `Discord evening drop` node. Keep the webhook URL in n8n's encrypted
+credential store; never add it to the workflow JSON or this repository.
+
 ## Herald credential
 
 After Herald is online, create a dedicated user with write-only access to the

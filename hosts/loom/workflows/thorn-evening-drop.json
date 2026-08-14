@@ -32,7 +32,7 @@
     },
     {
       "parameters": {
-        "content": "## Thorn's Evening Drop\n\nA personal 5:30 PM digest built from the choices already in your ThornixOS Glance page: Alsip weather, gameranx, Skill Up, GameLinked, Digital Foundry, r/pcgaming, and r/gamingnews.\n\nIt contains no SOC or infrastructure data, uses no AI service, and stores no feed HTML. Create a dedicated **SMTP** credential named `GuildedThorn Gmail SMTP`, select it on the final node, test once, then publish.",
+        "content": "## Thorn's Evening Drop\n\nA personal 5:30 PM digest built from the choices already in your ThornixOS Glance page: Alsip weather, gameranx, Skill Up, GameLinked, Digital Foundry, r/pcgaming, and r/gamingnews.\n\nIt contains no SOC or infrastructure data, uses no AI service, and stores no feed HTML. Delivery supports **SMTP** and an encrypted **Discord Webhook** credential; select each credential on its delivery node, test once, then publish.",
         "height": 310,
         "width": 520
       },
@@ -153,9 +153,36 @@
       },
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [440, 0],
+      "position": [700, -120],
       "id": "98c23828-d97b-45d6-86b8-7d7d4a03aaec",
       "name": "Email Thorn"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const maxLength = 1900;\nconst source = String($json.text ?? '').replaceAll('@', '@\\u200b');\nlet discord = source;\n\nif (source.length > maxLength) {\n  const candidate = source.slice(0, maxLength - 2);\n  const lastBreak = candidate.lastIndexOf('\\n');\n  const cut = lastBreak >= 1200 ? lastBreak : candidate.length;\n  discord = `${candidate.slice(0, cut).trimEnd()}\\n…`;\n}\n\nreturn [{ json: { ...$json, discord } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 120],
+      "id": "09899981-47db-44d4-b827-6c608829e0cc",
+      "name": "Format Discord drop"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "operation": "sendLegacy",
+        "content": "={{ $json.discord }}",
+        "options": {
+          "username": "GuildedThorn · Evening Drop",
+          "wait": true
+        }
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [700, 120],
+      "id": "9b39a724-d113-4bc3-a11c-3d0790738365",
+      "name": "Discord evening drop"
     }
   ],
   "connections": {
@@ -282,7 +309,23 @@
       "main": [
         [
           {
+            "node": "Format Discord drop",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Email Thorn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Discord drop": {
+      "main": [
+        [
+          {
+            "node": "Discord evening drop",
             "type": "main",
             "index": 0
           }
