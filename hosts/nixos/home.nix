@@ -137,6 +137,26 @@ in
         }
       ];
 
+      # Keep application workspaces on the 1080p panels. Without explicit
+      # defaults, Hyprland gives workspace 1 (and therefore Steam) to the CRT.
+      wayland.windowManager.hyprland.settings.workspace_rule = [
+        {
+          workspace = "1";
+          monitor = "desc:LG Electronics 24GN50W 0x0006C019";
+          default = true;
+        }
+        {
+          workspace = "3";
+          monitor = "desc:HP Inc. HP X24ih 1CR1211S3F";
+          default = true;
+        }
+        {
+          workspace = "name:crt";
+          monitor = "desc:Chrontel Inc TV DISPLAY";
+          default = true;
+        }
+      ];
+
       # Keep the live Wayle layout reproducible. Wayle 0.6 nests layouts
       # under `bar`; root-level `layout` is ignored and previously left the
       # unmanaged runtime.toml as the only working copy.
