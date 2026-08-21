@@ -11,6 +11,7 @@ let
       monitoring ? { },
       production ? true,
       role,
+      system ? "x86_64-linux",
     }:
     {
       inherit
@@ -20,7 +21,7 @@ let
         production
         role
         ;
-      system = "x86_64-linux";
+      inherit system;
       deployment = {
         enable = deploy;
         branch = if production then "production" else null;
@@ -88,6 +89,14 @@ in
       readyFiles = [ "hosts/courier/telemetry.nix" ];
       probes = [ "https://courier.guildedthorn.arpa/admin" ];
     };
+  };
+
+  deck = mkHost {
+    class = "handheld";
+    deploy = false;
+    fqdn = "deck.guildedthorn.arpa";
+    production = false;
+    role = "gaming-voice-satellite";
   };
 
   firewall = mkHost {
@@ -277,6 +286,15 @@ in
     deploy = false;
     production = false;
     role = "vmware-test";
+  };
+
+  voice-office = mkHost {
+    class = "satellite";
+    deploy = false;
+    fqdn = "voice-office.guildedthorn.arpa";
+    production = false;
+    role = "voice-satellite";
+    system = "aarch64-linux";
   };
 
   websites = mkHost {

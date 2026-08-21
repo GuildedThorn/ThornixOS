@@ -43,8 +43,10 @@ hosts/inventory.nix        authoritative production/deployment/monitoring member
 | `courier` | Proxmox VM running Stalwart mailboxes, authenticated submission, and collaboration |
 | `mac` | Intel/AMD-graphics machine, Hyprland desktop |
 | `scout` | Intel laptop, Hyprland desktop |
+| `deck` | LCD Steam Deck running Jovian Gaming Mode and a Wyoming voice satellite |
 | `firewall` | Firewall box |
 | `mitm` / `proxmox-mitm` | MITM lab machines (bare metal / Proxmox VM) |
+| `voice-office` | Raspberry Pi 3B+ and Google AIY Voice HAT v1 satellite |
 | `proxmox-guest` | General Proxmox VM, XFCE+i3 |
 | `vmware-guest` / `vmware-test` | VMware VMs, XFCE+i3 |
 
