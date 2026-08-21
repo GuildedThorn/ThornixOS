@@ -1,0 +1,7 @@
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+AuthorizedKeysFile .ssh/authorized_keys
+Subsystem sftp internal-sftp
