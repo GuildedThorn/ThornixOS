@@ -1,0 +1,178 @@
+{
+  "id": "ThornChangeWindowPreflight",
+  "name": "ThornixOS | Change window preflight",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1120, 0],
+      "id": "ac90fd1c-b52a-4ae1-b5e5-07ceae66e43a",
+      "name": "Run preflight"
+    },
+    {
+      "parameters": {
+        "content": "## Change-window preflight\n\nRun this immediately before a fleet rollout. It returns **GO**, **GO WITH CAUTION**, or **NO-GO** from the current SOC snapshot and newest Hydra production evaluation, then posts the signed-off checklist to Discord.\n\nNO-GO includes unavailable hosts/services, failed units, stale backups, deployment failures/drift, dangerously full disks, urgent certificate renewal, OpenCanary activity, or incomplete/failed Hydra production jobs. This workflow observes only; it cannot deploy or remediate anything.",
+        "height": 390,
+        "width": 620
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1340, -500],
+      "id": "4b701fc4-2b19-4317-971a-89152232f9f9",
+      "name": "Preflight policy"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://soc.guildedthorn.arpa:9443/api/v1/ops-summary",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"window\":\"24h\"}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-840, 0],
+      "id": "9efbb4b0-5e4c-41be-a99e-d252b1585cad",
+      "name": "Read preflight SOC snapshot"
+    },
+    {
+      "parameters": {
+        "url": "https://forge.guildedthorn.arpa/jobset/thornixos/main/evals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-560, 0],
+      "id": "15e214f0-df19-4d5c-906c-c7c649d3863e",
+      "name": "Read preflight Hydra evaluations",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parseBody = (value) => {\n  if (typeof value !== 'string') return value;\n  try { return JSON.parse(value); } catch { return {}; }\n};\nconst response = items[0]?.json ?? {};\nconst body = parseBody(response.body ?? response);\nconst latest = (Array.isArray(body.evals) ? body.evals : [])[0];\nconst revision = String(latest?.flake ?? '').match(/[0-9a-f]{40}/)?.[0] ?? '';\nreturn [{ json: {\n  available: Boolean(latest?.id),\n  evaluationId: latest?.id ?? null,\n  revision: revision ? revision.slice(0, 8) : '',\n  buildsUrl: latest?.id ? `https://forge.guildedthorn.arpa/eval/${latest.id}/builds` : 'https://forge.guildedthorn.arpa/eval/0/builds',\n  evaluationUrl: latest?.id ? `https://forge.guildedthorn.arpa/eval/${latest.id}` : 'https://forge.guildedthorn.arpa/jobset/thornixos/main',\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-280, 0],
+      "id": "721fa84d-5c9c-4b3b-b95a-aef03c56b4e6",
+      "name": "Select preflight evaluation"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.buildsUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 0],
+      "id": "0c293972-749f-48f1-a42e-599d428d3e99",
+      "name": "Read preflight builds",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parseBody = (value) => {\n  if (typeof value !== 'string') return value;\n  try { return JSON.parse(value); } catch { return null; }\n};\nconst fit = (value, limit = 1024) => {\n  const safe = String(value ?? '').replaceAll('@', '@\\u200b').trim();\n  if (!safe) return 'None.';\n  return safe.length <= limit ? safe : safe.slice(0, limit - 2).trimEnd() + '…';\n};\nconst socResponse = $('Read preflight SOC snapshot').first().json;\nconst soc = parseBody(socResponse.body ?? socResponse) ?? {};\nconst metadata = $('Select preflight evaluation').first().json;\nconst response = items[0]?.json ?? {};\nconst body = parseBody(response.body ?? response);\nconst builds = Array.isArray(body) ? body : [];\nconst expected = [\n  'anvil', 'atlas', 'casebook', 'courier', 'forge', 'herald', 'hound',\n  'identity', 'loom', 'lure', 'mac', 'mitm', 'nixos', 'oracle', 'pixie',\n  'scout', 'sieve', 'soc', 'websites',\n].map((name) => `production.${name}`);\nconst byJob = new Map(builds.map((build) => [build.job, build]));\nconst states = expected.map((job) => {\n  const build = byJob.get(job);\n  if (!build || Number(build.finished) !== 1) return { job, state: 'pending' };\n  if (Number(build.buildstatus) !== 0 || !Object.values(build.buildoutputs ?? {}).some((output) => output?.path)) return { job, state: 'failed' };\n  return { job, state: 'succeeded' };\n});\nconst failedJobs = states.filter((item) => item.state === 'failed');\nconst pendingJobs = states.filter((item) => item.state === 'pending');\nconst fleet = soc.fleet ?? {};\nconst services = soc.services ?? {};\nconst maintenance = soc.maintenance ?? {};\nconst deployment = soc.deployment ?? {};\nconst security = soc.security ?? {};\nconst blockers = [];\nconst warnings = [];\nif (!metadata.available || builds.length === 0) blockers.push('Hydra production evaluation is unavailable');\nif (failedJobs.length) blockers.push(`Hydra failed: ${failedJobs.map((item) => item.job.replace('production.', '')).join(', ')}`);\nif (pendingJobs.length) blockers.push(`Hydra incomplete: ${pendingJobs.length} production job(s) pending`);\nif ((fleet.down_hosts ?? []).length) blockers.push(`Hosts down: ${fleet.down_hosts.join(', ')}`);\nif ((fleet.failed_units ?? []).length) blockers.push(`Failed units: ${fleet.failed_units.slice(0, 6).map((item) => `${item.host}/${item.unit}`).join(', ')}`);\nif ((services.unavailable ?? []).length) blockers.push(`${services.unavailable.length} monitored endpoint(s) unavailable`);\nif ((maintenance.stale_backups ?? []).length) blockers.push(`Stale backups: ${maintenance.stale_backups.map((item) => `${item.host}/${item.timer}`).join(', ')}`);\nconst deployFailures = [...(deployment.deployment_failures ?? []), ...(deployment.build_failures ?? []), ...(deployment.fetch_failures ?? [])];\nif (deployFailures.length) blockers.push(`comin failures: ${[...new Set(deployFailures)].join(', ')}`);\nif ((deployment.drifted_hosts ?? []).length) blockers.push(`Deployment drift: ${deployment.drifted_hosts.join(', ')}`);\nconst criticalDisks = (fleet.disk_attention ?? []).filter((item) => Number(item.used_percent) >= 90);\nif (criticalDisks.length) blockers.push(`Root disk ≥90%: ${criticalDisks.map((item) => `${item.host} ${Number(item.used_percent).toFixed(1)}%`).join(', ')}`);\nif ((services.internal_acme_attention ?? []).length) blockers.push('Internal ACME renewal is inside the four-hour critical window');\nif (Number(security.opencanary_interactions ?? 0) > 0) blockers.push('OpenCanary activity exists in the last 24 hours');\nconst warningDisks = (fleet.disk_attention ?? []).filter((item) => Number(item.used_percent) >= 80 && Number(item.used_percent) < 90);\nif (warningDisks.length) warnings.push(`Disk pressure: ${warningDisks.map((item) => `${item.host} ${Number(item.used_percent).toFixed(1)}%`).join(', ')}`);\nif ((deployment.reboot_pending ?? []).length) warnings.push(`Reboot pending: ${deployment.reboot_pending.join(', ')}`);\nif ((services.slow ?? []).length) warnings.push(`${services.slow.length} endpoint(s) slower than two seconds`);\nif ((services.external_tls_attention ?? []).length) warnings.push(`${services.external_tls_attention.length} non-ACME certificate(s) expire within 30 days`);\nif (Number(security.suricata_alerts ?? 0) + Number(security.pfsense_high_alerts ?? 0) > 0) warnings.push('Review recent IDS activity before changing the fleet');\nif (Object.keys(soc.errors ?? {}).length) blockers.push('SOC operator snapshot is incomplete');\nconst decision = blockers.length ? 'NO-GO' : warnings.length ? 'GO WITH CAUTION' : 'GO';\nconst color = decision === 'GO' ? 0xa6e3a1 : decision === 'GO WITH CAUTION' ? 0xf9e2af : 0xf38ba8;\nconst blockerText = blockers.length ? blockers.map((item) => `⛔ ${item}`).join('\\n') : '✅ No blocking condition found.';\nconst warningText = warnings.length ? warnings.map((item) => `⚠️ ${item}`).join('\\n') : '✅ No caution condition found.';\nconst hydraText = [\n  `Revision: **${metadata.revision || 'unknown'}**`,\n  `Production jobs: **${states.filter((item) => item.state === 'succeeded').length}/${expected.length} succeeded**`,\n  `Failed: **${failedJobs.length}** · Pending: **${pendingJobs.length}**`,\n  `[Open evaluation](${metadata.evaluationUrl})`,\n].join('\\n');\nconst liveText = [\n  `Comin revision: **${String(deployment.majority_commit ?? 'unknown').slice(0, 8)}** on ${Number(deployment.targets ?? 0)} host(s)`,\n  `Node exporters: **${Number(fleet.node_targets ?? 0) - (fleet.down_hosts ?? []).length}/${Number(fleet.node_targets ?? 0)} up**`,\n  `Service probes: **${Number(services.checked ?? 0) - (services.unavailable ?? []).length}/${Number(services.checked ?? 0)} up**`,\n  `Backups: **${(maintenance.backups ?? []).length - (maintenance.stale_backups ?? []).length}/${(maintenance.backups ?? []).length} fresh**`,\n].join('\\n');\nconst discordEmbed = {\n  author: { name: 'GUILDEDTHORN // CHANGE WINDOW' },\n  title: `${decision} · ThornixOS fleet preflight`,\n  description: decision === 'GO' ? 'The deployment pipeline and live fleet satisfy every preflight condition.' : 'Resolve or explicitly accept the conditions below before starting the rollout.',\n  color,\n  fields: [\n    { name: '🚦 Blockers', value: fit(blockerText), inline: false },\n    { name: '⚠️ Cautions', value: fit(warningText), inline: false },\n    { name: '🏗️ Hydra candidate', value: fit(hydraText), inline: false },\n    { name: '🖥️ Live fleet', value: fit(liveText), inline: false },\n  ],\n  footer: { text: 'Manual evidence-based preflight · observation only' },\n  timestamp: new Date().toISOString(),\n};\nreturn [{ json: { discordEmbed, decision, blockers, warnings } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 0],
+      "id": "22f972c5-2433-4a4a-910a-cfb5923e1959",
+      "name": "Evaluate change window"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "operation": "sendLegacy",
+        "content": "",
+        "embeds": {
+          "values": [
+            {
+              "inputMethod": "json",
+              "json": "={{ JSON.stringify($json.discordEmbed) }}"
+            }
+          ]
+        },
+        "options": {
+          "username": "GuildedThorn · Change Control",
+          "wait": true
+        }
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [580, 0],
+      "id": "f8e799f1-d8c3-4a06-81c1-daf59328998c",
+      "name": "Discord preflight result"
+    }
+  ],
+  "connections": {
+    "Run preflight": {
+      "main": [[{"node": "Read preflight SOC snapshot", "type": "main", "index": 0}]]
+    },
+    "Read preflight SOC snapshot": {
+      "main": [[{"node": "Read preflight Hydra evaluations", "type": "main", "index": 0}]]
+    },
+    "Read preflight Hydra evaluations": {
+      "main": [[{"node": "Select preflight evaluation", "type": "main", "index": 0}]]
+    },
+    "Select preflight evaluation": {
+      "main": [[{"node": "Read preflight builds", "type": "main", "index": 0}]]
+    },
+    "Read preflight builds": {
+      "main": [[{"node": "Evaluate change window", "type": "main", "index": 0}]]
+    },
+    "Evaluate change window": {
+      "main": [[{"node": "Discord preflight result", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago",
+    "errorWorkflow": "ThornN8nFailure"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

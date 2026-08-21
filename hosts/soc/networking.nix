@@ -37,7 +37,14 @@
           -m multiport --dports 3100,9090 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 10.10.10.3/32 \
           -m multiport --dports 3100,9090 -j nixos-fw-accept
+        # Purpose-built, read-only news/SIEM correlation and operator-summary
+        # APIs. Loom is the only routed caller; nginx independently repeats
+        # this source ACL.
+        iptables -w -A nixos-fw -p tcp -s 172.16.25.62/32 \
+          --dport 9443 -j nixos-fw-accept
         iptables -w -A nixos-fw -p udp -s 172.16.25.1/32 \
+          --dport 5514 -j nixos-fw-accept
+        iptables -w -A nixos-fw -p tcp -s 192.168.1.31/32 \
           --dport 5514 -j nixos-fw-accept
       '';
     };

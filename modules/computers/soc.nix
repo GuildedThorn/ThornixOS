@@ -526,6 +526,55 @@ in
                   "/".return = 404;
                 };
               };
+
+              # Loom can ask one purpose-built, read-only endpoint whether
+              # model-extracted actors/IOCs appear in recent SIEM evidence or
+              # SOC-held OpenCTI reports. nginx authenticates the network
+              # source, terminates ThornCloud TLS, and exposes no raw Loki or
+              # GraphQL query surface.
+              news-correlation-context = lib.mkIf securityWorkflowReady {
+                serverName = "soc.guildedthorn.arpa";
+                onlySSL = true;
+                listen = [
+                  {
+                    addr = "0.0.0.0";
+                    port = 9443;
+                    ssl = true;
+                  }
+                ];
+                sslCertificate = telemetryServerCertificate;
+                sslCertificateKey = telemetryServerKey;
+                extraConfig = ''
+                  allow 172.16.25.62;
+                  deny all;
+                  client_max_body_size 32k;
+                '';
+                locations = {
+                  "= /api/v1/news-context" = {
+                    proxyPass = "http://127.0.0.1:9088/news-context";
+                    extraConfig = ''
+                      if ($request_method != POST) {
+                        return 405;
+                      }
+                      proxy_connect_timeout 5s;
+                      proxy_read_timeout 90s;
+                      proxy_send_timeout 10s;
+                    '';
+                  };
+                  "= /api/v1/ops-summary" = {
+                    proxyPass = "http://127.0.0.1:9088/ops-summary";
+                    extraConfig = ''
+                      if ($request_method != POST) {
+                        return 405;
+                      }
+                      proxy_connect_timeout 5s;
+                      proxy_read_timeout 90s;
+                      proxy_send_timeout 10s;
+                    '';
+                  };
+                  "/".return = 404;
+                };
+              };
             };
           };
 
@@ -643,15 +692,15 @@ in
           # then tails those into Loki via the same loki.write.soc receiver.
           # Files are 0644 so Alloy's DynamicUser can read them. When the
           # firewall becomes a NixOS host it ships via journal instead and
-          # this stays for other appliances.
-          # hosts/soc/networking.nix admits this port only from pfSense's
-          # fixed 172.16.25.1 address; arbitrary LAN hosts cannot inject
-          # records into the appliance log stream.
+          # this stays for other appliances. hosts/soc/networking.nix admits
+          # this port only from explicitly listed appliance addresses.
           services.rsyslogd = {
             enable = true;
             extraConfig = ''
               module(load="imudp")
+              module(load="imtcp")
               input(type="imudp" port="5514")
+              input(type="imtcp" port="5514")
               template(name="remotefile" type="string"
                        string="/var/log/remote/%FROMHOST-IP%.log")
               if ($fromhost-ip != "127.0.0.1") then {
@@ -668,7 +717,7 @@ in
           # a short local recovery buffer instead of allowing the rsyslog
           # spool to grow without bound. HUP makes rsyslog reopen each file
           # after logrotate renames it.
-          services.logrotate.settings."remote-pfsense-syslog" = {
+          services.logrotate.settings."remote-appliance-syslog" = {
             files = "/var/log/remote/*.log";
             frequency = "daily";
             rotate = 7;
@@ -682,14 +731,21 @@ in
           };
 
           environment.etc."alloy/syslog.alloy".text = ''
-            // loki.source.file tails exact paths only, so discover the
-            // per-source files under /var/log/remote via a glob first.
+            // Keep bounded appliance identities as labels while rsyslog
+            // writes one file per source address.
             local.file_match "remote_syslog" {
-              path_targets = [{
-                "__path__" = "/var/log/remote/*.log",
-                job        = "syslog",
-                host       = "pfsense",
-              }]
+              path_targets = [
+                {
+                  "__path__" = "/var/log/remote/172.16.25.1.log",
+                  job        = "syslog",
+                  host       = "pfsense",
+                },
+                {
+                  "__path__" = "/var/log/remote/192.168.1.31.log",
+                  job        = "syslog",
+                  host       = "pineapple",
+                },
+              ]
             }
 
             loki.source.file "remote_syslog" {
@@ -2041,6 +2097,48 @@ in
                           severity = "critical";
                           category = "pipeline";
                           summary = "No pfSense DNS, firewall, or IDS syslog has reached Loki in 20 minutes.";
+                        })
+                        (rule {
+                          uid = "siem-pineapple-wireless-alert";
+                          title = "Pineapple detected a wireless security anomaly";
+                          datasourceUid = "loki";
+                          expr = ''
+                            sum(count_over_time(
+                              {job="syslog", host="pineapple"}
+                                |= "wifi-watch"
+                                |~ "deauth|untrusted BSSID" [5m]
+                            ))
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "0s";
+                          severity = "critical";
+                          category = "security";
+                          summary = "The passive Pineapple sensor observed a deauthentication flood or rogue ThornCloud BSSID.";
+                        })
+                        (rule {
+                          uid = "siem-pineapple-heartbeat-silent";
+                          title = "Pineapple wireless sensor heartbeat is missing";
+                          datasourceUid = "loki";
+                          expr = ''
+                            sum(count_over_time(
+                              {job="syslog", host="pineapple"}
+                                |= "wifi-watch"
+                                |= "heartbeat" [15m]
+                            ))
+                          '';
+                          evaluator = {
+                            type = "lt";
+                            params = [ 1 ];
+                          };
+                          for = "10m";
+                          window = 900;
+                          noDataState = "Alerting";
+                          severity = "critical";
+                          category = "pipeline";
+                          summary = "No Pineapple wifi-watch heartbeat has reached Loki in 15 minutes.";
                         })
                         (rule {
                           # Group on structured metadata at query time rather

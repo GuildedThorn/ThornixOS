@@ -1,0 +1,200 @@
+{
+  "id": "ThornMorningOperatorBrief",
+  "name": "Thorn | Morning operator brief",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1180, -100],
+      "id": "9c3ac5e5-313a-47e3-8b80-3b30eb6b19d0",
+      "name": "Test morning brief"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 7,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-1180, 100],
+      "id": "ee0832a6-2f59-4b4f-a343-d486601e6e17",
+      "name": "Every day at 7:15 AM"
+    },
+    {
+      "parameters": {
+        "content": "## Morning operator brief\n\nA single actionable Discord card for the start of the day: fleet reachability, failed units, disk pressure, backups, certificate renewal, comin drift/reboots, the newest Hydra production evaluation, and aggregate 24-hour security activity.\n\nThe SOC endpoint accepts only the fixed window `24h`; Loom cannot submit PromQL or LogQL. Discord receives aggregate counts and names only—never raw logs, IP addresses, secrets, or alert bodies. Select the encrypted Discord webhook credential before publishing.",
+        "height": 380,
+        "width": 620
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1400, -520],
+      "id": "7d79ed0a-3018-4370-a229-2fb608292ebb",
+      "name": "Purpose and trust boundary"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://soc.guildedthorn.arpa:9443/api/v1/ops-summary",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"window\":\"24h\"}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-900, 0],
+      "id": "2a93bd30-44cc-49c5-bd03-ae3f2f1bb411",
+      "name": "Read SOC operator snapshot"
+    },
+    {
+      "parameters": {
+        "url": "https://forge.guildedthorn.arpa/jobset/thornixos/main/evals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-620, 0],
+      "id": "8eb74fa8-0d18-4854-9452-c147002cc2a4",
+      "name": "Read current Hydra evaluations",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parseBody = (value) => {\n  if (typeof value !== 'string') return value;\n  try { return JSON.parse(value); } catch { return {}; }\n};\nconst response = items[0]?.json ?? {};\nconst body = parseBody(response.body ?? response);\nconst evaluations = Array.isArray(body.evals) ? body.evals : [];\nconst latest = evaluations[0];\nconst revision = String(latest?.flake ?? '').match(/[0-9a-f]{40}/)?.[0] ?? '';\nreturn [{ json: {\n  available: Boolean(latest?.id),\n  evaluationId: latest?.id ?? null,\n  revision: revision ? revision.slice(0, 8) : '',\n  buildsUrl: latest?.id ? `https://forge.guildedthorn.arpa/eval/${latest.id}/builds` : 'https://forge.guildedthorn.arpa/eval/0/builds',\n  evaluationUrl: latest?.id ? `https://forge.guildedthorn.arpa/eval/${latest.id}` : 'https://forge.guildedthorn.arpa/jobset/thornixos/main',\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-340, 0],
+      "id": "8e4d3f4c-7064-493b-922d-a239cab0e1fb",
+      "name": "Select newest Hydra evaluation"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.buildsUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-60, 0],
+      "id": "ad2e69df-b93b-49e3-81e6-c044fa04ce51",
+      "name": "Read newest Hydra builds",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parseBody = (value) => {\n  if (typeof value !== 'string') return value;\n  try { return JSON.parse(value); } catch { return null; }\n};\nconst fit = (value, limit = 1024) => {\n  const safe = String(value ?? '').replaceAll('@', '@\\u200b').trim();\n  if (!safe) return 'None.';\n  return safe.length <= limit ? safe : safe.slice(0, limit - 2).trimEnd() + '…';\n};\nconst host = (value) => String(value ?? 'unknown').replace('.guildedthorn.arpa', '').split(':')[0];\nconst socResponse = $('Read SOC operator snapshot').first().json;\nconst soc = parseBody(socResponse.body ?? socResponse) ?? {};\nconst metadata = $('Select newest Hydra evaluation').first().json;\nconst buildResponse = items[0]?.json ?? {};\nconst buildBody = parseBody(buildResponse.body ?? buildResponse);\nconst builds = Array.isArray(buildBody) ? buildBody : [];\nconst expected = [\n  'anvil', 'atlas', 'casebook', 'courier', 'forge', 'herald', 'hound',\n  'identity', 'loom', 'lure', 'mac', 'mitm', 'nixos', 'oracle', 'pixie',\n  'scout', 'sieve', 'soc', 'websites',\n].map((name) => `production.${name}`);\nconst byJob = new Map(builds.map((build) => [build.job, build]));\nconst states = expected.map((job) => {\n  const build = byJob.get(job);\n  if (!build || Number(build.finished) !== 1) return { job, state: 'pending' };\n  if (Number(build.buildstatus) !== 0 || !Object.values(build.buildoutputs ?? {}).some((output) => output?.path)) return { job, state: 'failed' };\n  return { job, state: 'succeeded' };\n});\nconst hydra = {\n  available: Boolean(metadata.available) && builds.length > 0,\n  revision: metadata.revision || 'unknown',\n  evaluationUrl: metadata.evaluationUrl,\n  succeeded: states.filter((item) => item.state === 'succeeded').length,\n  failed: states.filter((item) => item.state === 'failed'),\n  pending: states.filter((item) => item.state === 'pending'),\n  total: expected.length,\n};\nconst actions = Array.isArray(soc.actions) ? [...soc.actions] : [];\nif (!hydra.available) actions.unshift({ severity: 'warning', message: 'Hydra production evaluation is unavailable' });\nelse if (hydra.failed.length) actions.unshift({ severity: 'critical', message: `Repair failed Hydra jobs: ${hydra.failed.map((item) => item.job.replace('production.', '')).join(', ')}` });\nelse if (hydra.pending.length) actions.push({ severity: 'warning', message: `Hydra still has ${hydra.pending.length} production job(s) pending` });\nconst hasCritical = actions.some((item) => item.severity === 'critical');\nconst hasWarning = actions.some((item) => item.severity === 'warning');\nconst status = hasCritical ? 'critical' : hasWarning ? 'warning' : 'healthy';\nconst colors = { healthy: 0xa6e3a1, warning: 0xf9e2af, critical: 0xf38ba8 };\nconst fleet = soc.fleet ?? {};\nconst services = soc.services ?? {};\nconst deployment = soc.deployment ?? {};\nconst maintenance = soc.maintenance ?? {};\nconst security = soc.security ?? {};\nconst priorities = actions.length\n  ? actions.slice(0, 8).map((item) => `${item.severity === 'critical' ? '⛔' : item.severity === 'warning' ? '⚠️' : '🔧'} ${item.message}`).join('\\n')\n  : '✅ No operator action is currently required.';\nconst disks = (fleet.top_root_disks ?? []).slice(0, 5).map((item) => `${item.used_percent >= 85 ? '⚠️' : '•'} ${item.host}: **${Number(item.used_percent).toFixed(1)}%**`).join('\\n');\nconst failedUnits = (fleet.failed_units ?? []).length;\nconst fleetText = [\n  `Node exporters: **${Number(fleet.node_targets ?? 0) - (fleet.down_hosts ?? []).length}/${Number(fleet.node_targets ?? 0)} up**`,\n  `Failed units: **${failedUnits}** · Service probes down: **${(services.unavailable ?? []).length}**`,\n  '', 'Highest root-disk use:', disks || 'No disk telemetry.',\n].join('\\n');\nconst hydraIcon = !hydra.available || hydra.failed.length ? '⛔' : hydra.pending.length ? '⏳' : '✅';\nconst deploymentText = [\n  `${hydraIcon} Hydra ${hydra.succeeded}/${hydra.total} built · ${hydra.failed.length} failed · ${hydra.pending.length} pending`,\n  `Evaluation revision: **${hydra.revision}**`,\n  `Live comin revision: **${String(deployment.majority_commit ?? 'unknown').slice(0, 8)}** across ${Number(deployment.targets ?? 0)} host(s)`,\n  `Drifted: **${(deployment.drifted_hosts ?? []).length}** · Reboot pending: **${(deployment.reboot_pending ?? []).length}**`,\n  `[Open Hydra evaluation](${hydra.evaluationUrl})`,\n].join('\\n');\nconst maintenanceText = [\n  `Backups: **${(maintenance.backups ?? []).length - (maintenance.stale_backups ?? []).length}/${(maintenance.backups ?? []).length} fresh**`,\n  `Slow endpoints: **${(services.slow ?? []).length}**`,\n  `Certificate actions: **${(services.internal_acme_attention ?? []).length + (services.external_tls_attention ?? []).length}**`,\n].join('\\n');\nconst securityText = [\n  `Suricata alerts: **${Number(security.suricata_alerts ?? 0)}** · pfSense high: **${Number(security.pfsense_high_alerts ?? 0)}**`,\n  `SSH failures: **${Number(security.ssh_failures ?? 0)}** · OpenCanary: **${Number(security.opencanary_interactions ?? 0)}**`,\n  `CrowdSec scenarios: **${Number(security.crowdsec_scenarios ?? 0)}** · Zeek notices: **${Number(security.zeek_notices ?? 0)}**`,\n  '[Open SOC dashboards](https://soc.guildedthorn.arpa:3000/)',\n].join('\\n');\nconst chicagoDate = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', weekday: 'long', month: 'short', day: 'numeric' }).format(new Date());\nconst discordEmbed = {\n  author: { name: 'GUILDEDTHORN // MORNING OPS' },\n  title: fit(`${status === 'healthy' ? 'All clear' : status === 'warning' ? 'Maintenance needed' : 'Action required'} · ${chicagoDate}`, 256),\n  description: 'Your one-card operator view of the fleet, deployment pipeline, maintenance state, and last 24 hours of security telemetry.',\n  color: colors[status],\n  fields: [\n    { name: '🧭 Today’s priorities', value: fit(priorities), inline: false },\n    { name: '🖥️ Fleet + storage', value: fit(fleetText), inline: false },\n    { name: '🚀 Deployment', value: fit(deploymentText), inline: false },\n    { name: '🧰 Maintenance', value: fit(maintenanceText), inline: true },\n    { name: '🛡️ Security · 24h', value: fit(securityText), inline: false },\n  ],\n  footer: { text: 'Loom · fixed read-only SOC queries · no raw logs' },\n  timestamp: new Date().toISOString(),\n};\nreturn [{ json: { discordEmbed, status, actionCount: actions.length } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "id": "283de529-b85e-4034-a0f2-590ccca75fca",
+      "name": "Compose morning operator brief"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "operation": "sendLegacy",
+        "content": "",
+        "embeds": {
+          "values": [
+            {
+              "inputMethod": "json",
+              "json": "={{ JSON.stringify($json.discordEmbed) }}"
+            }
+          ]
+        },
+        "options": {
+          "username": "GuildedThorn · Morning Ops",
+          "wait": true
+        }
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [520, 0],
+      "id": "4d62bb91-c0a1-4470-9235-5a6772325120",
+      "name": "Discord morning brief"
+    }
+  ],
+  "connections": {
+    "Test morning brief": {
+      "main": [[{"node": "Read SOC operator snapshot", "type": "main", "index": 0}]]
+    },
+    "Every day at 7:15 AM": {
+      "main": [[{"node": "Read SOC operator snapshot", "type": "main", "index": 0}]]
+    },
+    "Read SOC operator snapshot": {
+      "main": [[{"node": "Read current Hydra evaluations", "type": "main", "index": 0}]]
+    },
+    "Read current Hydra evaluations": {
+      "main": [[{"node": "Select newest Hydra evaluation", "type": "main", "index": 0}]]
+    },
+    "Select newest Hydra evaluation": {
+      "main": [[{"node": "Read newest Hydra builds", "type": "main", "index": 0}]]
+    },
+    "Read newest Hydra builds": {
+      "main": [[{"node": "Compose morning operator brief", "type": "main", "index": 0}]]
+    },
+    "Compose morning operator brief": {
+      "main": [[{"node": "Discord morning brief", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago",
+    "errorWorkflow": "ThornN8nFailure"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

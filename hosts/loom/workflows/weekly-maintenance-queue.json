@@ -1,0 +1,123 @@
+{
+  "id": "ThornWeeklyMaintenanceQueue",
+  "name": "ThornixOS | Weekly maintenance queue",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-760, -100],
+      "id": "5ad64f2b-0a58-4641-9fa0-f09ef3219de4",
+      "name": "Test maintenance queue"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [0],
+              "triggerAtHour": 10,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-760, 100],
+      "id": "cf12db02-9076-435e-a809-b6bb1aeea275",
+      "name": "Every Sunday at 10 AM"
+    },
+    {
+      "parameters": {
+        "content": "## Weekly maintenance queue\n\nTurns fixed SOC telemetry into a Sunday checklist: capacity cleanup, stale backups, certificate renewal, slow/unavailable services, failed units, deployment drift, and reboot debt. A seven-day aggregate security pulse provides context without copying raw events to Discord.\n\nThis is a planning report, not an auto-remediator. It cannot execute commands, reboot hosts, delete generations, change alerts, or submit arbitrary telemetry queries.",
+        "height": 350,
+        "width": 580
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-980, -500],
+      "id": "69b41f1d-e10d-4d5c-a4c6-90d3c2754e69",
+      "name": "Maintenance boundaries"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://soc.guildedthorn.arpa:9443/api/v1/ops-summary",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"window\":\"7d\"}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-480, 0],
+      "id": "2bd19c63-a221-40f6-aa84-d3599625909a",
+      "name": "Read weekly SOC snapshot"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const fit = (value, limit = 1024) => {\n  const safe = String(value ?? '').replaceAll('@', '@\\u200b').trim();\n  if (!safe) return 'None.';\n  return safe.length <= limit ? safe : safe.slice(0, limit - 2).trimEnd() + '…';\n};\nconst soc = $json ?? {};\nconst actions = Array.isArray(soc.actions) ? soc.actions : [];\nconst fleet = soc.fleet ?? {};\nconst services = soc.services ?? {};\nconst maintenance = soc.maintenance ?? {};\nconst deployment = soc.deployment ?? {};\nconst security = soc.security ?? {};\nconst status = soc.summary?.status ?? 'warning';\nconst colors = { healthy: 0xa6e3a1, warning: 0xf9e2af, critical: 0xf38ba8 };\nconst queue = actions.length\n  ? actions.map((item, index) => `${index + 1}. ${item.severity === 'critical' ? '⛔' : item.severity === 'warning' ? '⚠️' : '🔧'} ${item.message}`).join('\\n')\n  : '✅ Maintenance queue is empty. Spend the window on improvements instead of repairs.';\nconst disks = (fleet.disk_attention ?? []).length\n  ? fleet.disk_attention.map((item) => `• ${item.host}: **${Number(item.used_percent).toFixed(1)}%** root used`).join('\\n')\n  : 'No host is above the 75% planning threshold.';\nconst staleBackups = (maintenance.stale_backups ?? []);\nconst backupText = [\n  `${(maintenance.backups ?? []).length - staleBackups.length}/${(maintenance.backups ?? []).length} tracked backups are fresh`,\n  ...(staleBackups.length ? staleBackups.map((item) => `⛔ ${item.host}/${item.timer}: ${item.age_hours == null ? 'never observed' : `${item.age_hours}h old`}`) : []),\n  `Certificate actions: ${(services.internal_acme_attention ?? []).length + (services.external_tls_attention ?? []).length}`,\n].join('\\n');\nconst deploymentText = [\n  `Live revision: **${String(deployment.majority_commit ?? 'unknown').slice(0, 8)}** on ${Number(deployment.targets ?? 0)} host(s)`,\n  `Drifted: **${(deployment.drifted_hosts ?? []).length}** · Reboot pending: **${(deployment.reboot_pending ?? []).length}**`,\n  `Deploy/build/fetch failures: **${(deployment.deployment_failures ?? []).length + (deployment.build_failures ?? []).length + (deployment.fetch_failures ?? []).length}**`,\n].join('\\n');\nconst securityText = [\n  `Suricata: **${Number(security.suricata_alerts ?? 0)}** · pfSense high: **${Number(security.pfsense_high_alerts ?? 0)}**`,\n  `SSH failures: **${Number(security.ssh_failures ?? 0)}** · OpenCanary: **${Number(security.opencanary_interactions ?? 0)}**`,\n  `CrowdSec: **${Number(security.crowdsec_scenarios ?? 0)}** · Zeek notices: **${Number(security.zeek_notices ?? 0)}**`,\n  'Use Grafana/TheHive for event detail; this card contains counts only.',\n].join('\\n');\nconst discordEmbed = {\n  author: { name: 'GUILDEDTHORN // MAINTENANCE QUEUE' },\n  title: fit(actions.length ? `${actions.length} item${actions.length === 1 ? '' : 's'} for this maintenance window` : 'Maintenance window is clear', 256),\n  description: 'A deterministic weekly checklist from fleet, service, backup, certificate, deployment, and seven-day SOC telemetry.',\n  color: colors[status] ?? colors.warning,\n  fields: [\n    { name: '📋 Ordered queue', value: fit(queue), inline: false },\n    { name: '💾 Capacity', value: fit(disks), inline: false },\n    { name: '🧰 Backups + certificates', value: fit(backupText), inline: false },\n    { name: '🚀 Deployment debt', value: fit(deploymentText), inline: false },\n    { name: '🛡️ Seven-day security pulse', value: fit(securityText), inline: false },\n  ],\n  footer: { text: 'Loom · planning only · no automatic remediation' },\n  timestamp: new Date().toISOString(),\n};\nreturn { json: { discordEmbed, status, actionCount: actions.length } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-180, 0],
+      "id": "486ab01c-7420-411d-874d-7e1f8b3637db",
+      "name": "Compose maintenance queue"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "operation": "sendLegacy",
+        "content": "",
+        "embeds": {
+          "values": [
+            {
+              "inputMethod": "json",
+              "json": "={{ JSON.stringify($json.discordEmbed) }}"
+            }
+          ]
+        },
+        "options": {
+          "username": "GuildedThorn · Maintenance",
+          "wait": true
+        }
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [120, 0],
+      "id": "a315c59d-792e-47e0-b45e-bcb64cadb549",
+      "name": "Discord maintenance queue"
+    }
+  ],
+  "connections": {
+    "Test maintenance queue": {
+      "main": [[{"node": "Read weekly SOC snapshot", "type": "main", "index": 0}]]
+    },
+    "Every Sunday at 10 AM": {
+      "main": [[{"node": "Read weekly SOC snapshot", "type": "main", "index": 0}]]
+    },
+    "Read weekly SOC snapshot": {
+      "main": [[{"node": "Compose maintenance queue", "type": "main", "index": 0}]]
+    },
+    "Compose maintenance queue": {
+      "main": [[{"node": "Discord maintenance queue", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago",
+    "errorWorkflow": "ThornN8nFailure"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

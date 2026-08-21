@@ -19,6 +19,45 @@ stopping is not evidence that an incident has been investigated. TheHive's
 `sourceRef` and the relay's persistent state prevent hourly Grafana reminders
 from creating duplicates.
 
+## Read-only threat-news context
+
+The same loopback relay also serves Loom's non-critical threat-news workflow,
+but through a separate and tightly bounded path:
+
+```text
+Loom model-extracted terms
+  -> https://soc.guildedthorn.arpa:9443/api/v1/news-context
+  -> nginx source ACL (Loom only)
+  -> strict actor/campaign/malware/CVE/ATT&CK/IOC validation
+  -> fixed 30-day Loki search + read-only OpenCTI report search
+  -> bounded evidence response
+```
+
+The request cannot contain LogQL or GraphQL, has a 32 KiB body limit and may
+carry at most eight validated terms. The response contains at most 40 short
+SIEM excerpts plus bounded OpenCTI metadata. No Loki/OpenCTI credential leaves
+SOC, and the endpoint cannot write to Loki, OpenCTI, TheHive, or Grafana. It is
+not part of critical alert delivery: a failed news lookup never suppresses or
+delays the Grafana → TheHive path.
+
+## Read-only operator summary
+
+Loom's operator workflows use a second bounded relay route:
+
+```text
+Loom {window: 24h|7d}
+  -> https://soc.guildedthorn.arpa:9443/api/v1/ops-summary
+  -> nginx source ACL (Loom only)
+  -> fixed local Prometheus + Loki queries
+  -> bounded fleet, service, maintenance, deployment, and event-count response
+```
+
+The caller can choose only the two named windows. It cannot send PromQL, LogQL,
+labels, commands, or arbitrary filters. Responses contain aggregate counts and
+bounded host/unit/service names, never raw log lines, event IP addresses, alert
+bodies, or credentials. The endpoint is read-only and is not in the critical
+Grafana → TheHive delivery path.
+
 ## One-time activation
 
 1. In TheHive, activate a valid license using **Platform management -> License

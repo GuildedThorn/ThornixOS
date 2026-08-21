@@ -128,6 +128,11 @@
             SECURITY_RELAY_STATE_FILE = "/var/lib/thorn-security-relay/state.json";
             SECURITY_RELAY_THEHIVE_URL = cfg.theHiveUrl;
             SECURITY_RELAY_OPENCTI_URL = cfg.openCtiUrl;
+            # Loom-facing endpoints use only fixed, bounded queries against
+            # the loopback telemetry listeners. No arbitrary PromQL or LogQL
+            # text crosses the Loom-to-SOC boundary.
+            SECURITY_RELAY_LOKI_URL = "http://127.0.0.1:3101";
+            SECURITY_RELAY_PROMETHEUS_URL = "http://127.0.0.1:9091";
             SECURITY_RELAY_CA_FILE = config.security.pki.caBundle;
           };
         };

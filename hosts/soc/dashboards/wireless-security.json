@@ -1,0 +1,115 @@
+{
+  "uid": "wireless-security",
+  "title": "Wireless Security — Pineapple",
+  "description": "Passive 2.4 GHz monitoring of ThornCloud channel 8. Deauthentication/disassociation bursts and exact-SSID rogue BSSIDs generate alerts; no frame injection is performed.",
+  "tags": ["siem", "wireless", "pineapple"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {"from": "now-24h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Sensor heartbeats (20m)",
+      "description": "wifi-watch emits every five minutes. Zero means the sensor or syslog/Loki path is unavailable.",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [
+        {"refId": "A", "expr": "sum(count_over_time({job=\"syslog\", host=\"pineapple\"} |= \"wifi-watch\" |= \"heartbeat\" [20m]))", "instant": true}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        },
+        "overrides": []
+      },
+      "options": {"colorMode": "background_solid", "graphMode": "none", "textMode": "value", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Wireless alerts (24h)",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [
+        {"refId": "A", "expr": "sum(count_over_time({job=\"syslog\", host=\"pineapple\"} |= \"wifi-watch\" |~ \"deauth|untrusted BSSID\" [24h]))", "instant": true}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}
+        },
+        "overrides": []
+      },
+      "options": {"colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Deauth/disassoc alerts (24h)",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [
+        {"refId": "A", "expr": "sum(count_over_time({job=\"syslog\", host=\"pineapple\"} |= \"wifi-watch\" |= \"deauth\" [24h]))", "instant": true}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}
+        },
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Rogue SSID alerts (24h)",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [
+        {"refId": "A", "expr": "sum(count_over_time({job=\"syslog\", host=\"pineapple\"} |= \"wifi-watch\" |= \"untrusted BSSID\" [24h]))", "instant": true}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}
+        },
+        "overrides": []
+      },
+      "options": {"colorMode": "value", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "wifi-watch event rate",
+      "gridPos": {"x": 0, "y": 5, "w": 24, "h": 8},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [
+        {"refId": "A", "expr": "sum(rate({job=\"syslog\", host=\"pineapple\"} |= \"wifi-watch\" [$__auto]))", "queryType": "range", "legendFormat": "events/s"}
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "eps", "min": 0, "custom": {"lineWidth": 2, "fillOpacity": 20, "showPoints": "never"}},
+        "overrides": []
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "Recent Pineapple events",
+      "gridPos": {"x": 0, "y": 13, "w": 24, "h": 10},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [
+        {"refId": "A", "expr": "{job=\"syslog\", host=\"pineapple\"} |= \"wifi-watch\"", "queryType": "range"}
+      ],
+      "options": {"showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none"}
+    }
+  ]
+}

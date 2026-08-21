@@ -1,13 +1,16 @@
 {
   "id": "ThornEveningDrop",
-  "name": "Thorn | Evening gaming drop",
+  "name": "Thorn | Evening drop",
   "active": false,
   "nodes": [
     {
       "parameters": {},
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [-1040, -100],
+      "position": [
+        -1800,
+        -100
+      ],
       "id": "f3b9c47f-3417-45d5-a01e-fd7b9384cf41",
       "name": "Test tonight's drop"
     },
@@ -26,19 +29,25 @@
       },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [-1040, 100],
+      "position": [
+        -1800,
+        100
+      ],
       "id": "265d303b-4375-4706-a7a5-792e6041c91f",
       "name": "Every day at 5:30 PM"
     },
     {
       "parameters": {
-        "content": "## Thorn's Evening Drop\n\nA personal 5:30 PM digest built from the choices already in your ThornixOS Glance page: Alsip weather, gameranx, Skill Up, GameLinked, Digital Foundry, r/pcgaming, and r/gamingnews.\n\nIt contains no SOC or infrastructure data, uses no AI service, and stores no feed HTML. Delivery supports **SMTP** and an encrypted **Discord Webhook** credential; select each credential on its delivery node, test once, then publish.",
-        "height": 310,
-        "width": 520
+        "content": "## Thorn's Evening Drop\n\nA personal 5:30 PM dashboard: aggregate SIEM/security-console reachability, fleet health, the latest Hydra production evaluation, Alsip weather, and selected gaming feeds.\n\nDiscord receives aggregate status only—never raw alerts, log lines, IP addresses, credentials, or feed HTML. Detailed Loki/Prometheus telemetry remains behind the SOC's read-only mTLS boundary. Delivery supports **SMTP** and an encrypted **Discord Webhook** credential; test once, then publish.",
+        "height": 350,
+        "width": 560
       },
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-1260, -520],
+      "position": [
+        -2020,
+        -560
+      ],
       "id": "00bbc881-6dab-41b8-b80c-b40a8dc1588a",
       "name": "About your drop"
     },
@@ -51,7 +60,10 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-780, 0],
+      "position": [
+        -1540,
+        0
+      ],
       "id": "0923ff7f-7006-45a9-a3a6-8d81472a71cc",
       "name": "Get Alsip weather"
     },
@@ -62,7 +74,10 @@
       },
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
-      "position": [-500, -320],
+      "position": [
+        600,
+        -320
+      ],
       "id": "bbdf1327-f806-4d55-bac9-224df40e2cd8",
       "name": "Read gameranx",
       "onError": "continueRegularOutput"
@@ -74,7 +89,10 @@
       },
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
-      "position": [-500, -160],
+      "position": [
+        600,
+        -160
+      ],
       "id": "1b92575b-7014-44b8-9255-4adccfb5b99e",
       "name": "Read Skill Up",
       "onError": "continueRegularOutput"
@@ -86,7 +104,10 @@
       },
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
-      "position": [-500, 0],
+      "position": [
+        600,
+        0
+      ],
       "id": "d0c70673-7df9-4ae1-9d69-d611b234004e",
       "name": "Read GameLinked",
       "onError": "continueRegularOutput"
@@ -98,7 +119,10 @@
       },
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
-      "position": [-500, 160],
+      "position": [
+        600,
+        160
+      ],
       "id": "e414f90d-1dff-4825-ab45-d4d3b4d8beb9",
       "name": "Read Digital Foundry",
       "onError": "continueRegularOutput"
@@ -110,7 +134,10 @@
       },
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
-      "position": [-500, 320],
+      "position": [
+        600,
+        320
+      ],
       "id": "71a3aa90-00c9-4bdf-ac01-cc0c45ff8b72",
       "name": "Read Reddit gaming",
       "onError": "continueRegularOutput"
@@ -122,18 +149,24 @@
       },
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [-160, 0],
+      "position": [
+        920,
+        0
+      ],
       "id": "1b540998-f2f1-4fb4-bc84-99befda91ee4",
       "name": "Combine gaming feeds"
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const weather = $('Get Alsip weather').first().json;\nconst escapeHtml = (value) => String(value ?? '')\n  .replaceAll('&', '&amp;')\n  .replaceAll('<', '&lt;')\n  .replaceAll('>', '&gt;')\n  .replaceAll('\\\"', '&quot;')\n  .replaceAll(\"'\", '&#039;');\nconst safeUrl = (value) => /^https?:\\/\\//i.test(String(value ?? '')) ? String(value) : '#';\nconst asTime = (value) => {\n  const time = Date.parse(value ?? '');\n  return Number.isFinite(time) ? time : 0;\n};\n\nconst entries = items\n  .map(({ json }) => ({\n    title: String(json.title ?? '').trim(),\n    link: safeUrl(json.link),\n    creator: String(json.creator ?? json.author ?? json['dc:creator'] ?? '').trim(),\n    published: json.isoDate ?? json.pubDate ?? '',\n  }))\n  .filter((entry) => entry.title && entry.link !== '#')\n  .sort((left, right) => asTime(right.published) - asTime(left.published));\n\nconst reddit = entries.filter((entry) => entry.link.includes('reddit.com')).slice(0, 4);\nconst videosByCreator = new Map();\nfor (const entry of entries.filter((candidate) => !candidate.link.includes('reddit.com'))) {\n  const creator = entry.creator || 'Gaming video';\n  const creatorEntries = videosByCreator.get(creator) ?? [];\n  if (creatorEntries.length < 2) creatorEntries.push(entry);\n  videosByCreator.set(creator, creatorEntries);\n}\nconst videos = [...videosByCreator.entries()].flatMap(([creator, creatorEntries]) =>\n  creatorEntries.map((entry) => ({ ...entry, creator }))\n);\n\nconst current = weather.current ?? {};\nconst daily = weather.daily ?? {};\nconst currentTemp = Math.round(Number(current.temperature_2m ?? 0));\nconst feelsLike = Math.round(Number(current.apparent_temperature ?? currentTemp));\nconst high = Math.round(Number(daily.temperature_2m_max?.[0] ?? currentTemp));\nconst low = Math.round(Number(daily.temperature_2m_min?.[0] ?? currentTemp));\nconst rainChance = Math.round(Number(daily.precipitation_probability_max?.[0] ?? 0));\nconst weatherCode = Number(current.weather_code ?? daily.weather_code?.[0] ?? -1);\nconst weatherLabels = {\n  0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',\n  45: 'Foggy', 48: 'Icy fog', 51: 'Light drizzle', 53: 'Drizzle',\n  55: 'Heavy drizzle', 61: 'Light rain', 63: 'Rain', 65: 'Heavy rain',\n  71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 80: 'Rain showers',\n  81: 'Rain showers', 82: 'Heavy showers', 95: 'Thunderstorms',\n};\nconst conditions = weatherLabels[weatherCode] ?? 'Mixed conditions';\nconst stayInLine = rainChance >= 50\n  ? `A ${rainChance}% rain chance makes this a strong stay-in-and-play night.`\n  : currentTemp <= 35\n    ? `It is ${currentTemp}° outside. The backlog wins tonight.`\n    : `Weather is not trapping you inside, but the backlog might.`;\n\nconst chicagoDate = new Intl.DateTimeFormat('en-US', {\n  timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric',\n}).format(new Date());\nconst formatPublished = (value) => {\n  if (!asTime(value)) return '';\n  return new Intl.DateTimeFormat('en-US', {\n    timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',\n  }).format(new Date(value));\n};\nconst card = (entry, badge) => `\n  <a href=\"${escapeHtml(entry.link)}\" style=\"display:block;text-decoration:none;color:#f4f1ff;background:#17131f;border:1px solid #332943;border-radius:12px;padding:14px 16px;margin:0 0 10px\">\n    <span style=\"display:inline-block;color:#d8b65c;font:700 11px/1.2 monospace;letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px\">${escapeHtml(badge)}</span>\n    <span style=\"display:block;font:600 16px/1.35 system-ui,-apple-system,sans-serif\">${escapeHtml(entry.title)}</span>\n    <span style=\"display:block;color:#91879f;font:12px/1.4 system-ui,-apple-system,sans-serif;margin-top:6px\">${escapeHtml(formatPublished(entry.published))}</span>\n  </a>`;\n\nconst newsHtml = reddit.length\n  ? reddit.map((entry) => card(entry, 'Reddit gaming')).join('')\n  : '<p style=\"color:#91879f\">Reddit had nothing usable this run.</p>';\nconst videoHtml = videos.length\n  ? videos.map((entry) => card(entry, entry.creator)).join('')\n  : '<p style=\"color:#91879f\">The video feeds had nothing usable this run.</p>';\n\nconst html = `<!doctype html>\n<html><body style=\"margin:0;background:#09070d;color:#f4f1ff\">\n  <div style=\"max-width:680px;margin:0 auto;padding:34px 20px 48px\">\n    <div style=\"color:#d8b65c;font:700 12px/1.2 monospace;letter-spacing:.18em\">GUILDEDTHORN // EVENING DROP</div>\n    <h1 style=\"font:700 34px/1.1 system-ui,-apple-system,sans-serif;margin:12px 0 4px\">Evening, Thorn.</h1>\n    <p style=\"color:#91879f;font:14px/1.5 system-ui,-apple-system,sans-serif;margin:0 0 24px\">${escapeHtml(chicagoDate)}</p>\n\n    <div style=\"background:linear-gradient(135deg,#20152a,#12101a);border:1px solid #49365d;border-radius:16px;padding:20px;margin-bottom:28px\">\n      <div style=\"color:#d8b65c;font:700 11px/1.2 monospace;letter-spacing:.1em\">ALSIP TONIGHT</div>\n      <div style=\"font:700 28px/1.25 system-ui,-apple-system,sans-serif;margin-top:8px\">${escapeHtml(conditions)} · ${currentTemp}°F</div>\n      <div style=\"color:#c2b9cf;font:14px/1.55 system-ui,-apple-system,sans-serif;margin-top:6px\">Feels ${feelsLike}° · High ${high}° · Low ${low}° · Rain ${rainChance}%</div>\n      <div style=\"color:#f4f1ff;font:15px/1.55 system-ui,-apple-system,sans-serif;margin-top:12px\">${escapeHtml(stayInLine)}</div>\n    </div>\n\n    <h2 style=\"font:700 22px/1.2 system-ui,-apple-system,sans-serif;margin:28px 0 12px\">Tonight's gaming pulse</h2>\n    ${newsHtml}\n    <h2 style=\"font:700 22px/1.2 system-ui,-apple-system,sans-serif;margin:32px 0 12px\">Fresh from your channels</h2>\n    ${videoHtml}\n    <p style=\"color:#665d72;font:12px/1.5 system-ui,-apple-system,sans-serif;margin-top:28px\">Curated locally by Loom from the sources in your ThornixOS Glance configuration. No AI summary, no tracking pixels.</p>\n  </div>\n</body></html>`;\n\nconst textLines = [\n  `GUILDEDTHORN // EVENING DROP — ${chicagoDate}`,\n  '',\n  `Alsip: ${conditions}, ${currentTemp}°F (feels ${feelsLike}°), high ${high}°, low ${low}°, rain ${rainChance}%`,\n  stayInLine,\n  '',\n  \"TONIGHT'S GAMING PULSE\",\n  ...(reddit.length ? reddit.map((entry) => `- ${entry.title} — ${entry.link}`) : ['- No usable Reddit items this run.']),\n  '',\n  'FRESH FROM YOUR CHANNELS',\n  ...(videos.length ? videos.map((entry) => `- [${entry.creator}] ${entry.title} — ${entry.link}`) : ['- No usable video items this run.']),\n];\n\nreturn [{ json: {\n  subject: `Thorn's Evening Drop · ${chicagoDate}`,\n  html,\n  text: textLines.join('\\n'),\n  itemCount: reddit.length + videos.length,\n} }];"
+        "jsCode": "const weather = $('Get Alsip weather').first().json;\nconst reports = $('Summarize evening reports').first().json;\nconst escapeHtml = (value) => String(value ?? '')\n  .replaceAll('&', '&amp;')\n  .replaceAll('<', '&lt;')\n  .replaceAll('>', '&gt;')\n  .replaceAll('\"', '&quot;')\n  .replaceAll(\"'\", '&#039;');\nconst safeUrl = (value) => /^https?:\\/\\//i.test(String(value ?? '')) ? String(value) : '#';\nconst markdownLabel = (value) => String(value ?? '').replace(/[\\[\\]()*_`~>|]/g, '').trim();\nconst discordUrl = (value) => safeUrl(value).replaceAll('(', '%28').replaceAll(')', '%29');\nconst asTime = (value) => {\n  const time = Date.parse(value ?? '');\n  return Number.isFinite(time) ? time : 0;\n};\n\nconst entries = items\n  .map(({ json }) => ({\n    title: String(json.title ?? '').trim(),\n    link: safeUrl(json.link),\n    creator: String(json.creator ?? json.author ?? json['dc:creator'] ?? '').trim(),\n    published: json.isoDate ?? json.pubDate ?? '',\n  }))\n  .filter((entry) => entry.title && entry.link !== '#')\n  .sort((left, right) => asTime(right.published) - asTime(left.published));\n\nconst reddit = entries.filter((entry) => entry.link.includes('reddit.com')).slice(0, 4);\nconst videosByCreator = new Map();\nfor (const entry of entries.filter((candidate) => !candidate.link.includes('reddit.com'))) {\n  const creator = entry.creator || 'Gaming video';\n  const creatorEntries = videosByCreator.get(creator) ?? [];\n  if (creatorEntries.length < 2) creatorEntries.push(entry);\n  videosByCreator.set(creator, creatorEntries);\n}\nconst videos = [...videosByCreator.entries()].flatMap(([creator, creatorEntries]) =>\n  creatorEntries.map((entry) => ({ ...entry, creator }))\n);\n\nconst current = weather.current ?? {};\nconst daily = weather.daily ?? {};\nconst currentTemp = Math.round(Number(current.temperature_2m ?? 0));\nconst feelsLike = Math.round(Number(current.apparent_temperature ?? currentTemp));\nconst high = Math.round(Number(daily.temperature_2m_max?.[0] ?? currentTemp));\nconst low = Math.round(Number(daily.temperature_2m_min?.[0] ?? currentTemp));\nconst rainChance = Math.round(Number(daily.precipitation_probability_max?.[0] ?? 0));\nconst weatherCode = Number(current.weather_code ?? daily.weather_code?.[0] ?? -1);\nconst weatherLabels = {\n  0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',\n  45: 'Foggy', 48: 'Icy fog', 51: 'Light drizzle', 53: 'Drizzle',\n  55: 'Heavy drizzle', 61: 'Light rain', 63: 'Rain', 65: 'Heavy rain',\n  71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 80: 'Rain showers',\n  81: 'Rain showers', 82: 'Heavy showers', 95: 'Thunderstorms',\n};\nconst conditions = weatherLabels[weatherCode] ?? 'Mixed conditions';\nconst stayInLine = rainChance >= 50\n  ? `A ${rainChance}% rain chance makes this a strong stay-in-and-play night.`\n  : currentTemp <= 35\n    ? `It is ${currentTemp}° outside. The backlog wins tonight.`\n    : 'Weather is not trapping you inside, but the backlog might.';\n\nconst chicagoDate = new Intl.DateTimeFormat('en-US', {\n  timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric',\n}).format(new Date());\nconst formatPublished = (value) => {\n  if (!asTime(value)) return '';\n  return new Intl.DateTimeFormat('en-US', {\n    timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',\n  }).format(new Date(value));\n};\nconst card = (entry, badge) => `\n  <a href=\"${escapeHtml(entry.link)}\" style=\"display:block;text-decoration:none;color:#f4f1ff;background:#17131f;border:1px solid #332943;border-radius:12px;padding:14px 16px;margin:0 0 10px\">\n    <span style=\"display:inline-block;color:#d8b65c;font:700 11px/1.2 monospace;letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px\">${escapeHtml(badge)}</span>\n    <span style=\"display:block;font:600 16px/1.35 system-ui,-apple-system,sans-serif\">${escapeHtml(entry.title)}</span>\n    <span style=\"display:block;color:#91879f;font:12px/1.4 system-ui,-apple-system,sans-serif;margin-top:6px\">${escapeHtml(formatPublished(entry.published))}</span>\n  </a>`;\nconst reportCard = (eyebrow, headline, detail, url, linkText) => `\n  <div style=\"background:#17131f;border:1px solid #332943;border-radius:12px;padding:16px;margin:0 0 10px\">\n    <div style=\"color:#d8b65c;font:700 11px/1.2 monospace;letter-spacing:.1em\">${escapeHtml(eyebrow)}</div>\n    <div style=\"font:700 18px/1.35 system-ui,-apple-system,sans-serif;margin-top:7px\">${escapeHtml(headline)}</div>\n    <div style=\"color:#c2b9cf;font:14px/1.5 system-ui,-apple-system,sans-serif;margin-top:5px\">${escapeHtml(detail)}</div>\n    <a href=\"${escapeHtml(url)}\" style=\"display:inline-block;color:#cba6f7;font:600 13px/1.4 system-ui,-apple-system,sans-serif;margin-top:9px\">${escapeHtml(linkText)} →</a>\n  </div>`;\n\nconst fleet = reports.fleet ?? {};\nconst deployment = reports.deployment ?? {};\nconst fleetHealthy = Number(fleet.healthy ?? 0);\nconst fleetTotal = Number(fleet.total ?? 0);\nconst securityHealthy = Number(fleet.securityHealthy ?? 0);\nconst securityTotal = Number(fleet.securityTotal ?? 0);\nconst securityHeadline = fleet.socHealthy\n  ? `${securityHealthy}/${securityTotal} security consoles reachable`\n  : 'SOC dashboard is unreachable';\nconst securityDetail = `Fleet services ${fleetHealthy}/${fleetTotal} reachable. Aggregates only; no raw alerts, logs, or IP addresses leave the SOC.`;\nconst deploymentHeadline = !deployment.available\n  ? 'Hydra production report unavailable'\n  : deployment.failed > 0\n    ? `${deployment.failed} production job${deployment.failed === 1 ? '' : 's'} failed`\n    : deployment.pending > 0\n      ? `${deployment.succeeded}/${deployment.total} production jobs built`\n      : `All ${deployment.total} production jobs built`;\nconst revisionLine = deployment.revision ? `Revision ${deployment.revision}` : 'Revision unavailable';\nconst deploymentDetail = deployment.available\n  ? `${revisionLine} · ${deployment.pending} pending · ${deployment.failed} failed`\n  : 'The digest continued with weather and gaming data.';\n\nconst newsHtml = reddit.length\n  ? reddit.map((entry) => card(entry, 'Reddit gaming')).join('')\n  : '<p style=\"color:#91879f\">Reddit had nothing usable this run.</p>';\nconst videoHtml = videos.length\n  ? videos.map((entry) => card(entry, entry.creator)).join('')\n  : '<p style=\"color:#91879f\">The video feeds had nothing usable this run.</p>';\n\nconst html = `<!doctype html>\n<html><body style=\"margin:0;background:#09070d;color:#f4f1ff\">\n  <div style=\"max-width:680px;margin:0 auto;padding:34px 20px 48px\">\n    <div style=\"color:#d8b65c;font:700 12px/1.2 monospace;letter-spacing:.18em\">GUILDEDTHORN // EVENING DROP</div>\n    <h1 style=\"font:700 34px/1.1 system-ui,-apple-system,sans-serif;margin:12px 0 4px\">Evening, Thorn.</h1>\n    <p style=\"color:#91879f;font:14px/1.5 system-ui,-apple-system,sans-serif;margin:0 0 24px\">${escapeHtml(chicagoDate)}</p>\n\n    <h2 style=\"font:700 22px/1.2 system-ui,-apple-system,sans-serif;margin:28px 0 12px\">Home ops</h2>\n    ${reportCard('SECURITY + FLEET', securityHeadline, securityDetail, 'https://soc.guildedthorn.arpa:3000/', 'Open SIEM')}\n    ${reportCard('THORNIXOS PRODUCTION', deploymentHeadline, deploymentDetail, safeUrl(deployment.evaluationUrl), 'Open Hydra evaluation')}\n\n    <div style=\"background:linear-gradient(135deg,#20152a,#12101a);border:1px solid #49365d;border-radius:16px;padding:20px;margin:28px 0\">\n      <div style=\"color:#d8b65c;font:700 11px/1.2 monospace;letter-spacing:.1em\">ALSIP TONIGHT</div>\n      <div style=\"font:700 28px/1.25 system-ui,-apple-system,sans-serif;margin-top:8px\">${escapeHtml(conditions)} · ${currentTemp}°F</div>\n      <div style=\"color:#c2b9cf;font:14px/1.55 system-ui,-apple-system,sans-serif;margin-top:6px\">Feels ${feelsLike}° · High ${high}° · Low ${low}° · Rain ${rainChance}%</div>\n      <div style=\"color:#f4f1ff;font:15px/1.55 system-ui,-apple-system,sans-serif;margin-top:12px\">${escapeHtml(stayInLine)}</div>\n    </div>\n\n    <h2 style=\"font:700 22px/1.2 system-ui,-apple-system,sans-serif;margin:28px 0 12px\">Tonight's gaming pulse</h2>\n    ${newsHtml}\n    <h2 style=\"font:700 22px/1.2 system-ui,-apple-system,sans-serif;margin:32px 0 12px\">Fresh from your channels</h2>\n    ${videoHtml}\n    <p style=\"color:#665d72;font:12px/1.5 system-ui,-apple-system,sans-serif;margin-top:28px\">Curated locally by Loom. Operational data is aggregate-only; no raw SIEM events, log lines, IP addresses, AI summaries, or tracking pixels.</p>\n  </div>\n</body></html>`;\n\nconst discordEntry = (entry, badge) =>\n  `• **${markdownLabel(badge)}** — [${markdownLabel(entry.title)}](${discordUrl(entry.link)})`;\nconst securitySection = [\n  `${fleet.socHealthy ? '✅' : '⛔'} SOC dashboard: ${fleet.socHealthy ? 'reachable' : 'unreachable'}`,\n  `${securityHealthy === securityTotal ? '✅' : '⚠️'} Security consoles: **${securityHealthy}/${securityTotal} reachable**`,\n  `${fleetHealthy === fleetTotal ? '✅' : '⚠️'} Fleet services: **${fleetHealthy}/${fleetTotal} reachable**`,\n  '[SIEM](https://soc.guildedthorn.arpa:3000/) · [Cases](https://casebook.guildedthorn.arpa/) · [EDR](https://hound.guildedthorn.arpa/app/index.html)',\n].join('\\n');\nconst deploymentSection = [\n  `${deployment.failed > 0 ? '⛔' : !deployment.available || deployment.pending > 0 ? '⏳' : '✅'} ${deploymentHeadline}`,\n  deploymentDetail,\n  `[Open evaluation](${discordUrl(deployment.evaluationUrl)})`,\n].join('\\n');\nconst weatherSection = [\n  `**${conditions} · ${currentTemp}°F**`,\n  `Feels ${feelsLike}° · High ${high}° · Low ${low}° · Rain ${rainChance}%`,\n  stayInLine,\n].join('\\n');\nconst gamingSection = reddit.length\n  ? reddit.map((entry) => discordEntry(entry, 'Reddit')).join('\\n')\n  : 'No usable Reddit items this run.';\nconst channelsSection = videos.length\n  ? videos.map((entry) => discordEntry(entry, entry.creator)).join('\\n')\n  : 'No usable video items this run.';\n\nconst textLines = [\n  `GUILDEDTHORN // EVENING DROP — ${chicagoDate}`,\n  '', 'SECURITY + FLEET',\n  `SOC dashboard: ${fleet.socHealthy ? 'reachable' : 'unreachable'}`,\n  `Security consoles: ${securityHealthy}/${securityTotal} reachable`,\n  `Fleet services: ${fleetHealthy}/${fleetTotal} reachable`,\n  'SIEM: https://soc.guildedthorn.arpa:3000/',\n  '', 'THORNIXOS PRODUCTION',\n  deploymentHeadline,\n  deploymentDetail,\n  safeUrl(deployment.evaluationUrl),\n  '', 'ALSIP TONIGHT',\n  `${conditions}, ${currentTemp}°F (feels ${feelsLike}°), high ${high}°, low ${low}°, rain ${rainChance}%`,\n  stayInLine,\n  '', \"TONIGHT'S GAMING PULSE\",\n  ...(reddit.length ? reddit.map((entry) => `- ${entry.title} — ${entry.link}`) : ['- No usable Reddit items this run.']),\n  '', 'FRESH FROM YOUR CHANNELS',\n  ...(videos.length ? videos.map((entry) => `- [${entry.creator}] ${entry.title} — ${entry.link}`) : ['- No usable video items this run.']),\n];\n\nreturn [{ json: {\n  subject: `Thorn's Evening Drop · ${chicagoDate}`,\n  html,\n  text: textLines.join('\\n'),\n  itemCount: reddit.length + videos.length,\n  severity: reports.severity ?? 'warning',\n  fleetHealthy,\n  fleetTotal,\n  sections: {\n    security: securitySection,\n    deployment: deploymentSection,\n    weather: weatherSection,\n    gaming: gamingSection,\n    channels: channelsSection,\n  },\n} }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [140, 0],
+      "position": [
+        1200,
+        0
+      ],
       "id": "58bc25ee-642a-45fd-83b4-74909527fc9a",
       "name": "Compose evening drop"
     },
@@ -153,18 +186,24 @@
       },
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [700, -120],
+      "position": [
+        1780,
+        -120
+      ],
       "id": "98c23828-d97b-45d6-86b8-7d7d4a03aaec",
       "name": "Email Thorn"
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const maxLength = 1900;\nconst source = String($json.text ?? '').replaceAll('@', '@\\u200b');\nlet discord = source;\n\nif (source.length > maxLength) {\n  const candidate = source.slice(0, maxLength - 2);\n  const lastBreak = candidate.lastIndexOf('\\n');\n  const cut = lastBreak >= 1200 ? lastBreak : candidate.length;\n  discord = `${candidate.slice(0, cut).trimEnd()}\\n…`;\n}\n\nreturn [{ json: { ...$json, discord } }];"
+        "jsCode": "const fieldLimit = 1024;\nconst safeText = (value) => String(value ?? '').replaceAll('@', '@\\u200b');\nconst fit = (value, limit = fieldLimit) => {\n  const source = safeText(value).trim();\n  if (!source) return 'No usable data this run.';\n  if (source.length <= limit) return source;\n\n  const candidate = source.slice(0, limit - 2);\n  const lastBreak = candidate.lastIndexOf('\\n');\n  const cut = lastBreak >= Math.floor(limit * 0.6) ? lastBreak : candidate.length;\n  return `${candidate.slice(0, cut).trimEnd()}\\n…`;\n};\n\nconst colors = {\n  normal: '#cba6f7',\n  warning: '#f9e2af',\n  critical: '#f38ba8',\n};\nconst sections = $json.sections ?? {};\nconst discordEmbed = {\n  author: { name: 'GUILDEDTHORN // EVENING DROP' },\n  title: fit($json.subject ?? \"Thorn's Evening Drop\", 256),\n  description: 'Your 5:30 PM home-ops, weather, and gaming brief.',\n  color: colors[$json.severity] ?? colors.warning,\n  fields: [\n    { name: '🛡️ Security + fleet', value: fit(sections.security), inline: false },\n    { name: '🚀 ThornixOS production', value: fit(sections.deployment), inline: false },\n    { name: '🌦️ Alsip tonight', value: fit(sections.weather), inline: false },\n    { name: \"🎮 Tonight's gaming pulse\", value: fit(sections.gaming), inline: false },\n    { name: '📺 Fresh from your channels', value: fit(sections.channels), inline: false },\n  ],\n  footer: {\n    text: `Loom · ${Number($json.fleetHealthy ?? 0)}/${Number($json.fleetTotal ?? 0)} services · ${Number($json.itemCount ?? 0)} gaming items · Aggregate-only`,\n  },\n  timestamp: new Date().toISOString(),\n};\n\nreturn [{ json: { ...$json, discordEmbed } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 120],
+      "position": [
+        1500,
+        120
+      ],
       "id": "09899981-47db-44d4-b827-6c608829e0cc",
       "name": "Format Discord drop"
     },
@@ -172,7 +211,15 @@
       "parameters": {
         "authentication": "webhook",
         "operation": "sendLegacy",
-        "content": "={{ $json.discord }}",
+        "content": "",
+        "embeds": {
+          "values": [
+            {
+              "inputMethod": "json",
+              "json": "={{ JSON.stringify($json.discordEmbed) }}"
+            }
+          ]
+        },
         "options": {
           "username": "GuildedThorn · Evening Drop",
           "wait": true
@@ -180,9 +227,155 @@
       },
       "type": "n8n-nodes-base.discord",
       "typeVersion": 2,
-      "position": [700, 120],
+      "position": [
+        1780,
+        120
+      ],
       "id": "9b39a724-d113-4bc3-a11c-3d0790738365",
       "name": "Discord evening drop"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [\n  ['Anvil · PKI', 'https://anvil.guildedthorn.arpa/health', false],\n  ['Atlas · NetBox', 'https://atlas.guildedthorn.arpa/', false],\n  ['Casebook · TheHive', 'https://casebook.guildedthorn.arpa/', true],\n  ['Courier · Mail', 'https://courier.guildedthorn.arpa/admin', false],\n  ['Forge · Hydra', 'https://forge.guildedthorn.arpa/', false],\n  ['Herald · Notifications', 'https://herald.guildedthorn.arpa/v1/health', false],\n  ['Hound · Velociraptor', 'https://hound.guildedthorn.arpa/app/index.html', true],\n  ['Identity · Authentik', 'https://identity.guildedthorn.arpa/', false],\n  ['Loom · n8n', 'https://loom.guildedthorn.arpa/healthz', false],\n  ['Mac · Proxmox', 'https://proxmox.guildedthorn.arpa:8006/', false],\n  ['Oracle · OpenCTI', 'https://oracle.guildedthorn.arpa/', true],\n  ['Sieve · Greenbone', 'https://sieve.guildedthorn.arpa/', true],\n  ['SOC · Grafana', 'https://soc.guildedthorn.arpa:3000/api/health', true],\n  ['Websites', 'https://guildedthorn.com/', false],\n].map(([service, url, security]) => ({ json: { service, url, security } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        0
+      ],
+      "id": "3b4a37c2-fc6b-4de2-bf84-c179f8f0c840",
+      "name": "Evening report catalogue"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1020,
+        0
+      ],
+      "id": "2259fd18-0d92-42e9-8722-6f7abec5f6e0",
+      "name": "Probe evening services",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const catalogue = $('Evening report catalogue').all();\nconst checks = items.map((item, index) => {\n  const target = catalogue[index]?.json ?? {};\n  const statusCode = Number(item.json.statusCode ?? 0);\n  const rawError = item.json.error?.message ?? item.json.error ?? item.json.message ?? '';\n  return {\n    service: target.service ?? `service-${index + 1}`,\n    security: Boolean(target.security),\n    statusCode,\n    healthy: (statusCode >= 200 && statusCode < 400) || statusCode === 401 || statusCode === 403,\n    error: typeof rawError === 'string' ? rawError : JSON.stringify(rawError),\n  };\n});\n\nconst securityChecks = checks.filter((check) => check.security);\nconst soc = checks.find((check) => check.service === 'SOC · Grafana');\nreturn [{ json: {\n  total: checks.length,\n  healthy: checks.filter((check) => check.healthy).length,\n  failures: checks.filter((check) => !check.healthy).length,\n  securityTotal: securityChecks.length,\n  securityHealthy: securityChecks.filter((check) => check.healthy).length,\n  socHealthy: Boolean(soc?.healthy),\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        0
+      ],
+      "id": "1077ed4e-f0dc-4641-a639-d19345073db6",
+      "name": "Summarize fleet report"
+    },
+    {
+      "parameters": {
+        "url": "https://forge.guildedthorn.arpa/jobset/thornixos/main/evals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -500,
+        0
+      ],
+      "id": "95af3010-e960-4819-b1e9-551422ef80df",
+      "name": "Read Hydra evaluations",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parseBody = (value) => {\n  if (typeof value !== 'string') return value;\n  try { return JSON.parse(value); } catch { return {}; }\n};\n\nconst response = items[0]?.json ?? {};\nconst body = parseBody(response.body ?? response);\nconst evaluations = Array.isArray(body.evals) ? body.evals : [];\nconst latest = evaluations[0];\nconst revision = String(latest?.flake ?? '').match(/[0-9a-f]{40}/)?.[0] ?? '';\n\nreturn [{ json: {\n  available: Boolean(latest?.id),\n  evaluationId: latest?.id ?? null,\n  revision: revision ? revision.slice(0, 8) : '',\n  evaluatedAt: Number(latest?.timestamp ?? 0),\n  buildsUrl: latest?.id\n    ? `https://forge.guildedthorn.arpa/eval/${latest.id}/builds`\n    : 'https://forge.guildedthorn.arpa/eval/0/builds',\n  evaluationUrl: latest?.id\n    ? `https://forge.guildedthorn.arpa/eval/${latest.id}`\n    : 'https://forge.guildedthorn.arpa/jobset/thornixos/main',\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        0
+      ],
+      "id": "381e2ea5-b994-4d6b-a8c7-1943a9328d7d",
+      "name": "Select latest Hydra report"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.buildsUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        20,
+        0
+      ],
+      "id": "d1d3f88a-a73b-45bb-8862-d349628eaaf2",
+      "name": "Read latest Hydra builds",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parseBody = (value) => {\n  if (typeof value !== 'string') return value;\n  try { return JSON.parse(value); } catch { return null; }\n};\n\nconst fleet = $('Summarize fleet report').first().json;\nconst metadata = $('Select latest Hydra report').first().json;\nconst response = items[0]?.json ?? {};\nconst body = parseBody(response.body ?? response);\nconst builds = Array.isArray(body) ? body : [];\nconst expected = [\n  'anvil', 'atlas', 'casebook', 'courier', 'forge', 'herald', 'hound',\n  'identity', 'loom', 'lure', 'mac', 'mitm', 'nixos', 'oracle', 'pixie',\n  'scout', 'sieve', 'soc', 'websites',\n].map((host) => `production.${host}`);\nconst byJob = new Map(builds.map((build) => [build.job, build]));\nconst states = expected.map((job) => {\n  const build = byJob.get(job);\n  if (!build) return 'pending';\n  if (Number(build.finished) !== 1) return 'pending';\n  if (Number(build.buildstatus) !== 0) return 'failed';\n  if (!Object.values(build.buildoutputs ?? {}).some((output) => output?.path)) return 'failed';\n  return 'succeeded';\n});\nconst buildsAvailable = Boolean(metadata.available) && builds.length > 0;\nconst deployment = {\n  available: buildsAvailable,\n  evaluationId: metadata.evaluationId,\n  revision: metadata.revision,\n  evaluatedAt: metadata.evaluatedAt,\n  evaluationUrl: metadata.evaluationUrl,\n  total: expected.length,\n  succeeded: buildsAvailable ? states.filter((state) => state === 'succeeded').length : 0,\n  failed: buildsAvailable ? states.filter((state) => state === 'failed').length : 0,\n  pending: buildsAvailable ? states.filter((state) => state === 'pending').length : expected.length,\n};\n\nconst severity = !fleet.socHealthy || fleet.failures > 0 || deployment.failed > 0\n  ? 'critical'\n  : !deployment.available || deployment.pending > 0 || fleet.securityHealthy < fleet.securityTotal\n    ? 'warning'\n    : 'normal';\n\nreturn [{ json: { fleet, deployment, severity } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        0
+      ],
+      "id": "ff9c255b-dc43-46db-9d0b-7e272257f939",
+      "name": "Summarize evening reports"
     }
   ],
   "connections": {
@@ -209,6 +402,83 @@
       ]
     },
     "Get Alsip weather": {
+      "main": [
+        [
+          {
+            "node": "Evening report catalogue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evening report catalogue": {
+      "main": [
+        [
+          {
+            "node": "Probe evening services",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe evening services": {
+      "main": [
+        [
+          {
+            "node": "Summarize fleet report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize fleet report": {
+      "main": [
+        [
+          {
+            "node": "Read Hydra evaluations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Hydra evaluations": {
+      "main": [
+        [
+          {
+            "node": "Select latest Hydra report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select latest Hydra report": {
+      "main": [
+        [
+          {
+            "node": "Read latest Hydra builds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read latest Hydra builds": {
+      "main": [
+        [
+          {
+            "node": "Summarize evening reports",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize evening reports": {
       "main": [
         [
           {
