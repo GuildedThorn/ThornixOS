@@ -8,6 +8,11 @@
     # downstream Google Voice HAT drivers missing from mainline Linux.
     nixpkgs-rpi.url = "github:NixOS/nixpkgs/nixos-25.11";
 
+    openwrt-imagebuilder = {
+      url = "github:astro/nix-openwrt-imagebuilder";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     jovian-nixos = {
       url = "github:Jovian-Experiments/Jovian-NixOS";
       inputs.nixpkgs.follows = "nixpkgs";

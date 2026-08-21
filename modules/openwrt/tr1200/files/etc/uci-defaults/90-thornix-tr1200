@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# This file is deliberately limited to non-secret, safe defaults. WireGuard
+# private keys and hotel Wi-Fi credentials must be provisioned on the router,
+# never copied into the Nix store.
+uci -q batch <<'EOF'
+set system.@system[0].hostname='TR1200'
+set travelmate.global='travelmate'
+set travelmate.global.trm_enabled='1'
+set travelmate.global.trm_captive='1'
+set travelmate.global.trm_vpn='1'
+commit system
+commit travelmate
+EOF
+
+exit 0

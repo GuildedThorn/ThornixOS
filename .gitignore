@@ -4,6 +4,7 @@ certs/*.csr
 certs/*.key
 
 /.idea/
+/modules/openwrt/tr1200/result
 
 # Claude Code local permission settings
 .claude/settings.local.json
