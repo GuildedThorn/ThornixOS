@@ -23,7 +23,7 @@ let
     persistentKeepalive = 25;
   };
   iface = {
-    address = [ "10.10.10.3/32" ];
+    address = [ "10.10.10.4/32" ];
     # pfSense over the tunnel — resolves .arpa names. Set for both modes:
     # split still needs it for LAN name resolution, at the cost of all DNS
     # queries riding the tunnel.

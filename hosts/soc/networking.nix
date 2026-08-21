@@ -28,14 +28,14 @@
 
       # Loki and Prometheus are behind nginx mTLS, but reject out-of-scope
       # sources before TLS as a second boundary. 192.168.1.6 is the main
-      # workstation on LAN; 10.10.10.3 is scout's WireGuard address; the
+      # workstation on LAN; 10.10.10.4 is scout's WireGuard address; the
       # fixed and DHCP server fleet lives on OPT1.
       extraCommands = ''
         iptables -w -A nixos-fw -p tcp -s 172.16.25.0/24 \
           -m multiport --dports 3100,9090 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 192.168.1.6/32 \
           -m multiport --dports 3100,9090 -j nixos-fw-accept
-        iptables -w -A nixos-fw -p tcp -s 10.10.10.3/32 \
+        iptables -w -A nixos-fw -p tcp -s 10.10.10.4/32 \
           -m multiport --dports 3100,9090 -j nixos-fw-accept
         # Purpose-built, read-only news/SIEM correlation and operator-summary
         # APIs. Loom is the only routed caller; nginx independently repeats

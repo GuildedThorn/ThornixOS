@@ -9,22 +9,13 @@ empty fields, but it never deletes records or overwrites a populated field.
 That makes it safe to rerun after adding richer data in the NetBox UI.
 """
 
+from dcim.models import (Device, DeviceRole, DeviceType, Interface, MACAddress,
+                         Manufacturer, Platform, Site)
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-
-from dcim.models import (
-    Device,
-    DeviceRole,
-    DeviceType,
-    Interface,
-    MACAddress,
-    Manufacturer,
-    Platform,
-    Site,
-)
 from ipam.models import IPAddress, Prefix, Service
-from virtualization.models import Cluster, ClusterType, VirtualMachine, VMInterface
-
+from virtualization.models import (Cluster, ClusterType, VirtualMachine,
+                                   VMInterface)
 
 STATS = {"created": 0, "existing": 0, "filled": 0}
 
@@ -480,7 +471,7 @@ def seed():
     )
     set_primary_ip(
         scout,
-        ensure_ip(scout_wg, "10.10.10.3/32", description="Scout WireGuard address"),
+        ensure_ip(scout_wg, "10.10.10.4/32", description="Scout WireGuard address"),
     )
 
     mitm = ensure(
