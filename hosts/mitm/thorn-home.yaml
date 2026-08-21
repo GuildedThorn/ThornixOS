@@ -1,0 +1,179 @@
+title: Thorn Home
+views:
+  - title: Home
+    path: home
+    icon: mdi:shield-home-outline
+    type: sections
+    max_columns: 3
+    theme: Thorn
+    header:
+      layout: responsive
+      badges_position: bottom
+      card:
+        type: markdown
+        content: |-
+          # Thorn Home
+          {% set hour = now().hour %}
+          {% if hour < 12 %}Good morning{% elif hour < 18 %}Good afternoon{% else %}Good evening{% endif %}, Jamie.
+          **{{ now().strftime('%A, %B %d') }}** · {{ states('weather.forecast_home') | replace('_', ' ') | title }}
+    badges:
+      - type: entity
+        entity: person.jamie_duddleston
+        show_name: true
+        show_state: true
+        color: teal
+      - type: entity
+        entity: sensor.thornflix_active_clients
+        show_name: true
+        show_state: true
+        color: amber
+      - type: entity
+        entity: sensor.backup_backup_manager_state
+        show_name: true
+        show_state: true
+        color: green
+
+    sections:
+      - type: grid
+        background:
+          color: "#19332f"
+          opacity: 45
+        cards:
+          - type: heading
+            heading: Outside
+            icon: mdi:weather-partly-cloudy
+            badges:
+              - type: entity
+                entity: sensor.sun_next_setting
+                show_state: true
+
+          - type: weather-forecast
+            entity: weather.forecast_home
+            forecast_type: daily
+            show_current: true
+            show_forecast: true
+
+          - type: tile
+            entity: person.jamie_duddleston
+            name: Jamie
+            icon: mdi:account-circle
+            color: teal
+            show_entity_picture: true
+            state_content:
+              - state
+              - last_changed
+            time_format: relative
+
+          - type: tile
+            entity: sensor.sun_next_rising
+            name: Next sunrise
+            icon: mdi:weather-sunset-up
+            color: amber
+            time_format: relative
+
+          - type: tile
+            entity: sensor.sun_next_setting
+            name: Next sunset
+            icon: mdi:weather-sunset-down
+            color: deep-orange
+            time_format: relative
+
+      - type: grid
+        background:
+          color: "#24203b"
+          opacity: 45
+        cards:
+          - type: heading
+            heading: ThornFlix
+            icon: mdi:movie-open-play-outline
+            badges:
+              - type: entity
+                entity: sensor.thornflix_active_clients
+                show_state: true
+
+          - type: tile
+            entity: sensor.thornflix_active_clients
+            name: Active streams
+            icon: mdi:access-point
+            color: purple
+
+          - type: tile
+            entity: media_player.chrome
+            name: Chrome session
+            icon: mdi:google-chrome
+            color: blue
+            state_content:
+              - state
+              - media_title
+
+          - type: tile
+            entity: media_player.firefox
+            name: Firefox session
+            icon: mdi:firefox
+            color: deep-orange
+            state_content:
+              - state
+              - media_title
+
+          - type: button
+            name: Open ThornFlix
+            icon: mdi:open-in-new
+            icon_height: 36px
+            tap_action:
+              action: url
+              url_path: https://jellyfin.guildedthorn.com/
+
+      - type: grid
+        background:
+          color: "#332817"
+          opacity: 45
+        cards:
+          - type: heading
+            heading: Today
+            icon: mdi:format-list-checks
+
+          - type: todo-list
+            entity: todo.shopping_list
+            title: Shopping
+            hide_completed: true
+
+      - type: grid
+        background:
+          color: "#182637"
+          opacity: 45
+        cards:
+          - type: heading
+            heading: Home Assistant
+            icon: mdi:home-assistant
+            badges:
+              - type: entity
+                entity: sensor.backup_backup_manager_state
+                show_state: true
+
+          - type: tile
+            entity: sensor.backup_backup_manager_state
+            name: Backup manager
+            icon: mdi:shield-check-outline
+            color: green
+
+          - type: tile
+            entity: sensor.backup_last_successful_automatic_backup
+            name: Last backup
+            icon: mdi:backup-restore
+            color: light-blue
+            time_format: relative
+
+          - type: tile
+            entity: sensor.backup_next_scheduled_automatic_backup
+            name: Next backup
+            icon: mdi:calendar-clock-outline
+            color: cyan
+            time_format: relative
+
+          - type: button
+            name: Manage backups
+            icon: mdi:archive-cog-outline
+            icon_height: 36px
+            tap_action:
+              action: navigate
+              navigation_path: /config/backup/overview

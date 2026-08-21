@@ -1,13 +1,20 @@
-# PLACEHOLDER — this host has not been installed yet. Replace with the real
-# output of `nixos-generate-config` once you have actual hardware/disk UUIDs.
-{ lib, ... }:
 {
-  fileSystems."/" = {
-    device = "/dev/disk/by-label/nixos-root";
-    fsType = "ext4";
-  };
+  config,
+  lib,
+  ...
+}:
+{
+  boot.initrd.availableKernelModules = [
+    "ahci"
+    "nvme"
+    "sd_mod"
+    "sr_mod"
+    "xhci_pci"
+  ];
+  boot.initrd.kernelModules = [ ];
+  boot.kernelModules = [ "kvm-intel" ];
+  boot.extraModulePackages = [ ];
 
-  boot.loader.grub.devices = [ "/dev/sda" ];
-
+  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 }

@@ -3,6 +3,7 @@
 {
   networking = {
     hostName = "mitm";
+    domain = "guildedthorn.arpa";
     enableIPv6 = false;
 
     # System-wide DNS
@@ -11,23 +12,9 @@
       "1.1.1.1"
     ];
 
-    firewall.allowedTCPPorts = [
-      22
-      53
-      80
-      443
-    ];
-    firewall.allowedUDPPorts = [
-      22
-      53
-      80
-      443
-    ];
+    firewall.allowedTCPPorts = [ 443 ];
+
   };
 
-  # Optional: keep NM for Wi-Fi or VPNs
   networking.networkmanager.enable = false;
-
-  #networking.networkmanager.dns = "none";
-  #networking.nameservers = [ "127.0.0.1" ];
 }
