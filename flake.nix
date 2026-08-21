@@ -4,6 +4,15 @@
   inputs = {
     nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
 
+    # Stable Raspberry Pi kernel is binary-cached for aarch64 and retains the
+    # downstream Google Voice HAT drivers missing from mainline Linux.
+    nixpkgs-rpi.url = "github:NixOS/nixpkgs/nixos-25.11";
+
+    jovian-nixos = {
+      url = "github:Jovian-Experiments/Jovian-NixOS";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
@@ -99,6 +108,24 @@
     guildedthorn-com.url = "github:GuildedThorn/GuildedThorn.com";
 
     nix-flatpak.url = "github:gmodena/nix-flatpak/";
+
+    # Source locks for OpenCode's Python integrations. Their own uv.lock files
+    # are exported during the Nix build, so both the top-level tools and every
+    # transitive Python dependency stay reproducible.
+    opencode-jcodemunch-src = {
+      url = "github:jgravelle/jcodemunch-mcp/v1.108.279";
+      flake = false;
+    };
+
+    opencode-serena-src = {
+      url = "github:oraios/serena/v1.7.0";
+      flake = false;
+    };
+
+    opencode-graphify-src = {
+      url = "github:Graphify-Labs/graphify/v0.9.43";
+      flake = false;
+    };
   };
 
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
