@@ -88,7 +88,6 @@
             arduino-ide
 
             codex
-            opencode
             claude-code
 
             virt-viewer

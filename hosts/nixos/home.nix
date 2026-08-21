@@ -50,6 +50,7 @@ in
       thorn.programs.obsidian.enable = true;
       thorn.programs.neomutt.enable = true;
       thorn.programs.claude-code.enable = true;
+      thorn.programs.opencode.enable = true;
 
       thorn.programs.matcha = {
         enable = true;
