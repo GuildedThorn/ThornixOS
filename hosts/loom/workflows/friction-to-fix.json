@@ -1,0 +1,85 @@
+{
+  "id": "ThornFrictionToFix",
+  "name": "Thorn | Friction-to-fix pipeline",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "thorn-friction",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-560, 0],
+      "id": "0a49f7cf-cfe5-4d7d-9093-fca486c17448",
+      "name": "Capture friction",
+      "webhookId": "thorn-friction"
+    },
+    {
+      "parameters": {
+        "content": "## Friction-to-fix pipeline\n\n`loomctl friction` records repeated annoyances without creating notification noise. Exact normalized repeats graduate at 3, 6, and 10 occurrences, then Discord receives a bounded automation, configuration, purchase, habit, or investigation candidate.\n\nBefore publishing, select the **Loom personal intake** Header Auth credential on the webhook and **GuildedThorn Gaming Drop Discord** on the final node. Static data is intentionally capped at 100 friction records.",
+        "height": 330,
+        "width": 600
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-780, -420],
+      "id": "fb0be0c3-b910-4148-8872-6b0981b9d1b8",
+      "name": "Purpose and setup"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parse = (value) => {\n  if (typeof value !== 'string') return value ?? {};\n  try { return JSON.parse(value); } catch { return {}; }\n};\nconst clean = (value, limit) => String(value ?? '').replace(/\\s+/g, ' ').trim().slice(0, limit);\nconst input = items[0]?.json ?? {};\nconst body = parse(input.body ?? input);\nconst text = clean(body.text ?? body.friction ?? body.annoyance, 600);\nif (!text) throw new Error('friction text is required');\n\nconst context = clean(body.context, 300);\nconst impact = ['low', 'medium', 'high'].includes(body.impact) ? body.impact : 'medium';\nconst normalized = text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 180);\nconst rules = [\n  ['automation', ['repeat', 'again', 'manual', 'copy', 'paste', 'remind', 'every time', 'workflow']],\n  ['config', ['nix', 'config', 'setting', 'dotfile', 'package', 'terminal', 'shell', 'desktop', 'software']],\n  ['purchase', ['buy', 'replace', 'broken', 'cable', 'adapter', 'battery', 'chair', 'desk', 'hardware']],\n  ['habit', ['forget', 'late', 'sleep', 'routine', 'procrastinat', 'doomscroll', 'distract', 'avoid']],\n];\nconst scores = rules.map(([type, words]) => ({\n  type,\n  score: words.reduce((total, word) => total + (normalized.includes(word) ? 1 : 0), 0),\n})).sort((a, b) => b.score - a.score);\nconst type = scores[0].score > 0 ? scores[0].type : 'investigation';\nconst nextSteps = {\n  automation: 'Observe inputs and outputs once, then automate the smallest deterministic step.',\n  config: 'Find the owning declarative option and remove the recurring manual state.',\n  purchase: 'Price the replacement against time already lost; set a decision threshold.',\n  habit: 'Change the trigger or environment before adding another reminder.',\n  investigation: 'Capture one more occurrence with context, then identify the common cause.',\n};\n\nconst now = new Date().toISOString();\nconst state = $getWorkflowStaticData('global');\nconst records = Array.isArray(state.friction) ? state.friction : [];\nlet record = records.find((entry) => entry.key === normalized);\nif (record) {\n  record.count = Number(record.count ?? 0) + 1;\n  record.lastSeen = now;\n  record.text = text;\n  record.context = context || record.context;\n  record.impact = impact;\n  record.type = type;\n} else {\n  record = { key: normalized, text, context, impact, type, count: 1, firstSeen: now, lastSeen: now };\n  records.push(record);\n}\nstate.friction = records\n  .sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)))\n  .slice(0, 100);\n\nif (![3, 6, 10].includes(record.count)) return [];\nconst safe = (value) => clean(value, 1000).replaceAll('@', '@\\u200b') || 'Not supplied.';\nreturn [{ json: {\n  discordEmbed: {\n    title: `Friction graduated: ${record.type}`,\n    description: safe(record.text),\n    color: record.impact === 'high' ? 0xf38ba8 : record.impact === 'low' ? 0xa6e3a1 : 0xf9e2af,\n    fields: [\n      { name: 'Signal', value: `Seen **${record.count} times** since ${record.firstSeen.slice(0, 10)}\\nImpact: **${record.impact}**`, inline: true },\n      { name: 'Candidate', value: `**${record.type}**`, inline: true },\n      { name: 'Context', value: safe(record.context) },\n      { name: 'Smallest next move', value: nextSteps[record.type] },\n    ],\n    footer: { text: 'Loom friction-to-fix' },\n    timestamp: now,\n  },\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-280, 0],
+      "id": "33f53ef8-eaaf-4750-9785-ab492e27ce2e",
+      "name": "Graduate repeated friction"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "operation": "sendLegacy",
+        "content": "",
+        "embeds": {
+          "values": [
+            {
+              "inputMethod": "json",
+              "json": "={{ JSON.stringify($json.discordEmbed) }}"
+            }
+          ]
+        },
+        "options": {
+          "username": "GuildedThorn | Friction Lab",
+          "wait": true
+        }
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [20, 0],
+      "id": "dc5c3c5c-796d-4128-b4f7-b0fae8a25f89",
+      "name": "Discord fix candidate"
+    }
+  ],
+  "connections": {
+    "Capture friction": {
+      "main": [[{"node": "Graduate repeated friction", "type": "main", "index": 0}]]
+    },
+    "Graduate repeated friction": {
+      "main": [[{"node": "Discord fix candidate", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago",
+    "errorWorkflow": "ThornN8nFailure"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

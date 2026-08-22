@@ -15,6 +15,46 @@ n8n UI.
 | `Thorn \| Morning operator brief` | Sends one actionable daily Discord card covering fleet, storage, backups, certificates, deployment, Hydra, and aggregate 24-hour security activity. |
 | `ThornixOS \| Weekly maintenance queue` | Turns the same bounded telemetry into an ordered Sunday maintenance checklist and seven-day security pulse. |
 | `ThornixOS \| Change window preflight` | Produces a manual GO/CAUTION/NO-GO decision before a fleet rollout from live SOC and Hydra evidence. |
+| `Thorn \| Friction-to-fix pipeline` | Quietly counts repeated annoyances and sends a fix candidate only when one graduates. |
+| `Thorn \| Night brain dump` | Parks thoughts without immediate notifications, then sends one categorized morning card. |
+| `Thorn \| Restart capsule` | Stores and retrieves bounded Git work-context snapshots submitted by `loomctl`. |
+
+## Personal intake workflows
+
+The three personal workflows use one shared Header Auth credential and import
+inactive. Generate a token with `openssl rand -hex 32` outside Git, create an
+n8n **Header Auth** credential named `Loom personal intake`, set the header name
+to `X-Loom-Token`, and use the token as its value. Select that credential on:
+
+- `Capture friction`
+- `Park night thought`
+- `Save restart capsule`
+- `Read restart capsule`
+
+Select **GuildedThorn Gaming Drop Discord** on `Discord fix candidate` and
+`Discord morning mind sort`. Publish all three workflows only after every
+credential is selected. Workflow static data persists only during published
+trigger executions, so test these through their production webhook URLs rather
+than n8n's manual execution mode.
+
+`thorn.programs.loom-client` installs `loomctl` on `nixos` and `mac`. Configure
+each workstation with the same intake token; it is stored mode `0600` under
+`~/.config/loom` and never enters the Nix store:
+
+```console
+loomctl setup
+loomctl friction "I keep manually copying build IDs" "after Hydra failures"
+loomctl dump "idea: make temporary Nix overrides expire"
+loomctl pause "finish validating the Loom workflows" "nix flake check"
+loomctl resume
+loomctl resume ThornixOS
+```
+
+Friction records notify only on occurrence 3, 6, and 10. Night thoughts remain
+silent until the 7:00 AM Discord sort and clear only after successful delivery.
+Restart capsules include path, branch, HEAD subject, changed filenames, diff
+statistics, an explicitly supplied failed command, and next step. They never
+include diff contents, source files, shell history, or environment variables.
 
 ## Operator workflow suite
 

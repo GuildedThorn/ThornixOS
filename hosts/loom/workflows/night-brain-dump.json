@@ -1,0 +1,132 @@
+{
+  "id": "ThornNightBrainDump",
+  "name": "Thorn | Night brain dump",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "thorn-night-dump",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-720, -100],
+      "id": "e91765fe-535c-49e9-8c4a-306f15ccbaff",
+      "name": "Park night thought",
+      "webhookId": "thorn-night-dump"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-720, 160],
+      "id": "c09fa47b-a469-4c59-b42c-301798bb1987",
+      "name": "Every day at 7 AM"
+    },
+    {
+      "parameters": {
+        "content": "## Night brain dump\n\n`loomctl dump` quietly parks thoughts. No immediate message is sent. At 7:00 AM, queued thoughts become one mention-safe Discord card sorted into action, idea, research, remember, worry, and other buckets. Delivered entries clear only after Discord accepts the card.\n\nSelect the **Loom personal intake** Header Auth credential and **GuildedThorn Gaming Drop Discord** before publishing. Queue is capped at 100 entries.",
+        "height": 330,
+        "width": 620
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-940, -520],
+      "id": "1f8112bf-1f3b-433c-8117-3ce36e518654",
+      "name": "Quiet capture contract"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parse = (value) => {\n  if (typeof value !== 'string') return value ?? {};\n  try { return JSON.parse(value); } catch { return {}; }\n};\nconst clean = (value, limit) => String(value ?? '').replace(/\\s+/g, ' ').trim().slice(0, limit);\nconst input = items[0]?.json ?? {};\nconst body = parse(input.body ?? input);\nconst text = clean(body.text ?? body.thought, 600);\nif (!text) throw new Error('night-dump text is required');\nconst lower = text.toLowerCase();\nconst tests = [\n  ['action', /\\b(todo|need to|must|should|fix|email|call|book|schedule|finish)\\b/],\n  ['research', /\\b(research|learn|read|look up|compare|investigate|why|how does)\\b/],\n  ['remember', /\\b(remember|don't forget|birthday|appointment|bring|take)\\b/],\n  ['worry', /\\b(worried|anxious|afraid|concern|stress|what if)\\b/],\n  ['idea', /\\b(idea|could|maybe|build|create|try|what about)\\b/],\n];\nconst category = tests.find(([, pattern]) => pattern.test(lower))?.[0] ?? 'other';\nconst now = new Date().toISOString();\nconst state = $getWorkflowStaticData('global');\nconst queue = Array.isArray(state.nightDump) ? state.nightDump : [];\nqueue.push({\n  id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,\n  text,\n  category,\n  capturedAt: now,\n});\nstate.nightDump = queue.slice(-100);\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-420, -100],
+      "id": "ff922f0a-b3c7-4d41-bce3-00fd0f722622",
+      "name": "Store thought quietly"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const state = $getWorkflowStaticData('global');\nconst queue = Array.isArray(state.nightDump) ? state.nightDump : [];\nif (!queue.length) return [];\nconst order = ['action', 'idea', 'research', 'remember', 'worry', 'other'];\nconst labels = { action: 'Actions', idea: 'Ideas', research: 'Research', remember: 'Remember', worry: 'Set down overnight', other: 'Other' };\nconst fit = (value, limit = 850) => {\n  const safe = String(value ?? '').replaceAll('@', '@\\u200b').trim();\n  return safe.length <= limit ? safe : safe.slice(0, limit - 3).trimEnd() + '...';\n};\nconst fields = order.flatMap((category) => {\n  const entries = queue.filter((entry) => entry.category === category);\n  if (!entries.length) return [];\n  const shown = entries.slice(0, 8).map((entry) => `- ${entry.text}`).join('\\n');\n  const overflow = entries.length > 8 ? `\\n- ...and ${entries.length - 8} more` : '';\n  return [{ name: labels[category], value: fit(shown + overflow) }];\n});\nconst now = new Date().toISOString();\nreturn [{ json: {\n  deliveredIds: queue.map((entry) => entry.id),\n  discordEmbed: {\n    title: `Morning mind sort | ${queue.length} thought${queue.length === 1 ? '' : 's'}`,\n    description: 'Captured without waking tomorrow-you. Choose what deserves action; the rest can remain ideas.',\n    color: 0x89b4fa,\n    fields,\n    footer: { text: 'Loom night brain dump' },\n    timestamp: now,\n  },\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-420, 160],
+      "id": "8cb3b503-c241-4e62-a94f-5643b3aa1212",
+      "name": "Prepare morning sort"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "operation": "sendLegacy",
+        "content": "",
+        "embeds": {
+          "values": [
+            {
+              "inputMethod": "json",
+              "json": "={{ JSON.stringify($json.discordEmbed) }}"
+            }
+          ]
+        },
+        "options": {
+          "username": "GuildedThorn | Morning Mind",
+          "wait": true
+        }
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [-100, 160],
+      "id": "395042af-f93c-4ab9-b9c6-85881ee09eac",
+      "name": "Discord morning mind sort"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const delivered = new Set($('Prepare morning sort').first().json.deliveredIds ?? []);\nconst state = $getWorkflowStaticData('global');\nconst queue = Array.isArray(state.nightDump) ? state.nightDump : [];\nstate.nightDump = queue.filter((entry) => !delivered.has(entry.id));\nstate.lastNightDumpDelivery = new Date().toISOString();\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 160],
+      "id": "33c16846-a055-4a59-bff4-4b1fd3fb1c49",
+      "name": "Clear delivered thoughts"
+    }
+  ],
+  "connections": {
+    "Park night thought": {
+      "main": [[{"node": "Store thought quietly", "type": "main", "index": 0}]]
+    },
+    "Every day at 7 AM": {
+      "main": [[{"node": "Prepare morning sort", "type": "main", "index": 0}]]
+    },
+    "Prepare morning sort": {
+      "main": [[{"node": "Discord morning mind sort", "type": "main", "index": 0}]]
+    },
+    "Discord morning mind sort": {
+      "main": [[{"node": "Clear delivered thoughts", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago",
+    "errorWorkflow": "ThornN8nFailure"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

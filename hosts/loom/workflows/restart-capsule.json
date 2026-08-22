@@ -1,0 +1,87 @@
+{
+  "id": "ThornRestartCapsule",
+  "name": "Thorn | Restart capsule",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "thorn-restart-capsule",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-620, -100],
+      "id": "aed518e8-7c54-4931-b0dd-903452380170",
+      "name": "Save restart capsule",
+      "webhookId": "thorn-restart-capsule"
+    },
+    {
+      "parameters": {
+        "path": "thorn-restart-capsule-latest",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-620, 160],
+      "id": "39d72d29-46b5-4111-b483-d72102b47ad0",
+      "name": "Read restart capsule",
+      "webhookId": "thorn-restart-capsule-latest"
+    },
+    {
+      "parameters": {
+        "content": "## Restart capsule\n\n`loomctl pause` sends repository path/name, branch, HEAD, changed-file summary, diff stat, explicit failed command, and exact next step. Loom cannot execute host commands. `loomctl resume` retrieves the newest matching capsule.\n\nSelect the same **Loom personal intake** Header Auth credential on both webhooks before publishing. State retains only 25 capsules; no source, diff contents, environment, command history, or credentials are collected.",
+        "height": 340,
+        "width": 620
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-840, -520],
+      "id": "346b3802-eefd-47df-b84c-6c6f16c4ee0d",
+      "name": "Capture boundary"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const parse = (value) => {\n  if (typeof value !== 'string') return value ?? {};\n  try { return JSON.parse(value); } catch { return {}; }\n};\nconst clean = (value, limit) => String(value ?? '').replace(/[\\u0000-\\u001f]+/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, limit);\nconst multiline = (value, limit) => String(value ?? '').replace(/\\u0000/g, '').trim().slice(0, limit);\nconst input = items[0]?.json ?? {};\nconst body = parse(input.body ?? input);\nconst repo = clean(body.repo, 500);\nconst nextStep = clean(body.nextStep, 800);\nif (!repo || !nextStep) throw new Error('repo and nextStep are required');\nconst capsule = {\n  id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,\n  capturedAt: new Date().toISOString(),\n  repo,\n  repoName: clean(body.repoName, 120) || repo.split('/').filter(Boolean).at(-1),\n  branch: clean(body.branch, 200) || 'detached-or-unknown',\n  head: clean(body.head, 200),\n  status: multiline(body.status, 4000),\n  diffStat: multiline(body.diffStat, 2000),\n  failedCommand: clean(body.failedCommand, 1000),\n  nextStep,\n};\nconst state = $getWorkflowStaticData('global');\nconst capsules = Array.isArray(state.capsules) ? state.capsules : [];\nstate.capsules = [capsule, ...capsules.filter((entry) => entry.repo !== repo)].slice(0, 25);\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-320, -100],
+      "id": "da87332d-2aa3-4353-85a6-556565c514f1",
+      "name": "Store bounded capsule"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const input = items[0]?.json ?? {};\nconst query = input.query ?? {};\nconst wanted = String(query.repo ?? '').trim().toLowerCase();\nconst wantedName = wanted.split('/').filter(Boolean).at(-1) ?? '';\nconst state = $getWorkflowStaticData('global');\nconst capsules = Array.isArray(state.capsules) ? state.capsules : [];\nconst capsule = wanted\n  ? capsules.find((entry) => String(entry.repo).toLowerCase() === wanted || String(entry.repoName).toLowerCase() === wanted || String(entry.repoName).toLowerCase() === wantedName)\n  : capsules[0];\nif (!capsule) return [{ json: { ok: false, error: 'No matching restart capsule.' } }];\nreturn [{ json: { ok: true, capsule } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-320, 160],
+      "id": "5a453719-d0f1-41e2-9bea-f4e3034d7659",
+      "name": "Select latest capsule"
+    }
+  ],
+  "connections": {
+    "Save restart capsule": {
+      "main": [[{"node": "Store bounded capsule", "type": "main", "index": 0}]]
+    },
+    "Read restart capsule": {
+      "main": [[{"node": "Select latest capsule", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Chicago",
+    "errorWorkflow": "ThornN8nFailure"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
