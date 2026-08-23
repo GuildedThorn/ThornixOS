@@ -328,21 +328,6 @@
             cp ${renderedManagedSettings} "$out"
           '';
 
-      zshCompletion =
-        pkgs.runCommand "opencode-zsh-completion-${lib.getVersion cfg.package}"
-          {
-            nativeBuildInputs = [ cfg.package ];
-          }
-          ''
-            mkdir -p "$out/share/zsh/site-functions"
-            export SHELL=${lib.getExe pkgs.zsh}
-            export XDG_CONFIG_HOME="$TMPDIR/config"
-            export XDG_CACHE_HOME="$TMPDIR/cache"
-            export XDG_DATA_HOME="$TMPDIR/data"
-            export XDG_STATE_HOME="$TMPDIR/state"
-            ${lib.getExe cfg.package} completion > "$out/share/zsh/site-functions/_opencode"
-          '';
-
       opencodeIntegrationsSync = pkgs.writeShellApplication {
         name = "opencode-integrations-sync";
         runtimeInputs = integrationPackages;
@@ -891,7 +876,6 @@
             [
               opencodeDoctor
               opencodeIntegrationsSync
-              zshCompletion
             ]
             ++ integrationPackages
           );
