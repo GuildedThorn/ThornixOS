@@ -1,0 +1,1465 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deck Voice</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f8f7ff;
+      --muted: #aaa9ba;
+      --soft: #777789;
+      --cyan: #7fefff;
+      --violet: #aa92ff;
+      --rose: #ff7fb5;
+      --gold: #ffd277;
+      --green: #7ff1bd;
+      --danger: #ff6b7c;
+      --orb: var(--cyan);
+      --orb-2: var(--violet);
+      --panel: rgba(20, 20, 34, .64);
+      --line: rgba(255, 255, 255, .095);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #07070d;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -18%;
+      background:
+        radial-gradient(circle at 70% 24%, color-mix(in srgb, var(--orb) 18%, transparent), transparent 31%),
+        radial-gradient(circle at 24% 75%, color-mix(in srgb, var(--orb-2) 16%, transparent), transparent 30%),
+        radial-gradient(circle at 47% 48%, rgba(94, 74, 150, .08), transparent 38%),
+        linear-gradient(135deg, #090812 0%, #10101d 48%, #06070d 100%);
+      filter: saturate(118%);
+      animation: drift 22s ease-in-out infinite alternate;
+      transition: background 1s ease;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      opacity: .15;
+      background-image:
+        linear-gradient(rgba(255,255,255,.034) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.034) 1px, transparent 1px);
+      background-size: 52px 52px;
+      mask-image: radial-gradient(circle at center, black, transparent 78%);
+      pointer-events: none;
+    }
+
+    button {
+      color: inherit;
+      font: inherit;
+    }
+
+    .shell {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: clamp(30px, 3.3vw, 58px) clamp(34px, 4vw, 76px);
+    }
+
+    header, footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+      color: var(--muted);
+      font-size: clamp(12px, .82vw, 16px);
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .brand {
+      color: var(--ink);
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .brand span { color: var(--cyan); }
+
+    .status-rail, .controls, .footer-hints {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-chip, .control {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(16, 16, 27, .52);
+      backdrop-filter: blur(14px);
+      letter-spacing: .055em;
+      text-transform: none;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 16px color-mix(in srgb, var(--green) 75%, transparent);
+    }
+
+    .status-chip.stale .status-dot {
+      background: var(--gold);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--gold) 60%, transparent);
+    }
+
+    .status-chip.offline .status-dot {
+      background: var(--danger);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--danger) 60%, transparent);
+    }
+
+    .status-chip.recovering .status-dot {
+      background: var(--gold);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--gold) 60%, transparent);
+      animation: status-pulse 1.4s ease-in-out infinite;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(350px, .72fr) minmax(650px, 1.28fr);
+      align-items: center;
+      gap: clamp(54px, 7vw, 132px);
+      width: min(1620px, 94vw);
+      min-height: 0;
+      margin: 0 auto;
+    }
+
+    .presence {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 470px;
+    }
+
+    .presence::before {
+      content: "";
+      position: absolute;
+      width: min(520px, 38vw);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: radial-gradient(circle, color-mix(in srgb, var(--orb) 12%, transparent), transparent 68%);
+      filter: blur(8px);
+    }
+
+    .orb-shell {
+      position: relative;
+      width: clamp(270px, 24vw, 390px);
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      transition: transform 80ms linear;
+      will-change: transform;
+    }
+
+    .orbit, .orbit::before, .orbit::after {
+      position: absolute;
+      inset: -52px;
+      border: 1px solid color-mix(in srgb, var(--orb) 25%, transparent);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .orbit {
+      border-style: dashed;
+      animation: orbit 22s linear infinite;
+    }
+
+    .orbit::before {
+      inset: 22px;
+      border-color: color-mix(in srgb, var(--orb-2) 26%, transparent);
+      animation: orbit 14s linear infinite reverse;
+    }
+
+    .orbit::after {
+      inset: -27px;
+      opacity: .46;
+    }
+
+    .orb {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 37% 31%, rgba(255,255,255,.94), transparent 8%),
+        radial-gradient(circle at 48% 46%, var(--orb), var(--orb-2) 46%, #29223e 72%);
+      box-shadow:
+        0 0 48px color-mix(in srgb, var(--orb) 48%, transparent),
+        0 0 150px color-mix(in srgb, var(--orb-2) 24%, transparent),
+        inset -34px -38px 72px rgba(0,0,0,.38),
+        inset 20px 22px 58px rgba(255,255,255,.17);
+      animation: breathe 5s ease-in-out infinite;
+      transition: box-shadow .6s ease, background .6s ease;
+    }
+
+    .orb::before, .orb::after {
+      content: "";
+      position: absolute;
+      width: 66%;
+      height: 38%;
+      border-radius: 50%;
+      background: rgba(255,255,255,.16);
+      filter: blur(26px);
+      transform: rotate(-24deg) translate(-22%, -68%);
+    }
+
+    .orb::after {
+      background: rgba(8, 7, 18, .18);
+      transform: rotate(22deg) translate(30%, 105%);
+    }
+
+    .waveform {
+      position: relative;
+      z-index: 2;
+      height: 94px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      opacity: .18;
+      transition: opacity .3s ease;
+    }
+
+    .waveform i {
+      display: block;
+      width: 7px;
+      height: 54px;
+      border-radius: 8px;
+      background: rgba(9, 10, 18, .74);
+      transform: scaleY(.18);
+      transition: transform 70ms linear;
+      transform-origin: center;
+    }
+
+    .wake-label {
+      position: absolute;
+      bottom: -62px;
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .content { min-width: 0; }
+
+    .eyebrow {
+      min-height: 25px;
+      color: var(--orb);
+      font-size: clamp(15px, 1.05vw, 20px);
+      font-weight: 760;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      transition: color .35s ease;
+    }
+
+    .greeting {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: clamp(19px, 1.3vw, 25px);
+    }
+
+    .hero-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 30px;
+      margin: 3px 0 26px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(70px, 7.3vw, 130px);
+      line-height: .93;
+      letter-spacing: -.065em;
+      font-variant-numeric: tabular-nums;
+      font-weight: 735;
+    }
+
+    .date {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: clamp(17px, 1.25vw, 24px);
+    }
+
+    .weather-hero {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding-bottom: 12px;
+      text-align: right;
+    }
+
+    .weather-symbol { font-size: clamp(42px, 3.6vw, 65px); }
+    .weather-temp { font-size: clamp(32px, 2.7vw, 50px); font-weight: 700; }
+    .weather-condition { color: var(--muted); font-size: 16px; }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 13px;
+    }
+
+    .card, .context-card {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--panel);
+      box-shadow: 0 16px 48px rgba(0,0,0,.18);
+      backdrop-filter: blur(18px);
+    }
+
+    .card {
+      min-height: 124px;
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr);
+      align-items: center;
+      gap: 14px;
+      padding: 19px 21px;
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      right: -30px;
+      bottom: -48px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--card-accent, var(--cyan)) 11%, transparent);
+      filter: blur(6px);
+    }
+
+    .card-icon {
+      position: relative;
+      z-index: 1;
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 15px;
+      background: color-mix(in srgb, var(--card-accent, var(--cyan)) 15%, transparent);
+      color: var(--card-accent, var(--cyan));
+      font-size: 24px;
+    }
+
+    .card-copy { position: relative; z-index: 1; min-width: 0; }
+    .card-label {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .card-value {
+      margin-top: 5px;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: clamp(20px, 1.35vw, 26px);
+      line-height: 1.08;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-meta {
+      margin-top: 6px;
+      overflow: hidden;
+      color: var(--soft);
+      font-size: 14px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .soc-card {
+      grid-column: 1 / -1;
+      min-height: 104px;
+      grid-template-columns: 46px minmax(0, 1fr) auto;
+      transition: border-color .35s ease, background .35s ease;
+    }
+
+    .soc-card[data-severity="healthy"] {
+      border-color: color-mix(in srgb, var(--green) 30%, var(--line));
+    }
+
+    .soc-card[data-severity="warning"] {
+      border-color: color-mix(in srgb, var(--gold) 42%, var(--line));
+      background: color-mix(in srgb, var(--gold) 6%, var(--panel));
+    }
+
+    .soc-card[data-severity="critical"] {
+      border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
+      background: color-mix(in srgb, var(--danger) 7%, var(--panel));
+    }
+
+    .soc-card[data-severity="warning"] .card-icon { color: var(--gold); }
+    .soc-card[data-severity="critical"] .card-icon { color: var(--danger); }
+
+    .services-card {
+      grid-column: 1 / -1;
+      min-height: 92px;
+      grid-template-columns: 46px minmax(0, 1fr) auto;
+      transition: border-color .35s ease, background .35s ease;
+    }
+
+    .services-card[data-severity="healthy"] {
+      border-color: color-mix(in srgb, var(--cyan) 30%, var(--line));
+    }
+
+    .services-card[data-severity="warning"] {
+      border-color: color-mix(in srgb, var(--gold) 42%, var(--line));
+      background: color-mix(in srgb, var(--gold) 6%, var(--panel));
+    }
+
+    .services-card[data-severity="critical"] {
+      border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
+      background: color-mix(in srgb, var(--danger) 7%, var(--panel));
+    }
+
+    .soc-stats {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      max-width: 390px;
+    }
+
+    .soc-stat {
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(8, 8, 15, .32);
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .conversation { display: none; max-width: 920px; }
+    .question, .answer, .detail { overflow-wrap: anywhere; }
+
+    .route-rail {
+      min-height: 31px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .route-chip {
+      display: none;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 11px;
+      border: 1px solid color-mix(in srgb, var(--orb) 24%, var(--line));
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--orb) 8%, rgba(8, 8, 15, .48));
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .route-chip.visible { display: inline-flex; }
+    .route-chip strong { color: var(--ink); font-weight: 680; }
+    .route-chip.tool { border-color: color-mix(in srgb, var(--gold) 35%, var(--line)); }
+    .route-chip.voice { border-color: color-mix(in srgb, var(--green) 30%, var(--line)); }
+
+    .question {
+      min-height: 30px;
+      margin: 16px 0 22px;
+      color: var(--muted);
+      font-size: clamp(21px, 1.75vw, 33px);
+      line-height: 1.3;
+    }
+
+    .answer {
+      min-height: 76px;
+      font-size: clamp(39px, 3.5vw, 66px);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+      font-weight: 660;
+    }
+
+    body.long-answer .answer {
+      font-size: clamp(30px, 2.65vw, 49px);
+      line-height: 1.13;
+    }
+
+    body.very-long-answer .answer {
+      font-size: clamp(24px, 2.05vw, 39px);
+      line-height: 1.16;
+    }
+
+    .detail {
+      min-height: 25px;
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: clamp(16px, 1.15vw, 21px);
+    }
+
+    .context-card {
+      display: none;
+      grid-template-columns: 68px minmax(0, 1fr);
+      align-items: center;
+      gap: 20px;
+      min-height: 138px;
+      margin-top: 30px;
+      padding: 23px 28px;
+    }
+
+    .context-card.visible { display: grid; }
+    .context-icon {
+      width: 68px;
+      height: 68px;
+      display: grid;
+      place-items: center;
+      border-radius: 21px;
+      background: color-mix(in srgb, var(--orb) 14%, transparent);
+      font-size: 37px;
+    }
+    .context-title {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    .context-value {
+      margin-top: 5px;
+      font-size: clamp(29px, 2.25vw, 43px);
+      line-height: 1.05;
+      font-variant-numeric: tabular-nums;
+    }
+    .context-meta { margin-top: 6px; color: var(--soft); font-size: 16px; }
+
+    .timer-strip {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 16px;
+      border: 1px solid color-mix(in srgb, var(--gold) 24%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--gold) 8%, rgba(12,12,20,.64));
+      color: var(--gold);
+      letter-spacing: .04em;
+      text-transform: none;
+    }
+
+    .timer-strip.visible { display: flex; }
+    .timer-time { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 720; }
+
+    .command-hint {
+      min-width: 330px;
+      color: var(--muted);
+      opacity: 1;
+      transition: opacity .24s ease, transform .24s ease;
+      text-transform: none;
+      letter-spacing: .035em;
+    }
+
+    .command-hint.changing { opacity: 0; transform: translateY(5px); }
+
+    .control {
+      cursor: pointer;
+      transition: border-color .2s ease, background .2s ease, transform .2s ease;
+    }
+    .control:hover, .control:focus-visible {
+      border-color: color-mix(in srgb, var(--cyan) 42%, transparent);
+      background: rgba(42, 40, 61, .72);
+      outline: none;
+      transform: translateY(-1px);
+    }
+    .key {
+      width: 22px;
+      height: 22px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 50%;
+      color: var(--ink);
+      font-size: 11px;
+      letter-spacing: 0;
+    }
+
+    .toast {
+      position: fixed;
+      z-index: 5;
+      left: 50%;
+      bottom: 48px;
+      padding: 13px 20px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(14, 14, 24, .92);
+      color: var(--ink);
+      opacity: 0;
+      transform: translate(-50%, 24px);
+      transition: opacity .25s ease, transform .25s ease;
+      pointer-events: none;
+    }
+    .toast.visible { opacity: 1; transform: translate(-50%, 0); }
+
+    body[data-state="listening"] { --orb: #80f4ff; --orb-2: #68a7ff; }
+    body[data-state="thinking"] { --orb: #c6a6ff; --orb-2: #ff7eb6; }
+    body[data-state="speaking"] { --orb: #ffd37a; --orb-2: #ff8c72; }
+    body[data-state="done"] { --orb: #8fffd0; --orb-2: #75baff; }
+    body[data-state="offline"], body[data-state="paused"] { --orb: #7d7b8d; --orb-2: #393847; }
+    body[data-state="error"] { --orb: #ff6b78; --orb-2: #a92b50; }
+
+    body[data-state="listening"] .waveform { opacity: 1; }
+    body[data-state="thinking"] .orb { animation: think 1.45s ease-in-out infinite; }
+    body[data-state="speaking"] .orb { animation: speak .74s ease-in-out infinite alternate; }
+    body[data-state="offline"] .voice-chip .status-dot,
+    body[data-state="paused"] .voice-chip .status-dot,
+    body[data-state="starting"] .voice-chip .status-dot {
+      background: var(--gold);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--gold) 60%, transparent);
+    }
+    body[data-state="error"] .voice-chip .status-dot {
+      background: var(--danger);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--danger) 60%, transparent);
+    }
+
+    body.active .ambient { display: none; }
+    body.active .conversation { display: block; }
+
+    @keyframes drift { to { transform: translate3d(3%, -2%, 0) scale(1.04); } }
+    @keyframes breathe { 50% { transform: scale(1.035); filter: saturate(1.14); } }
+    @keyframes orbit { to { transform: rotate(360deg); } }
+    @keyframes think { 50% { transform: scale(.93) rotate(4deg); filter: hue-rotate(17deg); } }
+    @keyframes speak { to { transform: scale(1.055); filter: brightness(1.14); } }
+    @keyframes status-pulse { 50% { opacity: .36; transform: scale(.82); } }
+
+    @media (max-width: 1120px) {
+      .shell { padding: 28px 34px; }
+      main { grid-template-columns: .72fr 1.28fr; gap: 36px; }
+      .orb-shell { width: min(300px, 31vw); }
+      .orbit { inset: -34px; }
+      .card { min-height: 112px; padding: 15px 17px; }
+      .status-chip.home-chip { display: none; }
+      .command-hint { min-width: 0; }
+    }
+
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; text-align: center; gap: 14px; }
+      .presence { min-height: 260px; }
+      .orb-shell { width: min(230px, 28vh); }
+      .wake-label { display: none; }
+      .hero-row { justify-content: center; }
+      .weather-hero { display: none; }
+      .card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .card { grid-template-columns: 1fr; min-height: 100px; text-align: center; }
+      .card-icon { display: none; }
+      .soc-card { grid-template-columns: 1fr; }
+      .services-card { grid-template-columns: 1fr; }
+      .soc-stats { max-width: none; justify-content: center; }
+      .context-card { margin-inline: auto; text-align: left; }
+    }
+  </style>
+</head>
+<body data-state="starting">
+  <div class="shell">
+    <header>
+      <div class="brand">Casita <span>//</span> Deck Voice</div>
+      <div class="status-rail">
+        <div class="status-chip voice-chip"><span class="status-dot"></span><span id="voiceStatus">Connecting voice</span></div>
+        <div class="status-chip mic-chip recovering" id="micChip"><span class="status-dot"></span><span id="micStatus">Checking audio</span></div>
+        <div class="status-chip home-chip offline" id="homeChip"><span class="status-dot"></span><span id="homeStatus">Waiting for home</span></div>
+      </div>
+    </header>
+
+    <main>
+      <section class="presence" aria-hidden="true">
+        <div class="orb-shell" id="orbShell">
+          <div class="orbit"></div>
+          <div class="orb">
+            <div class="waveform" id="waveform">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+          <div class="wake-label">Far-field microphone · live</div>
+        </div>
+      </section>
+
+      <section class="content" aria-live="polite">
+        <div class="eyebrow" id="label">Starting</div>
+
+        <div class="ambient">
+          <div class="greeting" id="greeting">Welcome home</div>
+          <div class="hero-row">
+            <div>
+              <h1 id="clock">--:--</h1>
+              <div class="date" id="date"></div>
+            </div>
+            <div class="weather-hero">
+              <div class="weather-symbol" id="heroWeatherIcon">◌</div>
+              <div>
+                <div class="weather-temp" id="heroTemperature">--°</div>
+                <div class="weather-condition" id="heroCondition">Weather loading</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-grid">
+            <article class="card" style="--card-accent:#7fefff">
+              <div class="card-icon" id="weatherIcon">◌</div>
+              <div class="card-copy">
+                <div class="card-label">Outside</div>
+                <div class="card-value" id="weatherValue">Waiting for weather</div>
+                <div class="card-meta" id="weatherMeta">Home Assistant</div>
+              </div>
+            </article>
+
+            <article class="card" style="--card-accent:#7ff1bd">
+              <div class="card-icon">⌂</div>
+              <div class="card-copy">
+                <div class="card-label">Casita</div>
+                <div class="card-value" id="personValue">Checking home</div>
+                <div class="card-meta" id="personMeta">Jamie</div>
+              </div>
+            </article>
+
+            <article class="card" style="--card-accent:#c39bff">
+              <div class="card-icon">▶</div>
+              <div class="card-copy">
+                <div class="card-label">ThornFlix</div>
+                <div class="card-value" id="mediaValue">Nothing playing</div>
+                <div class="card-meta" id="mediaMeta">0 active streams</div>
+              </div>
+            </article>
+
+            <article class="card" style="--card-accent:#ffd277">
+              <div class="card-icon" id="sunIcon">↓</div>
+              <div class="card-copy">
+                <div class="card-label">Sun</div>
+                <div class="card-value" id="sunValue">Calculating daylight</div>
+                <div class="card-meta" id="sunMeta">Casita</div>
+              </div>
+            </article>
+
+            <article class="card soc-card" id="socCard" data-severity="offline" style="--card-accent:#7ff1bd">
+              <div class="card-icon" id="socIcon">⬡</div>
+              <div class="card-copy">
+                <div class="card-label">SOC // 24 hours</div>
+                <div class="card-value" id="socValue">Connecting to security operations</div>
+                <div class="card-meta" id="socMeta">Bounded read-only summary</div>
+              </div>
+              <div class="soc-stats">
+                <span class="soc-stat" id="socFleet">--/-- hosts</span>
+                <span class="soc-stat" id="socServices">--/-- services</span>
+                <span class="soc-stat" id="socSignals">-- signals</span>
+              </div>
+            </article>
+
+            <article class="card services-card" id="servicesCard" data-severity="offline" style="--card-accent:#7fefff">
+              <div class="card-icon" id="servicesIcon">◫</div>
+              <div class="card-copy">
+                <div class="card-label">ThornixOS // Services</div>
+                <div class="card-value" id="servicesValue">Loading service catalog</div>
+                <div class="card-meta" id="servicesMeta">Live SOC probes and Casita entities</div>
+              </div>
+              <div class="soc-stats">
+                <span class="soc-stat" id="servicesHealthy">--/-- healthy</span>
+                <span class="soc-stat" id="servicesSlo">--/-- SLO</span>
+                <span class="soc-stat" id="servicesStaged">-- staged</span>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="conversation">
+          <div class="route-rail" aria-label="Assistant route details">
+            <span class="route-chip" id="routeChip"></span>
+            <span class="route-chip tool" id="toolChip"></span>
+            <span class="route-chip" id="modelChip"></span>
+            <span class="route-chip voice" id="naturalVoiceChip"></span>
+            <span class="route-chip" id="latencyChip"></span>
+          </div>
+          <div class="question" id="question"></div>
+          <div class="answer" id="answer">Getting ready…</div>
+          <div class="detail" id="detail"></div>
+          <div class="context-card" id="contextCard">
+            <div class="context-icon" id="contextIcon">◌</div>
+            <div>
+              <div class="context-title" id="contextTitle"></div>
+              <div class="context-value" id="contextValue"></div>
+              <div class="context-meta" id="contextMeta"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-hints">
+        <span class="command-hint" id="commandHint">Say “Okay Nabu” · then ask “What can you do?”</span>
+        <div class="timer-strip" id="timerStrip"><span>◷</span><span id="timerName">Timer</span><span class="timer-time" id="timerTime">00:00</span></div>
+      </div>
+      <div class="controls">
+        <button class="control" id="wakeButton" type="button"><span class="key">Y</span> Wake display</button>
+        <button class="control" id="reconnectButton" type="button"><span class="key">X</span> Reconnect</button>
+        <button class="control" id="closeButton" type="button">Desktop</button>
+      </div>
+    </footer>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const body = document.body;
+    const label = document.getElementById("label");
+    const question = document.getElementById("question");
+    const answer = document.getElementById("answer");
+    const detail = document.getElementById("detail");
+    const contextCard = document.getElementById("contextCard");
+    const waveform = Array.from(document.querySelectorAll("#waveform i"));
+    const waveShape = [.24, .45, .7, .94, .61, 1, .66, .9, .58, .4, .22];
+    let currentState = {};
+    let contextKind = "";
+    let toastTimer = null;
+    let hintIndex = 0;
+    const commandHints = [
+      "Say “Okay Nabu” · then ask “What can you do?”",
+      "Try “Give me my daily briefing”",
+      "Try “What needs my attention?”",
+      "Try “Give me the three day forecast”",
+      "Try “What is the microphone status?”",
+      "Try “Read the shopping list”",
+      "Try “Give me the deployment status”",
+      "Try “Is Sieve online?”",
+      "Try “List my services”",
+      "Try “Which service is slowest?”",
+      "Try “How reliable is Forge?”",
+      "Try “Refresh the service status”",
+      "Try “Set the TV volume to 40 percent”"
+    ];
+
+    function titleCase(value) {
+      const known = {
+        "partlycloudy": "Partly cloudy",
+        "clear-night": "Clear night",
+        "pouring": "Heavy rain",
+        "lightning-rainy": "Thunderstorms"
+      };
+      if (known[value]) return known[value];
+      return String(value || "Unknown").replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase());
+    }
+
+    function weatherIcon(condition) {
+      const value = String(condition || "").toLowerCase();
+      if (value.includes("lightning")) return "ϟ";
+      if (value.includes("snow") || value.includes("hail")) return "❄";
+      if (value.includes("rain") || value.includes("pour")) return "☂";
+      if (value.includes("fog")) return "≋";
+      if (value.includes("cloud")) return value.includes("partly") ? "◒" : "☁";
+      if (value.includes("clear") || value.includes("sunny")) return "☀";
+      if (value.includes("wind")) return "≈";
+      return "◌";
+    }
+
+    function numberOrNull(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function formatTemperature(weather) {
+      const temperature = numberOrNull(weather?.temperature);
+      if (temperature === null) return "--°";
+      const unit = weather.temperature_unit || "°";
+      return `${Math.round(temperature)}${unit}`;
+    }
+
+    function formatTime(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "Unknown";
+      return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+
+    function formatRelative(value) {
+      const timestamp = Number(value) > 1000000000 ? Number(value) * 1000 : new Date(value).getTime();
+      if (!Number.isFinite(timestamp)) return "unknown";
+      const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+      if (seconds < 60) return `${seconds}s ago`;
+      if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
+      if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
+      return `${Math.round(seconds / 86400)}d ago`;
+    }
+
+    function greetingFor(hour) {
+      if (hour < 5) return "A quiet night at Casita";
+      if (hour < 12) return "Good morning, Jamie";
+      if (hour < 18) return "Good afternoon, Jamie";
+      return "Good evening, Jamie";
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clock").textContent = now.toLocaleTimeString([], {
+        hour: "numeric", minute: "2-digit"
+      });
+      document.getElementById("date").textContent = now.toLocaleDateString([], {
+        weekday: "long", month: "long", day: "numeric"
+      });
+      document.getElementById("greeting").textContent = greetingFor(now.getHours());
+      if (contextKind === "time") {
+        document.getElementById("contextValue").textContent = now.toLocaleTimeString([], {
+          hour: "numeric", minute: "2-digit"
+        });
+        document.getElementById("contextMeta").textContent = now.toLocaleDateString([], {
+          weekday: "long", month: "long", day: "numeric"
+        });
+      }
+      updateTimer();
+      updateFreshness();
+    }
+
+    function renderHome(home = {}) {
+      const weather = home.weather || {};
+      const condition = titleCase(weather.condition || "Unknown");
+      const icon = weatherIcon(weather.condition);
+      const temperature = formatTemperature(weather);
+      const humidity = numberOrNull(weather.humidity);
+      document.getElementById("heroWeatherIcon").textContent = icon;
+      document.getElementById("heroTemperature").textContent = temperature;
+      document.getElementById("heroCondition").textContent = condition;
+      document.getElementById("weatherIcon").textContent = icon;
+      document.getElementById("weatherValue").textContent = `${temperature} · ${condition}`;
+      const forecast = Array.isArray(weather.forecast) ? weather.forecast : [];
+      const tomorrow = forecast[1];
+      const high = numberOrNull(tomorrow?.temperature);
+      const low = numberOrNull(tomorrow?.templow);
+      document.getElementById("weatherMeta").textContent = high !== null
+        ? `Tomorrow ${Math.round(high)}° / ${low === null ? "--" : Math.round(low)}° · ${titleCase(tomorrow.condition)}`
+        : humidity === null ? "Current conditions" : `${Math.round(humidity)}% humidity`;
+
+      const person = home.person || {};
+      const personState = String(person.state || "unknown").toLowerCase();
+      const personValue = personState === "home" ? "Jamie is home" : personState === "not_home" ? "Jamie is away" : "Location unavailable";
+      document.getElementById("personValue").textContent = personValue;
+      const rackTemperature = numberOrNull(home.rack?.temperature);
+      const rackHumidity = numberOrNull(home.rack?.humidity);
+      document.getElementById("personMeta").textContent = rackTemperature === null
+        ? personState === "unknown" ? "Presence not configured" : "Casita presence"
+        : `Rack ${Math.round(rackTemperature)}${home.rack?.temperature_unit || "°"}${rackHumidity === null ? "" : ` · ${Math.round(rackHumidity)}% RH`}`;
+
+      const media = Array.isArray(home.media) ? home.media : [];
+      const active = media.find(item => ["playing", "paused"].includes(String(item?.state || "").toLowerCase()));
+      const streams = Math.max(0, Number.parseInt(home.streams?.count, 10) || 0);
+      document.getElementById("mediaValue").textContent = active?.title || (active ? active.name : "Nothing playing");
+      const mediaState = active ? titleCase(active.state) : `${streams} active stream${streams === 1 ? "" : "s"}`;
+      document.getElementById("mediaMeta").textContent = active?.artist ? `${active.artist} · ${mediaState}` : mediaState;
+
+      const rising = new Date(home.sun?.next_rising || "");
+      const setting = new Date(home.sun?.next_setting || "");
+      const now = Date.now();
+      const options = [
+        { name: "Sunrise", date: rising, icon: "↑" },
+        { name: "Sunset", date: setting, icon: "↓" }
+      ].filter(item => !Number.isNaN(item.date.getTime()) && item.date.getTime() > now - 60000)
+       .sort((left, right) => left.date - right.date);
+      const next = options[0];
+      document.getElementById("sunIcon").textContent = next?.icon || "☀";
+      document.getElementById("sunValue").textContent = next ? `${next.name} at ${formatTime(next.date)}` : "Daylight unavailable";
+      document.getElementById("sunMeta").textContent = next ? next.date.toLocaleDateString([], { weekday: "long" }) : "Casita";
+
+      renderSoc(home.soc || {});
+      renderServices(home.thornix_services || []);
+    }
+
+    function renderSoc(soc = {}) {
+      const knownStatuses = ["healthy", "warning", "critical"];
+      const rawStatus = String(soc.status || "unavailable").toLowerCase();
+      const status = knownStatuses.includes(rawStatus) ? rawStatus : "offline";
+      const summary = soc.summary || {};
+      const fleet = soc.fleet || {};
+      const services = soc.services || {};
+      const security = soc.security || {};
+      const nodeTotal = Math.max(0, Number.parseInt(fleet.node_targets, 10) || 0);
+      const nodeDown = Array.isArray(fleet.down_hosts) ? fleet.down_hosts.length : 0;
+      const serviceTotal = Math.max(0, Number.parseInt(services.checked, 10) || 0);
+      const serviceDown = Array.isArray(services.unavailable) ? services.unavailable.length : 0;
+      const signals = ["suricata_alerts", "pfsense_high_alerts", "opencanary_interactions", "crowdsec_scenarios", "zeek_notices"]
+        .reduce((total, key) => total + Math.max(0, Number.parseInt(security[key], 10) || 0), 0);
+      const actionCount = Math.max(0, Number.parseInt(summary.action_count, 10) || 0);
+      const card = document.getElementById("socCard");
+      card.dataset.severity = status;
+      document.getElementById("socIcon").textContent = status === "critical" ? "!" : status === "warning" ? "△" : status === "healthy" ? "⬡" : "◇";
+      document.getElementById("socValue").textContent = status === "healthy"
+        ? "Fleet healthy"
+        : status === "critical"
+          ? `${actionCount} action${actionCount === 1 ? "" : "s"} need attention`
+          : status === "warning"
+            ? `${actionCount} item${actionCount === 1 ? "" : "s"} to review`
+            : "SOC summary unavailable";
+      const actions = Array.isArray(soc.actions) ? soc.actions : [];
+      document.getElementById("socMeta").textContent = actions[0]?.message || summary.headline || "Waiting for the bounded operator summary";
+      document.getElementById("socFleet").textContent = `${Math.max(0, nodeTotal - nodeDown)}/${nodeTotal || "--"} hosts`;
+      document.getElementById("socServices").textContent = `${Math.max(0, serviceTotal - serviceDown)}/${serviceTotal || "--"} services`;
+      document.getElementById("socSignals").textContent = `${signals} signal${signals === 1 ? "" : "s"}`;
+    }
+
+    function renderServices(catalog = []) {
+      const services = Array.isArray(catalog) ? catalog : [];
+      const monitored = services.filter(service => service.status !== "not_monitored");
+      const healthy = monitored.filter(service => service.status === "healthy");
+      const attention = monitored.filter(service => service.status !== "healthy");
+      const staged = services.filter(service => service.status === "not_monitored");
+      const reliabilityTracked = monitored.filter(service => !["", "unknown", "none"].includes(String(service.slo_status || "unknown").toLowerCase()));
+      const reliabilityMet = reliabilityTracked.filter(service => service.slo_status === "met");
+      const reliabilityAttention = reliabilityTracked.filter(service => ["down", "breached", "at_risk"].includes(service.slo_status));
+      const slowest = monitored
+        .map(service => ({ service, seconds: numberOrNull(service.latency_p95_seconds) ?? numberOrNull(service.latency_seconds) }))
+        .filter(item => item.seconds !== null)
+        .sort((left, right) => right.seconds - left.seconds)[0];
+      const severity = !services.length ? "offline" : attention.length ? "critical" : reliabilityAttention.length || staged.length ? "warning" : "healthy";
+      const card = document.getElementById("servicesCard");
+      card.dataset.severity = severity;
+      document.getElementById("servicesIcon").textContent = severity === "critical" ? "!" : severity === "warning" ? "△" : severity === "healthy" ? "◫" : "◇";
+      document.getElementById("servicesValue").textContent = !services.length
+        ? "Service catalog unavailable"
+        : attention.length
+          ? `${attention.length} service${attention.length === 1 ? "" : "s"} need attention`
+          : `${healthy.length} monitored services online`;
+      document.getElementById("servicesMeta").textContent = attention.length
+        ? attention.slice(0, 4).map(service => service.name).join(" · ")
+        : reliabilityAttention.length
+          ? `Reliability watch: ${reliabilityAttention.slice(0, 4).map(service => service.name).join(" · ")}`
+        : staged.length
+          ? `${staged.map(service => service.name).join(" · ")} staged for monitoring`
+          : slowest
+            ? `Slowest p95: ${slowest.service.name} · ${Math.round(slowest.seconds * 1000)} ms`
+            : "PKI · identity · automation · security · storage · infrastructure";
+      document.getElementById("servicesHealthy").textContent = `${healthy.length}/${monitored.length || "--"} healthy`;
+      document.getElementById("servicesSlo").textContent = `${reliabilityMet.length}/${reliabilityTracked.length || "--"} SLO`;
+      document.getElementById("servicesStaged").textContent = `${staged.length} staged`;
+    }
+
+    function updateFreshness() {
+      const chip = document.getElementById("homeChip");
+      const text = document.getElementById("homeStatus");
+      const updated = Number(currentState.home_updated || 0) * 1000;
+      const age = updated ? Date.now() - updated : Infinity;
+      chip.classList.remove("offline", "stale");
+      if (!updated) {
+        chip.classList.add("offline");
+        text.textContent = "Waiting for home";
+      } else if (age > 150000) {
+        chip.classList.add("stale");
+        text.textContent = "Home data stale";
+      } else {
+        text.textContent = "Home live";
+      }
+    }
+
+    function renderAudioHealth(state) {
+      const chip = document.getElementById("micChip");
+      const text = document.getElementById("micStatus");
+      const health = state.health || {};
+      const pipewire = health.pipewire === true;
+      const capture = health.capture === true;
+      const connected = state.connected === true;
+      const streaming = state.streaming === true;
+      chip.classList.remove("offline", "recovering");
+      if (!pipewire || !capture) {
+        chip.classList.add("offline");
+        text.textContent = !pipewire ? "Audio service offline" : "Mic capture offline";
+        return;
+      }
+      if (!connected || !streaming) {
+        chip.classList.add("recovering");
+        text.textContent = "Mic reconnecting";
+        return;
+      }
+      const output = numberOrNull(health.output_volume);
+      const muted = health.output_muted === true;
+      text.textContent = muted ? "Mic live · TV muted" : output === null ? "Mic live" : `Mic live · TV ${Math.round(output)}%`;
+    }
+
+    function fallbackAnswer(mode) {
+      return {
+        listening: "I'm listening…",
+        thinking: "One moment…",
+        speaking: "Here's what I found",
+        done: "All set",
+        offline: "Voice is reconnecting",
+        paused: "Microphone paused",
+        error: "Please try again"
+      }[mode] || "Ready when you are";
+    }
+
+    function setRouteChip(id, labelText, value) {
+      const chip = document.getElementById(id);
+      const visible = value !== null && value !== undefined && String(value).trim() !== "";
+      chip.classList.toggle("visible", visible);
+      chip.replaceChildren();
+      if (!visible) return;
+      chip.append(`${labelText} `);
+      const strong = document.createElement("strong");
+      strong.textContent = String(value);
+      chip.append(strong);
+    }
+
+    function friendlyTool(value) {
+      return String(value || "")
+        .replace(/^Get/, "Read ")
+        .replace(/^Set/, "Set ")
+        .replace(/^Control/, "Control ")
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .trim();
+    }
+
+    function renderAssistant(state) {
+      const homeVoice = state.home?.voice || {};
+      const route = state.route === "control" ? "Local control" : state.route === "chat" ? "Local chat" : state.route === "fallback" ? "Fallback" : "";
+      const model = state.model || homeVoice.model_name || "";
+      const voiceName = state.voice || homeVoice.natural_voice_name || "";
+      const voiceMode = homeVoice.voice_mode;
+      const voice = voiceName ? `${voiceName}${voiceMode ? ` · ${voiceMode}` : ""}` : "";
+      const elapsed = numberOrNull(state.elapsed_ms);
+      const voiceSeconds = numberOrNull(homeVoice.voice_latency);
+      const latency = elapsed !== null ? `${Math.round(elapsed)} ms` : voiceSeconds !== null ? `${voiceSeconds.toFixed(2)} s voice` : "";
+      setRouteChip("routeChip", "Route", route);
+      setRouteChip("toolChip", "Tool", friendlyTool(state.tool));
+      setRouteChip("modelChip", "Model", model);
+      setRouteChip("naturalVoiceChip", "Voice", voice);
+      setRouteChip("latencyChip", "Time", latency);
+    }
+
+    function setContext(icon, title, value, meta, kind) {
+      contextKind = kind;
+      document.getElementById("contextIcon").textContent = icon;
+      document.getElementById("contextTitle").textContent = title;
+      document.getElementById("contextValue").textContent = value;
+      document.getElementById("contextMeta").textContent = meta;
+      contextCard.classList.add("visible");
+    }
+
+    function renderContext(state) {
+      contextCard.classList.remove("visible");
+      contextKind = "";
+      const query = `${state.transcript || ""} ${state.response || ""} ${state.label || ""}`.toLowerCase();
+      const home = state.home || {};
+      const timerRelevant = query.includes("timer") || state.status === "speaking" && state.timer?.finished;
+      if (timerRelevant && state.timer) {
+        setContext("◷", state.timer.name || "Timer", timerRemainingText(state.timer), state.timer.finished ? "Time is up" : state.timer.active ? "Counting down" : "Paused", "timer");
+        return;
+      }
+      if (/microphone|voice health|voice diagnostic|voice stream|voice satellite/.test(query)) {
+        const health = state.health || {};
+        const voice = home.voice || {};
+        const healthy = state.connected && state.streaming && health.pipewire && health.capture;
+        const recoveries = Math.max(0, Number.parseInt(state.recovery_count ?? voice.recovery_count, 10) || 0);
+        const tuning = `${voice.noise_suppression || "--"} suppression · gain ${voice.auto_gain || "--"} · volume ${voice.mic_volume || "--"}`;
+        setContext(healthy ? "●" : "△", "Deck Voice diagnostics", healthy ? "Microphone healthy" : "Microphone recovering", `${tuning} · ${recoveries} automatic ${recoveries === 1 ? "recovery" : "recoveries"}`, "microphone");
+        return;
+      }
+      if (/network rack|server rack|rack temperature/.test(query)) {
+        const rack = home.rack || {};
+        const temperature = numberOrNull(rack.temperature);
+        const humidity = numberOrNull(rack.humidity);
+        const battery = numberOrNull(rack.battery);
+        setContext("▦", "Network rack", temperature === null ? "Sensor unavailable" : `${Math.round(temperature)}${rack.temperature_unit || "°"}`, `${humidity === null ? "--" : Math.round(humidity)}% humidity · ${battery === null ? "--" : Math.round(battery)}% sensor battery`, "rack");
+        return;
+      }
+      if (/backup/.test(query)) {
+        const backup = home.backup || {};
+        const status = titleCase(backup.state || "unavailable");
+        const last = backup.last_successful && !["unknown", "unavailable"].includes(backup.last_successful) ? formatRelative(backup.last_successful) : "last run unknown";
+        const next = backup.next_scheduled && !["unknown", "unavailable"].includes(backup.next_scheduled) ? `next ${formatTime(backup.next_scheduled)}` : "schedule unknown";
+        setContext("↻", "Home Assistant backup", status, `${last} · ${next}`, "backup");
+        return;
+      }
+      if (/storage|disk status|disks? (are|is) full|disk pressure/.test(query)) {
+        const disks = Array.isArray(home.soc?.fleet?.disk_attention) ? home.soc.fleet.disk_attention : [];
+        const first = disks[0];
+        setContext("▤", "Fleet storage", disks.length ? `${disks.length} ${disks.length === 1 ? "disk" : "disks"} need attention` : "No disk pressure", first ? `Highest: ${first.host} · ${numberOrNull(first.used_percent)?.toFixed(1) || "--"}% used` : "All monitored root filesystems are below threshold", "storage");
+        return;
+      }
+      if (/deployment|fleet in sync|hosts? drifted|waiting for a reboot|need a reboot/.test(query)) {
+        const deployment = home.soc?.deployment || {};
+        const drifted = Array.isArray(deployment.drifted_hosts) ? deployment.drifted_hosts : [];
+        const reboots = Array.isArray(deployment.reboot_pending) ? deployment.reboot_pending : [];
+        const targets = Math.max(0, Number.parseInt(deployment.targets, 10) || 0);
+        setContext("⇄", "Thornix deployment", drifted.length ? `${drifted.length} drifted ${drifted.length === 1 ? "host" : "hosts"}` : `${targets || "--"} targets aligned`, reboots.length ? `Reboot pending: ${reboots.join(", ")}` : "No reboots pending", "deployment");
+        return;
+      }
+      if (/shopping list/.test(query)) {
+        setContext("✓", "Shopping list", state.response || "List updated", "Synced through Home Assistant", "shopping");
+        return;
+      }
+      if (/jamie|who is home|who's home|home status|house report/.test(query)) {
+        const personState = String(home.person?.state || "unknown").toLowerCase();
+        const value = personState === "home" ? "Jamie is home" : personState === "not_home" ? "Jamie is away" : titleCase(personState);
+        setContext("⌂", "Casita presence", value, "Live Home Assistant presence", "presence");
+        return;
+      }
+      if (/what can you do|voice commands|command help|help me/.test(query)) {
+        setContext("✦", "Voice command catalog", "Home · media · operations", "Weather, every ThornixOS service, SOC, storage, backups, rack, shopping, TV, microphone and display", "help");
+        return;
+      }
+      const serviceCatalog = Array.isArray(home.thornix_services) ? home.thornix_services : [];
+      const genericServiceQuery = /list (?:all )?(?:of )?(?:my )?services|service catalog|all (?:of )?(?:my )?services|services (?:are )?(?:online|healthy)|service fleet|give me (?:the )?service status|services? need attention|services? (?:are )?(?:degraded|down|staged)|service is (?:the )?slowest|slowest services?|service latency|how fast are (?:my )?services/.test(query);
+      if (genericServiceQuery && serviceCatalog.length) {
+        const monitored = serviceCatalog.filter(service => service.status !== "not_monitored");
+        const healthy = monitored.filter(service => service.status === "healthy");
+        const attention = monitored.filter(service => service.status !== "healthy");
+        const staged = serviceCatalog.filter(service => service.status === "not_monitored");
+        const reliabilityAttention = monitored.filter(service => ["down", "breached", "at_risk"].includes(service.slo_status));
+        const slowest = monitored
+          .map(service => ({ service, seconds: numberOrNull(service.latency_p95_seconds) ?? numberOrNull(service.latency_seconds) }))
+          .filter(item => item.seconds !== null)
+          .sort((left, right) => right.seconds - left.seconds)[0];
+        const meta = attention.length
+          ? `Attention: ${attention.map(service => service.name).join(", ")}`
+          : reliabilityAttention.length
+            ? `Reliability watch: ${reliabilityAttention.map(service => service.name).join(", ")}`
+          : staged.length
+            ? `Staged: ${staged.map(service => service.name).join(", ")}`
+            : slowest
+              ? `Slowest p95: ${slowest.service.name} at ${Math.round(slowest.seconds * 1000)} ms`
+            : "Every integrated service is monitored and online";
+        setContext("◫", "ThornixOS service catalog", `${healthy.length}/${monitored.length} monitored services healthy`, meta, "services");
+        return;
+      }
+      const serviceStatusQuery = /\b(service|endpoint|online|offline|healthy|check|reliable|reliability|uptime|availability|latency)\b/.test(query);
+      if (serviceStatusQuery && serviceCatalog.length) {
+        const normalizedQuery = ` ${query.replace(/[^a-z0-9]+/g, " ").trim()} `;
+        const ignoredTerms = new Set(["service", "services", "server", "status", "healthy", "online", "security", "management", "operations", "monitoring"]);
+        const matches = serviceCatalog.filter(service => {
+          const aliases = String(service.aliases || "").split(",");
+          const terms = [service.id, service.name, service.host, ...aliases]
+            .map(value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim())
+            .filter(term => term.length > 2 && !ignoredTerms.has(term));
+          return terms.some(term => normalizedQuery.includes(` ${term} `));
+        });
+        if (matches.length) {
+          const service = matches[0];
+          const latency = numberOrNull(service.latency_seconds);
+          const availability = numberOrNull(service.availability_percent);
+          const p95 = numberOrNull(service.latency_p95_seconds);
+          const httpStatus = numberOrNull(service.http_status);
+          const tlsDays = numberOrNull(service.tls_days_remaining);
+          const status = String(service.status || "unavailable");
+          const meta = [
+            service.role || "ThornixOS service",
+            latency === null ? null : `${Math.round(latency * 1000)} ms`,
+            p95 === null ? null : `p95 ${Math.round(p95 * 1000)} ms`,
+            availability === null ? null : `${availability.toFixed(3)}% ${service.reliability_window || "24h"}`,
+            !service.slo_status || service.slo_status === "unknown" ? null : `SLO ${titleCase(service.slo_status)}`,
+            httpStatus === null ? null : `HTTP ${Math.round(httpStatus)}`,
+            tlsDays === null ? null : `TLS ${tlsDays.toFixed(1)} days`
+          ].filter(Boolean).join(" · ");
+          setContext(status === "healthy" ? "●" : status === "not_monitored" ? "○" : "△", service.name || service.id, titleCase(status), meta, `service-${service.id}`);
+          return;
+        }
+      }
+      if (/weather|temperature|rain|snow|outside|forecast/.test(query)) {
+        const weather = home.weather || {};
+        const humidity = numberOrNull(weather.humidity);
+        const forecast = Array.isArray(weather.forecast) ? weather.forecast : [];
+        const tomorrow = forecast[1];
+        const tomorrowHigh = numberOrNull(tomorrow?.temperature);
+        const meta = tomorrowHigh === null
+          ? humidity === null ? "Current conditions" : `${Math.round(humidity)}% humidity`
+          : `Tomorrow: ${titleCase(tomorrow.condition)} · ${Math.round(tomorrowHigh)}° high`;
+        setContext(weatherIcon(weather.condition), "Weather at Casita", `${formatTemperature(weather)} · ${titleCase(weather.condition)}`, meta, "weather");
+        return;
+      }
+      if (/what time|current time|time is|clock/.test(query)) {
+        const now = new Date();
+        setContext("◷", "Local time", now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }), "time");
+        return;
+      }
+      if (/\bsoc\b|security status|security alert|security priorit|critical action|needs my attention|what needs|fleet status|monitored host|service probe|suricata|zeek|failed unit/.test(query)) {
+        const soc = home.soc || {};
+        const summary = soc.summary || {};
+        const fleet = soc.fleet || {};
+        const services = soc.services || {};
+        const security = soc.security || {};
+        const actions = Array.isArray(soc.actions) ? soc.actions : [];
+        const status = String(soc.status || "unavailable").toLowerCase();
+        const actionCount = Math.max(0, Number.parseInt(summary.action_count, 10) || 0);
+        const nodeTotal = Math.max(0, Number.parseInt(fleet.node_targets, 10) || 0);
+        const nodeDown = Array.isArray(fleet.down_hosts) ? fleet.down_hosts.length : 0;
+        const serviceTotal = Math.max(0, Number.parseInt(services.checked, 10) || 0);
+        const serviceDown = Array.isArray(services.unavailable) ? services.unavailable.length : 0;
+        const signals = ["suricata_alerts", "pfsense_high_alerts", "opencanary_interactions", "crowdsec_scenarios", "zeek_notices"]
+          .reduce((total, key) => total + Math.max(0, Number.parseInt(security[key], 10) || 0), 0);
+        const value = ["healthy", "warning", "critical"].includes(status)
+          ? `${titleCase(status)} · ${actionCount} action${actionCount === 1 ? "" : "s"}`
+          : "SOC unavailable";
+        const operational = `${Math.max(0, nodeTotal - nodeDown)}/${nodeTotal || "--"} hosts · ${Math.max(0, serviceTotal - serviceDown)}/${serviceTotal || "--"} probes · ${signals} signals`;
+        setContext("⬡", "Security operations · 24 hours", value, actions[0]?.message || operational, "soc");
+        return;
+      }
+      if (/playing|music|movie|thornflix|media|watching/.test(query)) {
+        const media = Array.isArray(home.media) ? home.media : [];
+        const active = media.find(item => ["playing", "paused"].includes(String(item?.state || "").toLowerCase()));
+        const streams = Math.max(0, Number.parseInt(home.streams?.count, 10) || 0);
+        setContext("▶", "Now playing", active?.title || "Nothing playing", active?.artist || `${streams} active ThornFlix stream${streams === 1 ? "" : "s"}`, "media");
+      }
+    }
+
+    function applyState(state) {
+      currentState = state || {};
+      const mode = state.status || "idle";
+      body.dataset.state = mode;
+      body.classList.toggle("active", !["idle", "starting"].includes(mode));
+      const responseLength = String(state.response || "").length;
+      body.classList.toggle("long-answer", responseLength > 150 && responseLength <= 300);
+      body.classList.toggle("very-long-answer", responseLength > 300);
+      label.textContent = state.label || "Ready";
+      question.textContent = state.transcript ? `“${state.transcript}”` : "";
+      answer.textContent = state.response || fallbackAnswer(mode);
+      detail.textContent = state.detail || "";
+      document.getElementById("voiceStatus").textContent = state.connected && state.streaming ? "Voice ready" : mode === "offline" ? "Voice offline" : state.connected ? "Stream paused" : "Connecting voice";
+      renderAudioHealth(state);
+      renderAssistant(state);
+      renderHome(state.home || {});
+      renderContext(state);
+      updateFreshness();
+      updateTimer();
+    }
+
+    function timerSeconds(timer) {
+      if (!timer) return 0;
+      if (timer.active && timer.ends_at) return Math.max(0, Math.ceil(Number(timer.ends_at) - Date.now() / 1000));
+      return Math.max(0, Number(timer.total_seconds) || 0);
+    }
+
+    function timerRemainingText(timer) {
+      const total = timerSeconds(timer);
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor(total % 3600 / 60);
+      const seconds = total % 60;
+      return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}` : `${minutes}:${String(seconds).padStart(2, "0")}`;
+    }
+
+    function updateTimer() {
+      const timer = currentState.timer;
+      const strip = document.getElementById("timerStrip");
+      strip.classList.toggle("visible", Boolean(timer));
+      if (!timer) return;
+      document.getElementById("timerName").textContent = timer.name || "Timer";
+      document.getElementById("timerTime").textContent = timer.finished ? "Done" : timerRemainingText(timer);
+      if (contextKind === "timer") {
+        document.getElementById("contextValue").textContent = timer.finished ? "Done" : timerRemainingText(timer);
+      }
+    }
+
+    function applyLevel(rawLevel) {
+      const active = currentState.status === "listening";
+      const level = active ? Math.max(0, Math.min(1, Number(rawLevel) || 0)) : 0;
+      waveform.forEach((bar, index) => {
+        const shaped = Math.max(.12, level * waveShape[index]);
+        bar.style.transform = `scaleY(${shaped.toFixed(3)})`;
+      });
+      document.getElementById("orbShell").style.transform = `scale(${(1 + level * .065).toFixed(3)})`;
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("visible"), 2200);
+    }
+
+    function rotateHint() {
+      const hint = document.getElementById("commandHint");
+      hint.classList.add("changing");
+      setTimeout(() => {
+        hintIndex = (hintIndex + 1) % commandHints.length;
+        hint.textContent = commandHints[hintIndex];
+        hint.classList.remove("changing");
+      }, 250);
+    }
+
+    async function action(name) {
+      try {
+        const response = await fetch("/api/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: name })
+        });
+        if (!response.ok) throw new Error("action failed");
+        if (name === "wake") showToast("Display activity sent");
+        if (name === "reconnect") showToast("Refreshing the voice stream…");
+      } catch (_error) {
+        showToast("Display service unavailable");
+      }
+    }
+
+    document.getElementById("wakeButton").addEventListener("click", () => action("wake"));
+    document.getElementById("reconnectButton").addEventListener("click", () => action("reconnect"));
+    document.getElementById("closeButton").addEventListener("click", () => action("close"));
+    document.addEventListener("keydown", event => {
+      if (event.shiftKey && event.key === "Escape") action("close");
+      if (event.altKey && event.code === "KeyR") action("reconnect");
+    });
+
+    let previousButtons = [];
+    function pollGamepad() {
+      const gamepad = navigator.getGamepads?.()[0];
+      if (gamepad) {
+        const pressed = gamepad.buttons.map(button => button.pressed);
+        if (pressed[3] && !previousButtons[3]) action("wake");
+        if (pressed[2] && !previousButtons[2]) action("reconnect");
+        previousButtons = pressed;
+      }
+      requestAnimationFrame(pollGamepad);
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+    setInterval(rotateHint, 8500);
+    requestAnimationFrame(pollGamepad);
+    fetch("/api/state").then(response => response.json()).then(applyState).catch(() => {});
+    const events = new EventSource("/events");
+    events.addEventListener("state", event => applyState(JSON.parse(event.data)));
+    events.addEventListener("level", event => applyLevel(JSON.parse(event.data)));
+    events.onopen = () => {
+      if (Object.keys(currentState).length) applyState(currentState);
+    };
+    events.onerror = () => {
+      document.getElementById("voiceStatus").textContent = "Display reconnecting";
+    };
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        fetch("/api/state").then(response => response.json()).then(applyState).catch(() => {});
+      }
+    });
+  </script>
+</body>
+</html>

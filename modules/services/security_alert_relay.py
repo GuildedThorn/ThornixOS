@@ -383,6 +383,33 @@ def metric_value(result: dict[str, Any]) -> float:
     return finite_float(value[1])
 
 
+def service_slo_status(
+    healthy: bool,
+    availability_percent: float | None,
+    latency_p95_seconds: float | None,
+) -> str:
+    """Classify current reachability and the bounded reliability window."""
+    if not healthy:
+        return "down"
+    if availability_percent is None and latency_p95_seconds is None:
+        return "unknown"
+    if (
+        availability_percent is not None
+        and availability_percent < 99.0
+        or latency_p95_seconds is not None
+        and latency_p95_seconds >= 2.0
+    ):
+        return "breached"
+    if (
+        availability_percent is not None
+        and availability_percent < 99.9
+        or latency_p95_seconds is not None
+        and latency_p95_seconds >= 1.0
+    ):
+        return "at_risk"
+    return "met"
+
+
 def short_instance(value: Any) -> str:
     rendered = str(value or "unknown")[:300]
     if "://" in rendered:
@@ -1066,13 +1093,27 @@ def build_ops_summary(
         key=lambda item: (-item["used_percent"], item["host"]),
     )[:16]
 
-    probe_rows = prom("service-probes", 'probe_success{job="blackbox-http"}')
+    probe_rows = prom(
+        "service-probes",
+        'probe_success{job="blackbox-http",service_id!=""}',
+    )
     unavailable_services = sorted(
         str(labels(result).get("instance") or "unknown")[:300]
         for result in probe_rows
         if metric_value(result) < 1
     )[:64]
-    latency_rows = prom("service-latency", 'probe_duration_seconds{job="blackbox-http"}')
+    latency_rows = prom(
+        "service-latency",
+        'probe_duration_seconds{job="blackbox-http",service_id!=""}',
+    )
+    availability_rows = prom(
+        "service-availability",
+        f'avg_over_time(probe_success{{job="blackbox-http",service_id!=""}}[{window}])',
+    )
+    latency_p95_rows = prom(
+        "service-latency-p95",
+        f'quantile_over_time(0.95, probe_duration_seconds{{job="blackbox-http",service_id!=""}}[{window}])',
+    )
     slow_services = sorted(
         (
             {
@@ -1084,10 +1125,14 @@ def build_ops_summary(
         ),
         key=lambda item: (-item["seconds"], item["url"]),
     )[:16]
+    http_status_rows = prom(
+        "service-http-status",
+        'probe_http_status_code{job="blackbox-http",service_id!=""}',
+    )
 
     tls_rows = prom(
         "tls-expiry",
-        '(probe_ssl_earliest_cert_expiry{job="blackbox-http"} - time()) / 86400',
+        '(probe_ssl_earliest_cert_expiry{job="blackbox-http",service_id!=""} - time()) / 86400',
     )
     internal_tls = []
     external_tls = []
@@ -1111,6 +1156,109 @@ def build_ops_summary(
         (item for item in external_tls if item["days_remaining"] <= 30),
         key=lambda item: item["days_remaining"],
     )[:16]
+
+    latency_by_instance = {
+        str(labels(result).get("instance") or "unknown")[:300]: round(
+            metric_value(result), 3
+        )
+        for result in latency_rows
+    }
+    availability_by_instance = {
+        str(labels(result).get("instance") or "unknown")[:300]: round(
+            max(0.0, min(100.0, metric_value(result) * 100)), 3
+        )
+        for result in availability_rows
+    }
+    latency_p95_by_instance = {
+        str(labels(result).get("instance") or "unknown")[:300]: round(
+            max(0.0, metric_value(result)), 3
+        )
+        for result in latency_p95_rows
+    }
+    http_status_by_instance = {
+        str(labels(result).get("instance") or "unknown")[:300]: int(
+            metric_value(result)
+        )
+        for result in http_status_rows
+    }
+    tls_by_instance = {
+        item["url"]: item["days_remaining"] for item in [*internal_tls, *external_tls]
+    }
+    service_catalog = []
+    for result in probe_rows[:64]:
+        metric = labels(result)
+        instance = str(metric.get("instance") or "unknown")[:300]
+        parsed = urllib.parse.urlparse(instance)
+        fallback_id = re.sub(
+            r"[^a-z0-9]+",
+            "-",
+            (parsed.hostname or short_instance(instance)).lower(),
+        ).strip("-")[:64]
+        healthy = metric_value(result) >= 1
+        availability_percent = availability_by_instance.get(instance)
+        latency_p95_seconds = latency_p95_by_instance.get(instance)
+        service_catalog.append(
+            {
+                "id": str(metric.get("service_id") or fallback_id or "unknown")[:64],
+                "name": str(
+                    metric.get("service_name")
+                    or parsed.hostname
+                    or short_instance(instance)
+                    or "Unknown"
+                )[:120],
+                "role": str(metric.get("service_role") or "Monitored endpoint")[:160],
+                "host": str(
+                    metric.get("service_host")
+                    or parsed.hostname
+                    or short_instance(instance)
+                )[:120],
+                "status": "healthy" if healthy else "unavailable",
+                "healthy": healthy,
+                "latency_seconds": latency_by_instance.get(instance),
+                "availability_percent": availability_percent,
+                "latency_p95_seconds": latency_p95_seconds,
+                "slo_status": service_slo_status(
+                    healthy,
+                    availability_percent,
+                    latency_p95_seconds,
+                ),
+                "http_status": http_status_by_instance.get(instance),
+                "tls_days_remaining": tls_by_instance.get(instance),
+                "probe_url": instance,
+                "url": str(metric.get("service_url") or "")[:300],
+                "icon": str(metric.get("service_icon") or "mdi:server-network")[:80],
+                "launchable": str(metric.get("service_launchable") or "false").lower()
+                == "true",
+            }
+        )
+    service_catalog.sort(key=lambda item: (item["name"].casefold(), item["id"]))
+    slo_attention = [
+        {
+            "id": item["id"],
+            "name": item["name"],
+            "status": item["slo_status"],
+            "availability_percent": item["availability_percent"],
+            "latency_p95_seconds": item["latency_p95_seconds"],
+        }
+        for item in service_catalog
+        if item["slo_status"] in {"down", "breached", "at_risk"}
+    ][:16]
+    slowest_services = [
+        {
+            "id": item["id"],
+            "name": item["name"],
+            "latency_seconds": item["latency_seconds"],
+            "latency_p95_seconds": item["latency_p95_seconds"],
+        }
+        for item in sorted(
+            (
+                item
+                for item in service_catalog
+                if item["latency_seconds"] is not None
+            ),
+            key=lambda item: (-item["latency_seconds"], item["name"].casefold()),
+        )[:5]
+    ]
 
     backup_rows = prom(
         "backups",
@@ -1247,6 +1395,13 @@ def build_ops_summary(
             "Review slow endpoints: "
             + ", ".join(short_instance(item["url"]) for item in slow_services[:5])
         )
+    breached_slos = [
+        item["name"] for item in service_catalog if item["slo_status"] == "breached"
+    ]
+    if breached_slos:
+        warning_actions.append(
+            "Review service reliability SLOs: " + ", ".join(breached_slos[:5])
+        )
     if security["opencanary_interactions"]:
         critical_actions.append("Review OpenCanary interactions in Grafana/TheHive")
     if errors:
@@ -1284,11 +1439,23 @@ def build_ops_summary(
             "memory_attention": memory_attention,
         },
         "services": {
+            "window": window,
             "checked": len(probe_rows),
+            "healthy": sum(1 for item in service_catalog if item["healthy"]),
+            "slo_met": sum(
+                1 for item in service_catalog if item["slo_status"] == "met"
+            ),
+            "slo_target": {
+                "availability_percent": 99.9,
+                "latency_p95_seconds": 1.0,
+            },
+            "slo_attention": slo_attention,
+            "slowest": slowest_services,
             "unavailable": unavailable_services,
             "slow": slow_services,
             "internal_acme_attention": internal_tls_attention,
             "external_tls_attention": external_tls_attention,
+            "catalog": service_catalog,
         },
         "maintenance": {
             "backups": backups,

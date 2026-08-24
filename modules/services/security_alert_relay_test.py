@@ -142,6 +142,15 @@ class RelayPureFunctionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsupported"):
             relay.parse_ops_summary_request({"query": "up"})
 
+    def test_service_slo_status_combines_reachability_availability_and_latency(self):
+        self.assertEqual(relay.service_slo_status(False, 100.0, 0.1), "down")
+        self.assertEqual(relay.service_slo_status(True, None, None), "unknown")
+        self.assertEqual(relay.service_slo_status(True, 99.99, 0.4), "met")
+        self.assertEqual(relay.service_slo_status(True, 99.5, 0.4), "at_risk")
+        self.assertEqual(relay.service_slo_status(True, 100.0, 1.2), "at_risk")
+        self.assertEqual(relay.service_slo_status(True, 98.9, 0.4), "breached")
+        self.assertEqual(relay.service_slo_status(True, 100.0, 2.1), "breached")
+
     def test_ops_summary_prioritizes_maintenance_without_raw_queries(self):
         now = 1_786_752_000.0
 
@@ -162,9 +171,27 @@ class RelayPureFunctionTests(unittest.TestCase):
                 if "node_memory_MemAvailable_bytes" in expression:
                     return [row("proxmox.guildedthorn.arpa:9100", 72)]
                 if expression.startswith('probe_success'):
-                    return [row("https://proxmox.guildedthorn.arpa:8006/", 1)]
+                    return [
+                        row(
+                            "https://proxmox.guildedthorn.arpa:8006/",
+                            1,
+                            service_host="mac",
+                            service_icon="mdi:server",
+                            service_id="proxmox",
+                            service_launchable="true",
+                            service_name="Proxmox",
+                            service_role="Virtualization cluster",
+                            service_url="https://proxmox.guildedthorn.arpa:8006/",
+                        )
+                    ]
                 if expression.startswith('probe_duration_seconds'):
                     return [row("https://proxmox.guildedthorn.arpa:8006/", 0.2)]
+                if expression.startswith("avg_over_time(probe_success"):
+                    return [row("https://proxmox.guildedthorn.arpa:8006/", 0.9999)]
+                if expression.startswith("quantile_over_time"):
+                    return [row("https://proxmox.guildedthorn.arpa:8006/", 0.4)]
+                if expression.startswith('probe_http_status_code'):
+                    return [row("https://proxmox.guildedthorn.arpa:8006/", 200)]
                 if "probe_ssl_earliest_cert_expiry" in expression:
                     return [row("https://guildedthorn.com/", 20)]
                 if "node_systemd_timer_last_trigger_seconds" in expression:
@@ -192,6 +219,20 @@ class RelayPureFunctionTests(unittest.TestCase):
         self.assertEqual(summary["summary"]["status"], "critical")
         self.assertEqual(summary["security"]["suricata_alerts"], 3)
         self.assertEqual(summary["fleet"]["disk_attention"][0]["host"], "proxmox")
+        self.assertEqual(summary["services"]["healthy"], 1)
+        self.assertEqual(summary["services"]["catalog"][0]["id"], "proxmox")
+        self.assertEqual(summary["services"]["catalog"][0]["http_status"], 200)
+        self.assertEqual(summary["services"]["catalog"][0]["latency_seconds"], 0.2)
+        self.assertEqual(
+            summary["services"]["catalog"][0]["availability_percent"], 99.99
+        )
+        self.assertEqual(
+            summary["services"]["catalog"][0]["latency_p95_seconds"], 0.4
+        )
+        self.assertEqual(summary["services"]["catalog"][0]["slo_status"], "met")
+        self.assertEqual(summary["services"]["slo_met"], 1)
+        self.assertEqual(summary["services"]["slo_attention"], [])
+        self.assertEqual(summary["services"]["slowest"][0]["name"], "Proxmox")
         self.assertTrue(summary["maintenance"]["stale_backups"][0]["stale"])
         self.assertEqual(len(summary["deployment"]["drifted_hosts"]), 1)
         rendered = json.dumps(summary["actions"])

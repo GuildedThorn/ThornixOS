@@ -92,6 +92,7 @@ in
   };
 
   deck = mkHost {
+    address = "172.16.25.26";
     class = "handheld";
     deploy = false;
     fqdn = "deck.guildedthorn.arpa";

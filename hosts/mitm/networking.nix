@@ -12,7 +12,13 @@
       "1.1.1.1"
     ];
 
-    firewall.allowedTCPPorts = [ 443 ];
+    firewall = {
+      allowedTCPPorts = [ 443 ];
+      # The Deck may use MITM's fast Piper voice for short acknowledgements.
+      extraCommands = ''
+        iptables -w -A nixos-fw -p tcp -s 172.16.25.26/32 --dport 10200 -j nixos-fw-accept
+      '';
+    };
 
   };
 

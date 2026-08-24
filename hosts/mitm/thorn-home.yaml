@@ -32,6 +32,16 @@ views:
         show_name: true
         show_state: true
         color: green
+      - type: entity
+        entity: sensor.thornix_service_health
+        show_name: true
+        show_state: true
+        color: cyan
+      - type: entity
+        entity: sensor.thornix_service_reliability
+        show_name: true
+        show_state: true
+        color: amber
 
     sections:
       - type: grid
@@ -177,3 +187,116 @@ views:
             tap_action:
               action: navigate
               navigation_path: /config/backup/overview
+
+  - title: Services
+    path: services
+    icon: mdi:server-network
+    type: sections
+    max_columns: 3
+    theme: Thorn
+    header:
+      layout: responsive
+      badges_position: bottom
+      card:
+        type: markdown
+        content: |-
+          # ThornixOS Services
+          Live health from the SOC probe fleet, exposed through Casita without administrative credentials.
+    badges:
+      - type: entity
+        entity: sensor.thornix_service_health
+        show_name: true
+        show_state: true
+        color: cyan
+      - type: entity
+        entity: sensor.thornix_soc_status
+        show_name: true
+        show_state: true
+        color: green
+      - type: entity
+        entity: sensor.deck_voice_health
+        show_name: true
+        show_state: true
+        color: teal
+
+    sections:
+      - type: grid
+        column_span: 2
+        background:
+          color: "#182637"
+          opacity: 45
+        cards:
+          - type: heading
+            heading: Complete service catalog
+            icon: mdi:view-grid-outline
+            badges:
+              - type: entity
+                entity: sensor.thornix_service_health
+                show_state: true
+
+          - type: markdown
+            grid_options:
+              columns: full
+            content: |-
+              {% set services = expand('group.thornix_services') | sort(attribute='name') %}
+              {% for service in services %}
+                {% set name = state_attr(service.entity_id, 'service_name') or service.name %}
+                {% set role = state_attr(service.entity_id, 'role') or 'ThornixOS service' %}
+                {% set url = state_attr(service.entity_id, 'launch_url') or '' %}
+                {% set latency = state_attr(service.entity_id, 'latency_seconds') | float(none) %}
+                {% set p95 = state_attr(service.entity_id, 'latency_p95_seconds') | float(none) %}
+                {% set availability = state_attr(service.entity_id, 'availability_percent') | float(none) %}
+                {% set slo = state_attr(service.entity_id, 'slo_status') or 'unknown' %}
+                {% set reliability_window = state_attr(service.entity_id, 'reliability_window') or '24h' %}
+                {% if service.state != 'healthy' and service.state != 'not_monitored' %}🔴{% elif slo in ['down', 'breached'] %}🟠{% elif slo == 'at_risk' %}🟡{% elif service.state == 'healthy' %}🟢{% else %}⚪{% endif %}
+                {% if url %}[**{{ name }}**]({{ url }}){% else %}**{{ name }}**{% endif %}
+                — {{ role }} · `{{ service.state | replace('_', ' ') }}`{% if latency is number %} · now {{ (latency * 1000) | round | int }} ms{% endif %}{% if p95 is number %} · p95 {{ (p95 * 1000) | round | int }} ms{% endif %}{% if availability is number %} · {{ availability | round(3) }}% / {{ reliability_window }}{% endif %}{% if slo not in ['unknown', 'None', 'none'] %} · SLO `{{ slo | replace('_', ' ') }}`{% endif %}
+
+              {% endfor %}
+
+      - type: grid
+        background:
+          color: "#24203b"
+          opacity: 45
+        cards:
+          - type: heading
+            heading: Casita runtime
+            icon: mdi:account-voice
+
+          - type: tile
+            entity: sensor.deck_voice_health
+            name: Deck Voice satellite
+            icon: mdi:microphone-message
+            color: teal
+
+          - type: tile
+            entity: sensor.deck_natural_voice
+            name: Kokoro natural voice
+            icon: mdi:waveform
+            color: purple
+
+          - type: tile
+            entity: sensor.deck_conversation_model
+            name: Local conversation model
+            icon: mdi:brain
+            color: indigo
+
+          - type: tile
+            entity: sensor.thornix_soc_status
+            name: SOC operator summary
+            icon: mdi:shield-home-outline
+            color: amber
+
+          - type: tile
+            entity: sensor.thornix_service_reliability
+            name: Service reliability
+            icon: mdi:chart-timeline-variant-shimmer
+            color: cyan
+
+          - type: button
+            name: Open SOC dashboards
+            icon: mdi:chart-box-outline
+            icon_height: 36px
+            tap_action:
+              action: url
+              url_path: https://soc.guildedthorn.arpa:3000/

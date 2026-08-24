@@ -1,6 +1,7 @@
 { config, inputs, ... }:
 let
   fleetInventory = import ../../hosts/inventory.nix;
+  serviceCatalog = import ../../hosts/service-catalog.nix;
   securityWorkflowReady = builtins.pathExists "${inputs.self}/hosts/soc/security-workflow.nix";
 in
 {
@@ -68,6 +69,25 @@ in
           monitoredNames = lib.filter (
             name: fleetInventory.${name}.monitoring.mode == "scrape" && monitoringReady name
           ) (builtins.attrNames fleetInventory);
+          monitoredServiceCatalog = lib.filter (
+            service:
+            let
+              inventoryHost = service.inventoryHost or null;
+            in
+            inventoryHost == null || builtins.elem inventoryHost monitoredNames
+          ) serviceCatalog;
+          blackboxServiceTargets = map (service: {
+            targets = [ service.probeUrl ];
+            labels = {
+              service_host = service.host;
+              service_icon = service.icon;
+              service_id = service.id;
+              service_launchable = if service.launchUrl == "" then "false" else "true";
+              service_name = service.name;
+              service_role = service.role;
+              service_url = service.launchUrl;
+            };
+          }) monitoredServiceCatalog;
           houndTelemetryReady = monitoringReady "hound";
           heraldTelemetryReady = monitoringReady "herald";
           lureTelemetryReady = monitoringReady "lure";
@@ -135,9 +155,6 @@ in
           ) monitoredNames;
           fleetJournalHosts = map (host: host.journalHost) (lib.filter (host: host.shipsJournal) fleet);
           fleetMetricsTargets = port: map (host: "${host.metricsHost}:${port}") fleet;
-          blackboxFleetTargets = builtins.concatLists (
-            map (name: fleetInventory.${name}.monitoring.probes) monitoredNames
-          );
           escapePrometheusRegex = value: builtins.replaceStrings [ "." ] [ "[.]" ] value;
           cominFetchInstanceRegex = lib.concatStringsSep "|" (
             map (host: escapePrometheusRegex "${host.metricsHost}:4243") fleet
@@ -387,18 +404,7 @@ in
                 scrape_interval = "60s";
                 metrics_path = "/probe";
                 params.module = [ "http_alive" ];
-                static_configs = [
-                  {
-                    targets = [
-                      "http://127.0.0.1:3101/ready"
-                      "http://127.0.0.1:9091/-/ready"
-                      "https://truenas.guildedthorn.arpa/"
-                      "https://truenas.guildedthorn.arpa:30304/"
-                      "https://pfsense.guildedthorn.arpa/"
-                    ]
-                    ++ blackboxFleetTargets;
-                  }
-                ];
+                static_configs = blackboxServiceTargets;
                 relabel_configs = [
                   {
                     source_labels = [ "__address__" ];
@@ -529,9 +535,10 @@ in
 
               # Loom can ask one purpose-built, read-only endpoint whether
               # model-extracted actors/IOCs appear in recent SIEM evidence or
-              # SOC-held OpenCTI reports. nginx authenticates the network
-              # source, terminates ThornCloud TLS, and exposes no raw Loki or
-              # GraphQL query surface.
+              # SOC-held OpenCTI reports. Home Assistant can consume the
+              # separate bounded operator summary for Deck Voice. nginx
+              # authenticates the network source, terminates ThornCloud TLS,
+              # and exposes no raw Loki, PromQL, or GraphQL query surface.
               news-correlation-context = lib.mkIf securityWorkflowReady {
                 serverName = "soc.guildedthorn.arpa";
                 onlySSL = true;
@@ -545,6 +552,7 @@ in
                 sslCertificate = telemetryServerCertificate;
                 sslCertificateKey = telemetryServerKey;
                 extraConfig = ''
+                  allow 172.16.25.2;
                   allow 172.16.25.62;
                   deny all;
                   client_max_body_size 32k;
@@ -553,6 +561,8 @@ in
                   "= /api/v1/news-context" = {
                     proxyPass = "http://127.0.0.1:9088/news-context";
                     extraConfig = ''
+                      allow 172.16.25.62;
+                      deny all;
                       if ($request_method != POST) {
                         return 405;
                       }
@@ -696,6 +706,12 @@ in
           # this port only from explicitly listed appliance addresses.
           services.rsyslogd = {
             enable = true;
+            # The stock rsyslog rules mirror every local journal message and
+            # every appliance event into /var/log/messages.  Journald already
+            # retains local logs and the rules below keep a bounded per-source
+            # appliance buffer, so the catch-all file is pure duplication and
+            # can grow quickly enough to stop Loki's WAL.
+            defaultConfig = "";
             extraConfig = ''
               module(load="imudp")
               module(load="imtcp")
@@ -710,6 +726,15 @@ in
               }
             '';
           };
+
+          # Loki is the durable searchable log store. Keep enough local
+          # journal for recovery without allowing audit-heavy headless hosts
+          # to consume the filesystem that also backs Loki's WAL.
+          services.journald.extraConfig = ''
+            SystemMaxUse=2G
+            SystemKeepFree=5G
+            MaxRetentionSec=7day
+          '';
 
           # DNS query/reply logging is intentionally detailed and can be
           # substantially busier than the earlier IDS-only feed. Loki is the

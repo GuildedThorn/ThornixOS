@@ -1,0 +1,11 @@
+{
+  "domain": "casita_assist",
+  "name": "Casita Assist",
+  "after_dependencies": ["ollama", "rest_command", "shopping_list", "weather"],
+  "codeowners": [],
+  "dependencies": ["conversation"],
+  "documentation": "https://github.com/GuildedThorn/ThornixOS",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "version": "1.0.0"
+}
