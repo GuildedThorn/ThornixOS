@@ -50,6 +50,21 @@ in
           # default would miss execution after a service compromise.
           thorn.audit.execScope = "all";
 
+          # The hypervisor ships its journal and audit stream to the SOC, so
+          # its local copies are a recovery window rather than the archive.
+          # Bound both stores and collect dead Nix closures daily; VM images
+          # should be the only data allowed to dominate this filesystem.
+          programs.nh.clean.dates = "daily";
+          security.auditd.settings = {
+            max_log_file = 50;
+            num_logs = 6;
+          };
+          services.journald.extraConfig = ''
+            SystemMaxUse=1G
+            RuntimeMaxUse=128M
+            MaxRetentionSec=7day
+          '';
+
           # vmbr0 is the point at which Proxmox guest-to-guest and
           # guest-to-physical traffic converges. The bridge capture was
           # verified live with websites (172.16.25.50) talking directly to

@@ -26,6 +26,13 @@
             type = "filesystem";
             format = "ext4";
             mountpoint = "/";
+            # One percent still reserves almost 2 GiB for root recovery on
+            # Forge. The ext4 default otherwise hides roughly 9 GiB from a
+            # VM whose Nix store is intentionally large.
+            extraArgs = [
+              "-m"
+              "1"
+            ];
           };
         };
       };

@@ -47,6 +47,11 @@
                 extraArgs = [
                   "-L"
                   "nixos-root"
+                  # The workstation root is multi-terabyte; one percent is
+                  # ample root-only recovery space without hiding tens of
+                  # gigabytes from normal workloads.
+                  "-m"
+                  "1"
                 ];
               };
             };

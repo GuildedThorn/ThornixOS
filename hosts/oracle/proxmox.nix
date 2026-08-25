@@ -8,6 +8,9 @@
   resources = {
     cores = 8;
     memoryMiB = 24576;
+    # OpenCTI's measured working set is roughly 9 GiB. A 16 GiB floor leaves
+    # service-growth headroom while returning idle cache to the hypervisor.
+    minimumMemoryMiB = 16384;
     diskGiB = 150;
   };
 

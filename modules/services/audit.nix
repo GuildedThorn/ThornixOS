@@ -4,7 +4,12 @@
   # the existing Alloy journal shipping in services-observability delivers
   # them to Loki on soc without extra plumbing.
   nixos.modules.services-audit =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.thorn.audit;
     in
@@ -43,9 +48,23 @@
         # the other — so whether the wrappers exist when the rules load is a
         # boot race (scout lost it consistently; the rest of the fleet
         # happened to win). Make the ordering explicit.
-        systemd.services.audit-rules-nixos = {
-          after = [ "suid-sgid-wrappers.service" ];
-          wants = [ "suid-sgid-wrappers.service" ];
+        systemd.services = {
+          audit-rules-nixos = {
+            after = [ "suid-sgid-wrappers.service" ];
+            wants = [ "suid-sgid-wrappers.service" ];
+          };
+
+          # auditd deliberately refuses ordinary systemctl restarts. Teach
+          # systemd its supported SIGHUP reload path and tie the unit hash to
+          # the generated configuration so a NixOS switch actually applies
+          # changed size/retention limits. Without this, auditd can continue
+          # using its boot-time defaults indefinitely even though /etc shows
+          # the new settings.
+          auditd = {
+            reloadIfChanged = true;
+            restartTriggers = [ config.environment.etc."audit/auditd.conf".source ];
+            serviceConfig.ExecReload = "${pkgs.audit}/bin/auditctl --signal reload";
+          };
         };
 
         security.auditd = {
@@ -55,9 +74,9 @@
           # cannot consume the root filesystem (Sieve reached 2.6 GiB in two
           # days). Ten 100 MiB files retain a useful local incident window.
           settings = {
-            max_log_file = 100;
+            max_log_file = lib.mkDefault 100;
             max_log_file_action = "ROTATE";
-            num_logs = 10;
+            num_logs = lib.mkDefault 10;
           };
         };
         security.audit = {

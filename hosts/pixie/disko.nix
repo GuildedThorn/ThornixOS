@@ -26,6 +26,13 @@
             type = "filesystem";
             format = "ext4";
             mountpoint = "/";
+            # Two percent is ample emergency headroom on this small,
+            # appliance-style root filesystem; ext4's default five percent
+            # unnecessarily hides almost a gigabyte from normal services.
+            extraArgs = [
+              "-m"
+              "2"
+            ];
           };
         };
       };

@@ -8,6 +8,9 @@
   resources = {
     cores = 8;
     memoryMiB = 16384;
+    # Elasticsearch and TheHive currently use about 9 GiB together. Keep a
+    # conservative floor while still allowing the host to reclaim caches.
+    minimumMemoryMiB = 12288;
     diskGiB = 100;
   };
 

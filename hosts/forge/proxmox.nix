@@ -8,7 +8,9 @@
   resources = {
     cores = 8;
     memoryMiB = 16384;
-    diskGiB = 200;
+    # Two retained fleet evaluations plus one in-progress build need more
+    # than the original 200 GiB disk even with bounded Hydra GC roots.
+    diskGiB = 250;
   };
 
   readiness = {

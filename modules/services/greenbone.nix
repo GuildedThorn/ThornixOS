@@ -65,6 +65,17 @@
         exec 9>${lockFile}
         ${pkgs.util-linux}/bin/flock --wait 1800 9
 
+        # Feed images change daily and the VT/SCAP generations are roughly
+        # 3 GiB each. A weekly prune is too infrequent for Sieve's disk: old
+        # generations can exhaust overlayfs before the next update completes.
+        # A plain image prune removes dangling layers only; it never removes
+        # running images or the named volumes holding feeds and database data.
+        prune_dangling_images() {
+          ${pkgs.docker}/bin/docker image prune --force
+        }
+        trap 'prune_dangling_images || true' EXIT
+        prune_dangling_images
+
         # Only Greenbone's data containers roll automatically. Executable
         # services remain on the reviewed amd64 digests in composeFile.
         # The Community registry occasionally times out one manifest HEAD.
@@ -83,7 +94,11 @@
             sleep $((attempt * 30))
           done
         done
-        ${compose} up --detach --remove-orphans
+        # Recreate only the rolling feed writers. A full-stack `up` also
+        # resolves pinned application/helper images even though this job does
+        # not update them; Greenbone may retire those old registry manifests.
+        # Application rollouts remain the responsibility of sieve-greenbone.
+        ${compose} up --detach --remove-orphans ${feedServiceArguments}
       '';
 
       healthCheck = pkgs.writeShellScript "sieve-greenbone-health" ''

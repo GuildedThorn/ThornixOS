@@ -19,6 +19,7 @@
         let
           fleetHost = fleet.${name} or null;
           resources = profile.resources;
+          minimumMemoryMiB = resources.minimumMemoryMiB or (builtins.div resources.memoryMiB 2);
           readiness = profile.readiness or { };
           readinessTimeoutSeconds = readiness.timeoutSeconds or 600;
           httpChecks = map (check: {
@@ -53,6 +54,11 @@
           builtins.isInt resources.memoryMiB && resources.memoryMiB >= 512
         ) "provision profile '$name' needs at least 512 MiB RAM";
         assert lib.assertMsg (
+          builtins.isInt minimumMemoryMiB
+          && minimumMemoryMiB >= 512
+          && minimumMemoryMiB <= resources.memoryMiB
+        ) "provision profile '$name' minimum RAM must be between 512 MiB and its maximum RAM";
+        assert lib.assertMsg (
           builtins.isInt resources.diskGiB && resources.diskGiB >= 4
         ) "provision profile '$name' needs a disk of at least 4 GiB";
         assert lib.assertMsg (
@@ -79,11 +85,16 @@
               "1.1.1.1"
             ];
           inherit (resources) cores memoryMiB diskGiB;
+          inherit minimumMemoryMiB;
           minimumDiskGiB = resources.diskGiB - 1;
           maximumDiskGiB = resources.diskGiB + 1;
           minimumFreeGiB = resources.diskGiB + 5;
           isoVolume = "local:iso/thornix-${name}-installer.iso";
           installerProfile = "${name}/v1";
+          # Build bootstrap media from the exact source that produced the
+          # running provisioner. This keeps on-demand ISO creation working
+          # even before the corresponding Git deployment branch advances.
+          installerFlake = toString inputs.self;
           defaultFlake = "github:GuildedThorn/ThornixOS/${fleetHost.deployment.branch}#${name}";
           readiness = {
             displayName = readiness.displayName or name;
@@ -183,13 +194,15 @@
           ];
         };
 
-      installerIso =
-        installer: "${installer.config.system.build.isoImage}/${installer.config.image.filePath}";
+      installers = lib.mapAttrs (_name: profile: mkInstaller profile) validatedProfiles;
       profiles = lib.mapAttrs (
-        _name: profile:
+        name: profile:
         profile
         // {
-          bootstrapIso = installerIso (mkInstaller profile);
+          # Keep only the path inside the ISO output in the installed profile
+          # data. Embedding the output's store path here pins every profile's
+          # 1.4 GiB installer ISO in the hypervisor system closure forever.
+          bootstrapIsoFilePath = installers.${name}.config.image.filePath;
         }
       ) validatedProfiles;
       profileData = pkgs.writeText "thornix-provision-profiles.json" (builtins.toJSON profiles);
@@ -229,6 +242,12 @@
     in
     {
       environment.systemPackages = [ thornixProvision ];
-      system.build.thornixProvisioner = thornixProvision;
+      system.build = {
+        thornixProvisioner = thornixProvision;
+      }
+      // lib.mapAttrs' (name: installer: {
+        name = "thornixProvisionInstallerIso-${name}";
+        value = installer.config.system.build.isoImage;
+      }) installers;
     };
 }

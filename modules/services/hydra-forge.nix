@@ -236,6 +236,50 @@
             randomizedDelaySec = "30min";
           };
 
+          # Two complete evaluations preserve a known-good rollback without
+          # pinning five copies of every fleet closure. Enforce this in the
+          # database before Hydra refreshes its GC roots so the ordinary Nix
+          # collector can actually reclaim superseded builds.
+          systemd.services = {
+            hydra-retention-policy = {
+              description = "Enforce bounded Hydra evaluation retention";
+              wantedBy = [ "multi-user.target" ];
+              before = [ "hydra-update-gc-roots.service" ];
+              after = [ "hydra-init.service" ];
+              requires = [ "hydra-init.service" ];
+              serviceConfig = {
+                Type = "oneshot";
+                User = "hydra";
+                Group = "hydra";
+                RemainAfterExit = true;
+              };
+              script = ''
+                ${config.services.postgresql.package}/bin/psql \
+                  --dbname hydra \
+                  --set ON_ERROR_STOP=1 \
+                  --command \
+                    "UPDATE jobsets SET keepnr = 2 WHERE project = 'thornixos' AND name = 'main' AND keepnr <> 2"
+              '';
+            };
+
+            hydra-update-gc-roots = {
+              after = [ "hydra-retention-policy.service" ];
+              requires = [ "hydra-retention-policy.service" ];
+            };
+          };
+
+          # Logs are shipped to the SOC. Keep only a useful local recovery
+          # window on the build node, where closures should own the disk.
+          security.auditd.settings = {
+            max_log_file = 50;
+            num_logs = 6;
+          };
+          services.journald.extraConfig = ''
+            SystemMaxUse=1G
+            RuntimeMaxUse=128M
+            MaxRetentionSec=7day
+          '';
+
           services.postgresqlBackup = {
             enable = true;
             databases = [ "hydra" ];

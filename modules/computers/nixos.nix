@@ -247,6 +247,20 @@
           boot.tmp.useTmpfs = true;
           boot.tmp.tmpfsSize = "8G";
 
+          # The workstation produces large development and gaming logs. Keep
+          # the local incident window bounded; fleet telemetry remains on the
+          # SOC and old Nix generations are still retained by nh's keep rules.
+          programs.nh.clean.dates = "daily";
+          security.auditd.settings = {
+            max_log_file = 100;
+            num_logs = 10;
+          };
+          services.journald.extraConfig = ''
+            SystemMaxUse=2G
+            RuntimeMaxUse=256M
+            MaxRetentionSec=14day
+          '';
+
           security.pam.services.sddm.u2fAuth = true;
           security.pam.services.sudo.u2fAuth = true;
         }

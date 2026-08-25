@@ -49,6 +49,11 @@
                 extraArgs = [
                   "-L"
                   "nixos-root"
+                  # The default five-percent reserve is roughly 46 GiB on
+                  # this disk. One percent still leaves about 9 GiB for root
+                  # recovery while exposing useful capacity to Proxmox.
+                  "-m"
+                  "1"
                 ];
               };
             };

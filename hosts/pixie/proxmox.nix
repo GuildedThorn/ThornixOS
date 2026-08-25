@@ -8,7 +8,9 @@
   resources = {
     cores = 2;
     memoryMiB = 2048;
-    diskGiB = 20;
+    # A current NixOS/PXE closure and one atomic upgrade need more than the
+    # original appliance disk. Match the expanded live VM with safe headroom.
+    diskGiB = 40;
   };
 
   readiness = {

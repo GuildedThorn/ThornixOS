@@ -80,6 +80,7 @@ bridge=$(jq -r '.bridge' <<<"$profile_json")
 storage=$(jq -r '.storage' <<<"$profile_json")
 cores=$(jq -r '.cores' <<<"$profile_json")
 memory_mib=$(jq -r '.memoryMiB' <<<"$profile_json")
+minimum_memory_mib=$(jq -r '.minimumMemoryMiB' <<<"$profile_json")
 disk_gib=$(jq -r '.diskGiB' <<<"$profile_json")
 minimum_disk_gib=$(jq -r '.minimumDiskGiB' <<<"$profile_json")
 maximum_disk_gib=$(jq -r '.maximumDiskGiB' <<<"$profile_json")
@@ -87,7 +88,8 @@ minimum_free_gib=$(jq -r '.minimumFreeGiB' <<<"$profile_json")
 iso_volume=$(jq -r '.isoVolume' <<<"$profile_json")
 iso_label=$(jq -r '.isoLabel' <<<"$profile_json")
 disk_serial=$(jq -r '.diskSerial' <<<"$profile_json")
-bootstrap_iso=$(jq -r '.bootstrapIso' <<<"$profile_json")
+bootstrap_iso_file_path=$(jq -r '.bootstrapIsoFilePath' <<<"$profile_json")
+installer_flake=$(jq -r '.installerFlake' <<<"$profile_json")
 default_flake=$(jq -r '.defaultFlake' <<<"$profile_json")
 installer_profile=$(jq -r '.installerProfile' <<<"$profile_json")
 display_name=$(jq -r '.readiness.displayName' <<<"$profile_json")
@@ -95,9 +97,9 @@ readiness_label=$(jq -r '.readiness.label' <<<"$profile_json")
 readiness_timeout_seconds=$(jq -r '.readiness.timeoutSeconds' <<<"$profile_json")
 admin_ssh_keys=$(jq -r '.adminSshKeys[]' <<<"$profile_json")
 
-readonly profile_json vmid vm_name vm_ip vm_gateway prefix_length bridge storage cores memory_mib
+readonly profile_json vmid vm_name vm_ip vm_gateway prefix_length bridge storage cores memory_mib minimum_memory_mib
 readonly disk_gib minimum_disk_gib maximum_disk_gib minimum_free_gib iso_volume iso_label
-readonly disk_serial bootstrap_iso default_flake installer_profile display_name readiness_label
+readonly disk_serial bootstrap_iso_file_path installer_flake default_flake installer_profile display_name readiness_label
 readonly readiness_timeout_seconds
 readonly admin_ssh_keys
 readonly state_installing="thornix-provision:$profile_name:v1:installing"
@@ -151,7 +153,6 @@ if [[ -n $identity_file ]]; then
 fi
 
 [[ $(hostname -s) == "mac" ]] || die "this utility may only run on the mac Proxmox host"
-[[ -r $bootstrap_iso ]] || die "$profile_name bootstrap ISO is missing from the mac system closure"
 while IFS= read -r ca_certificate; do
   [[ -r $ca_certificate ]] ||
     die "$profile_name readiness CA certificate is missing from the mac system closure: $ca_certificate"
@@ -208,6 +209,20 @@ root_run() {
 temporary_directory=$(mktemp -d)
 trap 'rm -rf -- "$temporary_directory"' EXIT
 known_hosts="$temporary_directory/known_hosts"
+bootstrap_iso=""
+
+realize_bootstrap_iso() {
+  local installer_attribute installer_root
+
+  [[ -z $bootstrap_iso ]] || return 0
+  installer_attribute="$installer_flake#nixosConfigurations.mac.config.system.build.thornixProvisionInstallerIso-$profile_name"
+
+  note "Realizing the key-only $profile_name bootstrap ISO"
+  nix build -L --out-link "$temporary_directory/bootstrap-iso" "$installer_attribute"
+  installer_root=$(readlink -f -- "$temporary_directory/bootstrap-iso")
+  bootstrap_iso="$installer_root/$bootstrap_iso_file_path"
+  [[ -r $bootstrap_iso ]] || die "$profile_name bootstrap ISO output is missing $bootstrap_iso_file_path"
+}
 
 ssh_options=(
   -o "UserKnownHostsFile=$known_hosts"
@@ -325,6 +340,8 @@ assert_managed_vm() {
 ensure_iso_installed() {
   local iso_path=$1
 
+  realize_bootstrap_iso
+
   if [[ -e $iso_path ]] && root_run "$cmp_command" -s -- "$bootstrap_iso" "$iso_path"; then
     note "Bootstrap ISO is already current"
     return 0
@@ -339,8 +356,8 @@ confirm_destruction() {
   printf '\nVM profile:       %s\n' "$profile_name"
   printf 'Proxmox VMID:     %s\n' "$vmid"
   printf 'Address:          %s/%s via %s\n' "$vm_ip" "$prefix_length" "$vm_gateway"
-  printf 'Virtual hardware: %s vCPU, %s MiB RAM, one %s GiB disk on %s\n' \
-    "$cores" "$memory_mib" "$disk_gib" "$storage"
+  printf 'Virtual hardware: %s vCPU, %s-%s MiB RAM, one %s GiB disk on %s\n' \
+    "$cores" "$minimum_memory_mib" "$memory_mib" "$disk_gib" "$storage"
   printf 'Install source:   %s\n' "$flake"
   printf '\nDisko WILL erase /dev/sda inside the verified VM. No VM is ever deleted automatically.\n'
 
@@ -612,7 +629,7 @@ if ! $vm_exists; then
     --sockets 1 \
     --cores "$cores" \
     --memory "$memory_mib" \
-    --balloon 0 \
+    --balloon "$minimum_memory_mib" \
     --scsihw virtio-scsi-single \
     --scsi0 "$storage:$disk_gib,discard=on,iothread=1,ssd=1,serial=$disk_serial" \
     --net0 "virtio,bridge=$bridge,firewall=1" \

@@ -33,6 +33,22 @@ in
           };
 
           fileSystems."/".autoResize = true;
+          programs.nh.clean.dates = "daily";
+
+          # Pixie has a deliberately small system disk and its audit events
+          # are low-value once they age out of the local incident window.
+          # Keep local observability bounded instead of letting it compete
+          # with the embedded rescue closure in /nix/store.
+          security.auditd.settings = {
+            max_log_file = 25;
+            num_logs = 8;
+          };
+          services.journald.extraConfig = ''
+            SystemMaxUse=256M
+            RuntimeMaxUse=64M
+            MaxRetentionSec=3day
+          '';
+
           services.qemuGuest.enable = true;
 
           services.openssh = {
