@@ -1,7 +1,7 @@
 {
   "domain": "casita_assist",
   "name": "Casita Assist",
-  "after_dependencies": ["ollama", "rest_command", "shopping_list", "weather"],
+  "after_dependencies": ["cloud", "ollama", "rest_command", "shopping_list", "weather"],
   "codeowners": [],
   "dependencies": ["conversation"],
   "documentation": "https://github.com/GuildedThorn/ThornixOS",

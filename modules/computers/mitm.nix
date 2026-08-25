@@ -83,6 +83,7 @@ in
             "analytics"
             "bluetooth"
             "co2signal"
+            "cloud"
             "default_config"
             "esphome"
             "google_translate"
@@ -853,6 +854,20 @@ in
             locations."/" = {
               proxyPass = "http://127.0.0.1:8123";
               proxyWebsockets = true;
+            };
+            locations."= /health/casita" = {
+              proxyPass = "http://127.0.0.1:8123/api/casita/health";
+              extraConfig = ''
+                allow 172.16.25.51;
+                deny all;
+              '';
+            };
+            locations."= /health/nabu-casa" = {
+              proxyPass = "http://127.0.0.1:8123/api/casita/health/nabu-casa";
+              extraConfig = ''
+                allow 172.16.25.51;
+                deny all;
+              '';
             };
             locations."= /pineapple-wifi-watch" = {
               proxyPass = "http://127.0.0.1:8123/api/webhook/pineapple-wifi-watch-6f4b2c1d9a8e7350";

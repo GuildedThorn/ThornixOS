@@ -21,6 +21,7 @@ keys:
   - &host_oracle age1n4q4dg0399qlu839yx00zdhc3a9aaehks7m593pevr6yyn27f4uqsywyse
   - &host_herald age1alkat333udvy0mw0ef07fhyyzcxk8kpqud7kmwkcw7jdf6yewdeqz0rrvc
   - &host_courier age1znu04a67p362wzxgguu83d89n4mvh5tf2fc4kywm5x6xf4pzyp7sgf9yrp
+  - &host_loom age1az503gz828gjmk5zrmx2z9nxe86v44karethcfz8afyum3fvdv9q5u0ntv
 
 creation_rules:
   # Shared Alloy writer identity. Every telemetry-enrolled host must be able
@@ -43,7 +44,8 @@ creation_rules:
       age1chlxr0hsuf79vkkvaaxhhxs9nqe695nhpejp07smhceuy2ne4gjq6skms3,
       age1n4q4dg0399qlu839yx00zdhc3a9aaehks7m593pevr6yyn27f4uqsywyse,
       age1alkat333udvy0mw0ef07fhyyzcxk8kpqud7kmwkcw7jdf6yewdeqz0rrvc,
-      age1znu04a67p362wzxgguu83d89n4mvh5tf2fc4kywm5x6xf4pzyp7sgf9yrp
+      age1znu04a67p362wzxgguu83d89n4mvh5tf2fc4kywm5x6xf4pzyp7sgf9yrp,
+      age1az503gz828gjmk5zrmx2z9nxe86v44karethcfz8afyum3fvdv9q5u0ntv
   - path_regex: hosts/mac/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_mac

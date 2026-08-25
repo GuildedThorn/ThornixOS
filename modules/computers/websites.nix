@@ -92,7 +92,9 @@
 
           services.owncast = {
             enable = true;
-            listen = "127.0.0.1";
+            # cloudflared still reaches this locally; the firewall admits
+            # direct HTTP only from the SOC for independent health probing.
+            listen = "0.0.0.0";
             port = 8090;
             rtmp-port = 1935;
           };

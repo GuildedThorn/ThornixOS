@@ -22,6 +22,8 @@ BIND_HOST = "0.0.0.0"
 LOOPBACK_HOST = "127.0.0.1"
 PORT = 10701
 HOME_ASSISTANT_HOST = "172.16.25.2"
+SOC_HOST = "172.16.25.51"
+HEALTH_CLIENTS = {HOME_ASSISTANT_HOST, SOC_HOST}
 EVENT_URL = f"http://{LOOPBACK_HOST}:{PORT}/api/event"
 LVA_PERIPHERAL_URL = "ws://127.0.0.1:6055"
 MAX_BODY = 65536
@@ -980,13 +982,19 @@ class Handler(BaseHTTPRequestHandler):
         peer = self.client_address[0]
         local = is_loopback(peer)
         if self.path == "/api/health":
-            if peer != HOME_ASSISTANT_HOST and not local:
+            if peer not in HEALTH_CLIENTS and not local:
                 self.deny()
                 return
-            body = json.dumps(HUB.health_snapshot(), ensure_ascii=False).encode(
+            snapshot = HUB.health_snapshot()
+            body = json.dumps(snapshot, ensure_ascii=False).encode(
                 "utf-8"
             )
-            self.send_bytes(body, "application/json; charset=utf-8")
+            status = (
+                HTTPStatus.OK
+                if snapshot["status"] == "healthy"
+                else HTTPStatus.SERVICE_UNAVAILABLE
+            )
+            self.send_bytes(body, "application/json; charset=utf-8", status)
             return
         if not local:
             self.deny()

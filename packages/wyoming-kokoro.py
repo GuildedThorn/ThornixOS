@@ -104,6 +104,7 @@ class HealthState:
 
     def record(self, mode: str, elapsed: float, fallback: bool = False) -> None:
         with self._lock:
+            self._state["status"] = "ready"
             self._state["synthesis_count"] += 1
             self._state[f"{mode}_count"] += 1
             if fallback:
@@ -114,6 +115,7 @@ class HealthState:
 
     def error(self, message: str) -> None:
         with self._lock:
+            self._state["status"] = "degraded"
             self._state["last_error"] = message[:300]
 
     def snapshot(self) -> dict[str, Any]:
@@ -350,8 +352,13 @@ def start_health_server(host: str, port: int, health: HealthState) -> None:
             if self.path != "/health":
                 self.send_error(HTTPStatus.NOT_FOUND)
                 return
-            body = json.dumps(health.snapshot(), separators=(",", ":")).encode()
-            self.send_response(HTTPStatus.OK)
+            snapshot = health.snapshot()
+            body = json.dumps(snapshot, separators=(",", ":")).encode()
+            self.send_response(
+                HTTPStatus.OK
+                if snapshot["status"] == "ready"
+                else HTTPStatus.SERVICE_UNAVAILABLE
+            )
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")

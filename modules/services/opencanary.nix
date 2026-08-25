@@ -216,6 +216,60 @@
           http://127.0.0.1/
       '';
 
+      # OpenCanary's ordinary listeners are decoys: probing one from the SOC
+      # would manufacture a security event. This separate endpoint runs the
+      # same container/listener check and exposes only its boolean outcome.
+      healthApiSource = pkgs.writeText "lure-opencanary-health-api.py" ''
+        from http import HTTPStatus
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        import json
+        import subprocess
+
+        HEALTH_CHECK = ${builtins.toJSON (toString healthCheck)}
+
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, _format, *_args):
+                return
+
+            def do_GET(self):
+                if self.path != "/health":
+                    self.send_error(HTTPStatus.NOT_FOUND)
+                    return
+                try:
+                    result = subprocess.run(
+                        [HEALTH_CHECK],
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=20,
+                        check=False,
+                    )
+                    healthy = result.returncode == 0
+                except (OSError, subprocess.TimeoutExpired):
+                    healthy = False
+                body = json.dumps(
+                    {
+                        "status": "healthy" if healthy else "unhealthy",
+                        "sensor": "OpenCanary",
+                    },
+                    separators=(",", ":"),
+                ).encode()
+                self.send_response(
+                    HTTPStatus.OK if healthy else HTTPStatus.SERVICE_UNAVAILABLE
+                )
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+
+
+        ThreadingHTTPServer(("0.0.0.0", 9101), Handler).serve_forever()
+      '';
+
       composeCommand = pkgs.writeShellApplication {
         name = "lure-compose";
         runtimeInputs = [ pkgs.docker-compose ];
@@ -309,6 +363,27 @@
             Type = "oneshot";
             ExecStart = healthCheck;
             TimeoutStartSec = "30s";
+          };
+        };
+
+        lure-opencanary-health-api = {
+          description = "Lure OpenCanary health API for the SOC";
+          wantedBy = [ "multi-user.target" ];
+          requires = [ "lure-opencanary.service" ];
+          after = [ "lure-opencanary.service" ];
+          serviceConfig = {
+            ExecStart = "${pkgs.python3}/bin/python3 ${healthApiSource}";
+            Restart = "always";
+            RestartSec = "5s";
+            NoNewPrivileges = true;
+            PrivateTmp = true;
+            ProtectHome = true;
+            ProtectSystem = "strict";
+            RestrictAddressFamilies = [
+              "AF_INET"
+              "AF_INET6"
+              "AF_UNIX"
+            ];
           };
         };
       };

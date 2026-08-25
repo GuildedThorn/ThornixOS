@@ -129,6 +129,129 @@
     ];
   }
   {
+    id = "casita";
+    name = "Casita Home Assistant";
+    role = "Home automation and voice orchestration";
+    host = "mitm";
+    probeUrl = "https://mitm.guildedthorn.arpa/health/casita";
+    launchUrl = "https://mitm.guildedthorn.arpa/thorn-home/0";
+    icon = "mdi:home-assistant";
+    aliases = [
+      "casita"
+      "home assistant"
+      "home automation"
+      "voice orchestration"
+    ];
+  }
+  {
+    id = "deck-voice";
+    name = "Deck Voice";
+    role = "Living-room voice satellite";
+    host = "deck";
+    probeUrl = "http://172.16.25.26:10701/api/health";
+    launchUrl = "";
+    icon = "mdi:account-voice";
+    aliases = [
+      "deck voice"
+      "voice satellite"
+      "steam deck assistant"
+      "microphone"
+    ];
+  }
+  {
+    id = "ollama";
+    name = "Ollama";
+    role = "Casita local conversation model";
+    host = "deck";
+    probeUrl = "http://172.16.25.26:11434/api/tags";
+    launchUrl = "";
+    icon = "mdi:brain";
+    aliases = [
+      "ollama"
+      "granite"
+      "local model"
+      "conversation model"
+    ];
+  }
+  {
+    id = "kokoro";
+    name = "Kokoro";
+    role = "Casita natural speech synthesis";
+    host = "deck";
+    probeUrl = "http://172.16.25.26:10202/health";
+    launchUrl = "";
+    icon = "mdi:account-voice-outline";
+    aliases = [
+      "kokoro"
+      "natural voice"
+      "speech synthesis"
+      "text to speech"
+    ];
+  }
+  {
+    id = "nabu-casa";
+    name = "Nabu Casa";
+    role = "Home Assistant Cloud remote access";
+    host = "mitm";
+    probeUrl = "https://mitm.guildedthorn.arpa/health/nabu-casa";
+    launchUrl = "https://mitm.guildedthorn.arpa/config/cloud";
+    icon = "mdi:cloud-check-outline";
+    aliases = [
+      "nabu"
+      "nabu casa"
+      "home assistant cloud"
+      "remote ui"
+    ];
+  }
+  {
+    id = "opencanary";
+    name = "Lure OpenCanary";
+    role = "Deception and honeypot sensor";
+    host = "lure";
+    inventoryHost = "lure";
+    probeUrl = "http://172.16.25.58:9101/health";
+    launchUrl = "";
+    icon = "mdi:bird";
+    aliases = [
+      "lure"
+      "open canary"
+      "opencanary"
+      "honeypot"
+      "deception sensor"
+    ];
+  }
+  {
+    id = "thornflix";
+    name = "ThornFlix Jellyfin";
+    role = "Personal media streaming";
+    host = "truenas";
+    probeUrl = "https://jellyfin.guildedthorn.com/";
+    launchUrl = "https://jellyfin.guildedthorn.com/";
+    icon = "mdi:jellyfish";
+    aliases = [
+      "thorn flix"
+      "thornflix"
+      "jellyfin"
+      "media server"
+    ];
+  }
+  {
+    id = "owncast";
+    name = "Owncast";
+    role = "Self-hosted live streaming";
+    host = "websites";
+    inventoryHost = "websites";
+    probeUrl = "http://172.16.25.50:8090/";
+    launchUrl = "";
+    icon = "mdi:broadcast";
+    aliases = [
+      "owncast"
+      "live stream"
+      "live streaming"
+      "broadcast"
+    ];
+  }
+  {
     id = "loom";
     name = "Loom";
     role = "n8n automation";
