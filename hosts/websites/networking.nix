@@ -40,6 +40,7 @@
       iptables -A nixos-fw -p tcp --dport 1935 -s 172.16.0.0/12 -j nixos-fw-accept
       iptables -A nixos-fw -p tcp --dport 1935 -s 192.168.0.0/16 -j nixos-fw-accept
       iptables -A nixos-fw -p tcp --dport 8090 -s 172.16.25.51/32 -j nixos-fw-accept
+      iptables -A nixos-fw -p tcp --dport 8090 -s 172.16.25.63/32 -j nixos-fw-accept
     '';
 
   };

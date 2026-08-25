@@ -14,6 +14,9 @@
         # The SOC probes only read-only health/model endpoints. Wyoming audio
         # and every control endpoint remain limited to Home Assistant.
         iptables -w -A nixos-fw -p tcp -s 172.16.25.51/32 -m multiport --dports 10202,10701,11434 -j nixos-fw-accept
+        # Herald independently probes the same read-only endpoints so alerts
+        # still work when the SOC or Home Assistant is unavailable.
+        iptables -w -A nixos-fw -p tcp -s 172.16.25.63/32 -m multiport --dports 10202,10701,11434 -j nixos-fw-accept
       '';
     };
   };

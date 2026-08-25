@@ -9,9 +9,30 @@
     }:
     let
       hostname = "herald.guildedthorn.arpa";
+      serviceCatalog = import ../../hosts/service-catalog.nix;
       stateDirectory = "/var/lib/ntfy-sh";
       initialPasswordPath = "${stateDirectory}/initial-admin-password";
       relayEnvironmentPath = "${stateDirectory}/courier-relay.env";
+      watchdogPublisherEnvironmentPath = "${stateDirectory}/watchdog-publisher.env";
+      watchdogServices = lib.filter (
+        service:
+        service.probeUrl != ""
+        && !(lib.hasPrefix "http://127.0.0.1" service.probeUrl)
+        && !(lib.hasPrefix "https://127.0.0.1" service.probeUrl)
+      ) serviceCatalog;
+      watchdogTargets = pkgs.writeText "herald-service-watchdog-targets.json" (
+        builtins.toJSON (
+          map (service: {
+            inherit (service) id name;
+            url = service.probeUrl;
+          }) watchdogServices
+        )
+      );
+      watchdogTests = pkgs.runCommand "herald-service-watchdog-tests" { } ''
+        export PYTHONPATH=${./.}
+        ${pkgs.python3}/bin/python ${./herald_watchdog_test.py}
+        touch "$out"
+      '';
 
       createInitialAdmin = pkgs.writeShellScript "herald-create-initial-admin" ''
         set -o errexit -o nounset -o pipefail
@@ -32,6 +53,28 @@
         NTFY_PASSWORD=$(${pkgs.coreutils}/bin/tr -d '\n' < "$password_path")
         ${lib.getExe pkgs.ntfy-sh} user add \
           --ignore-exists --role=admin thorn
+
+        publisher_environment=${lib.escapeShellArg watchdogPublisherEnvironmentPath}
+        if [[ ! -s "$publisher_environment" ]]; then
+          publisher_password=$(${pkgs.openssl}/bin/openssl rand -hex 32)
+          printf 'NTFY_USER=thornix-watchdog:%s\n' "$publisher_password" \
+            > "$publisher_environment.new"
+          chmod 0400 "$publisher_environment.new"
+          mv -T "$publisher_environment.new" "$publisher_environment"
+          unset publisher_password
+        fi
+
+        publisher_password=$(${pkgs.gnused}/bin/sed -n \
+          's/^NTFY_USER=thornix-watchdog://p' "$publisher_environment")
+        if [[ -z "$publisher_password" ]]; then
+          echo "error: malformed Herald watchdog publisher environment" >&2
+          exit 1
+        fi
+        NTFY_PASSWORD=$publisher_password ${lib.getExe pkgs.ntfy-sh} user add \
+          --ignore-exists thornix-watchdog
+        unset publisher_password
+        ${lib.getExe pkgs.ntfy-sh} access \
+          thornix-watchdog thornixos-ops write-only
       '';
 
       showInitialPassword = pkgs.writeShellApplication {
@@ -142,6 +185,8 @@
         }
       ];
 
+      system.checks = [ watchdogTests ];
+
       services.ntfy-sh = {
         enable = true;
         environmentFile = relayEnvironmentPath;
@@ -211,6 +256,65 @@
           UMask = "0077";
           ProtectClock = true;
           ProtectHostname = true;
+        };
+      };
+
+      systemd.services.herald-service-watchdog = {
+        description = "Probe services independently and publish ntfy state transitions";
+        wants = [ "network-online.target" ];
+        requires = [
+          "herald-ntfy-admin.service"
+          "ntfy-sh.service"
+        ];
+        after = [
+          "herald-ntfy-admin.service"
+          "network-online.target"
+          "ntfy-sh.service"
+        ];
+        serviceConfig = {
+          Type = "oneshot";
+          User = "ntfy-sh";
+          Group = "ntfy-sh";
+          EnvironmentFile = watchdogPublisherEnvironmentPath;
+          StateDirectory = "herald-watchdog";
+          StateDirectoryMode = "0700";
+          ExecStart = "${pkgs.python3}/bin/python ${./herald_watchdog.py} --targets ${watchdogTargets} --ntfy ${lib.getExe pkgs.ntfy-sh}";
+          TimeoutStartSec = "3min";
+          UMask = "0077";
+
+          CapabilityBoundingSet = "";
+          LockPersonality = true;
+          NoNewPrivileges = true;
+          PrivateDevices = true;
+          PrivateTmp = true;
+          ProtectClock = true;
+          ProtectControlGroups = true;
+          ProtectHome = true;
+          ProtectHostname = true;
+          ProtectKernelLogs = true;
+          ProtectKernelModules = true;
+          ProtectKernelTunables = true;
+          ProtectSystem = "strict";
+          RestrictAddressFamilies = [
+            "AF_INET"
+            "AF_INET6"
+            "AF_UNIX"
+          ];
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          SystemCallArchitectures = "native";
+        };
+      };
+
+      systemd.timers.herald-service-watchdog = {
+        description = "Run the independent Herald service watchdog";
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnBootSec = "3min";
+          OnUnitActiveSec = "2min";
+          RandomizedDelaySec = "15s";
+          Persistent = true;
+          Unit = "herald-service-watchdog.service";
         };
       };
 
