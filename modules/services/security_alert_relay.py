@@ -140,6 +140,7 @@ class Settings:
     opencti_api_token_file: Path
     loki_url: str
     prometheus_url: str
+    backup_catalog_file: Path
     hmac_secret_file: Path
     ca_file: Path
 
@@ -165,6 +166,9 @@ class Settings:
             prometheus_url=os.environ.get(
                 "SECURITY_RELAY_PROMETHEUS_URL", "http://127.0.0.1:9091"
             ).rstrip("/"),
+            backup_catalog_file=Path(
+                require_environment("SECURITY_RELAY_BACKUP_CATALOG_FILE")
+            ),
             hmac_secret_file=credential_directory / "grafana-webhook-hmac",
             ca_file=Path(require_environment("SECURITY_RELAY_CA_FILE")),
         )
@@ -204,6 +208,82 @@ def require_environment(name: str) -> str:
 
 def read_secret(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip()
+
+
+def load_backup_catalog(path: Path) -> list[dict[str, Any]]:
+    """Load and bound the trusted, declarative service recovery contract."""
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"invalid backup catalog: {error}") from error
+    if not isinstance(value, list) or not 1 <= len(value) <= 64:
+        raise ValueError("backup catalog must contain between 1 and 64 datasets")
+
+    catalog: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("backup catalog entries must be objects")
+        dataset_id = str(item.get("id") or "")
+        host = str(item.get("host") or "")
+        metric_host = str(item.get("metricHost") or host)
+        metric_dataset = str(item.get("metricDataset") or host)
+        services = item.get("services")
+        protection = str(item.get("protection") or "")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", dataset_id):
+            raise ValueError(f"invalid backup dataset id: {dataset_id!r}")
+        if dataset_id in seen_ids:
+            raise ValueError(f"duplicate backup dataset id: {dataset_id}")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", host):
+            raise ValueError(f"invalid backup host: {host!r}")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", metric_host):
+            raise ValueError(f"invalid backup metric host: {metric_host!r}")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", metric_dataset):
+            raise ValueError(f"invalid backup metric dataset: {metric_dataset!r}")
+        if (
+            not isinstance(services, list)
+            or not 1 <= len(services) <= 32
+            or not all(isinstance(service, str) and service for service in services)
+        ):
+            raise ValueError(f"invalid services for backup dataset {dataset_id}")
+        if protection not in {"off-host-restic", "external-unverified"}:
+            raise ValueError(f"invalid protection for backup dataset {dataset_id}")
+
+        backup_timer = item.get("backupTimer")
+        restore_timer = item.get("restoreTimer")
+        for name, timer in (
+            ("backupTimer", backup_timer),
+            ("restoreTimer", restore_timer),
+        ):
+            if timer is not None and (
+                not isinstance(timer, str)
+                or not re.fullmatch(r"[A-Za-z0-9_.@:-]{1,160}", timer)
+            ):
+                raise ValueError(f"invalid {name} for backup dataset {dataset_id}")
+        try:
+            max_age_hours = float(item.get("maxAgeHours"))
+            restore_max_age_hours = float(item.get("restoreMaxAgeHours"))
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid recovery age for {dataset_id}") from error
+        if not 1 <= max_age_hours <= 720 or not 1 <= restore_max_age_hours <= 2160:
+            raise ValueError(f"recovery age outside bounds for {dataset_id}")
+
+        seen_ids.add(dataset_id)
+        catalog.append(
+            {
+                "id": dataset_id,
+                "host": host,
+                "metric_host": metric_host,
+                "metric_dataset": metric_dataset,
+                "services": sorted(set(services))[:32],
+                "protection": protection,
+                "backup_timer": backup_timer,
+                "restore_timer": restore_timer,
+                "max_age_hours": max_age_hours,
+                "restore_max_age_hours": restore_max_age_hours,
+            }
+        )
+    return catalog
 
 
 def valid_hmac(
@@ -1002,6 +1082,7 @@ def build_ops_summary(
     window: str,
     *,
     now: float | None = None,
+    backup_catalog: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build a bounded operational snapshot from fixed local queries."""
     timestamp = time.time() if now is None else now
@@ -1260,25 +1341,172 @@ def build_ops_summary(
         )[:5]
     ]
 
-    backup_rows = prom(
-        "backups",
-        'node_systemd_timer_last_trigger_seconds{'
-        'name=~"restic-backups-.*|postgresqlBackup-.*"}',
-    )
-    backups = []
-    for result in backup_rows:
-        last_trigger = metric_value(result)
-        age_hours = None if last_trigger <= 0 else max(0.0, (timestamp - last_trigger) / 3600)
-        backups.append(
-            {
-                "host": short_instance(labels(result).get("instance")),
-                "timer": str(labels(result).get("name") or "unknown")[:160],
-                "age_hours": None if age_hours is None else round(age_hours, 1),
-                "stale": age_hours is None or age_hours > 36,
-            }
+    timer_observations: dict[tuple[str, str], float] = {}
+    success_observations: dict[tuple[str, str], float] = {}
+    restore_observations: dict[tuple[str, str], float] = {}
+    if backup_catalog is None:
+        backup_rows = prom(
+            "backups",
+            'node_systemd_timer_last_trigger_seconds{'
+            'name=~"restic-backups-.*|postgresqlBackup-.*|thorn-backup-restore-test.timer"}',
         )
-    backups = sorted(backups, key=lambda item: (not item["stale"], item["host"]))[:64]
+        for result in backup_rows:
+            metric = labels(result)
+            key = (
+                short_instance(metric.get("instance")),
+                str(metric.get("name") or "unknown")[:160],
+            )
+            timer_observations[key] = max(
+                timer_observations.get(key, 0.0), metric_value(result)
+            )
+    else:
+        for result in prom("backup-success", "thorn_backup_last_success_seconds"):
+            metric = labels(result)
+            key = (
+                short_instance(metric.get("instance")),
+                str(metric.get("dataset") or "unknown")[:64],
+            )
+            success_observations[key] = max(
+                success_observations.get(key, 0.0), metric_value(result)
+            )
+        for result in prom(
+            "backup-restore-success", "thorn_backup_restore_last_success_seconds"
+        ):
+            metric = labels(result)
+            key = (
+                short_instance(metric.get("instance")),
+                str(metric.get("dataset") or "unknown")[:64],
+            )
+            restore_observations[key] = max(
+                restore_observations.get(key, 0.0), metric_value(result)
+            )
+
+    def timer_age(metric_hosts: list[str], timer: str | None) -> float | None:
+        if timer is None:
+            return None
+        last_trigger = max(
+            (timer_observations.get((host, timer), 0.0) for host in metric_hosts),
+            default=0.0,
+        )
+        if last_trigger <= 0:
+            return None
+        return max(0.0, (timestamp - last_trigger) / 3600)
+
+    def success_age(
+        observations: dict[tuple[str, str], float],
+        metric_hosts: list[str],
+        metric_dataset: str,
+    ) -> float | None:
+        last_success = max(
+            (
+                observations.get((host, metric_dataset), 0.0)
+                for host in metric_hosts
+            ),
+            default=0.0,
+        )
+        if last_success <= 0:
+            return None
+        return max(0.0, (timestamp - last_success) / 3600)
+
+    backups: list[dict[str, Any]] = []
+    if backup_catalog is None:
+        for (host, timer), last_trigger in timer_observations.items():
+            if timer == "thorn-backup-restore-test.timer":
+                continue
+            age_hours = (
+                None
+                if last_trigger <= 0
+                else max(0.0, (timestamp - last_trigger) / 3600)
+            )
+            backups.append(
+                {
+                    "host": host,
+                    "timer": timer,
+                    "age_hours": None if age_hours is None else round(age_hours, 1),
+                    "stale": age_hours is None or age_hours > 36,
+                }
+            )
+    else:
+        for dataset in backup_catalog:
+            host = dataset["host"]
+            metric_hosts = list({host, dataset["metric_host"]})
+            metric_dataset = dataset["metric_dataset"]
+            backup_timer = dataset["backup_timer"]
+            restore_timer = dataset["restore_timer"]
+            backup_age = success_age(
+                success_observations, metric_hosts, metric_dataset
+            )
+            restore_age = success_age(
+                restore_observations, metric_hosts, metric_dataset
+            )
+            externally_unverified = dataset["protection"] == "external-unverified"
+            backup_stale = (
+                not externally_unverified
+                and (
+                    backup_age is None
+                    or backup_age > dataset["max_age_hours"]
+                )
+            )
+            restore_stale = (
+                not externally_unverified
+                and (
+                    restore_age is None
+                    or restore_age > dataset["restore_max_age_hours"]
+                )
+            )
+            coverage_gap = (
+                externally_unverified
+                or backup_timer is None
+                or restore_timer is None
+            )
+            status = "verified"
+            if coverage_gap:
+                status = "coverage_gap"
+            elif backup_age is None:
+                status = "backup_unverified"
+            elif backup_stale:
+                status = "backup_stale"
+            elif restore_age is None:
+                status = "restore_unverified"
+            elif restore_stale:
+                status = "restore_stale"
+            backups.append(
+                {
+                    "id": dataset["id"],
+                    "host": host,
+                    "metric_host": dataset["metric_host"],
+                    "metric_dataset": metric_dataset,
+                    "services": dataset["services"],
+                    "protection": dataset["protection"],
+                    "timer": backup_timer,
+                    "restore_timer": restore_timer,
+                    "age_hours": None if backup_age is None else round(backup_age, 1),
+                    "restore_age_hours": (
+                        None if restore_age is None else round(restore_age, 1)
+                    ),
+                    "protected": not coverage_gap and not backup_stale,
+                    "restore_verified": not coverage_gap and not restore_stale,
+                    "coverage_gap": coverage_gap,
+                    "stale": backup_stale,
+                    "restore_stale": restore_stale,
+                    "status": status,
+                }
+            )
+    backups = sorted(
+        backups,
+        key=lambda item: (
+            item.get("status") == "verified",
+            not item["stale"],
+            item["host"],
+        ),
+    )[:64]
     stale_backups = [item for item in backups if item["stale"]][:16]
+    unverified_restores = [
+        item for item in backups if item.get("restore_stale", False)
+    ][:16]
+    backup_coverage_gaps = [
+        item for item in backups if item.get("coverage_gap", False)
+    ][:16]
 
     deployment_rows = prom(
         "deployment-info", 'comin_deployment_info{status="done"} == 1'
@@ -1373,6 +1601,19 @@ def build_ops_summary(
             "Repair stale backups: "
             + ", ".join(f"{item['host']}/{item['timer']}" for item in stale_backups)
         )
+    if unverified_restores:
+        critical_actions.append(
+            "Run or repair recovery tests: "
+            + ", ".join(item["host"] for item in unverified_restores)
+        )
+    if backup_coverage_gaps:
+        critical_actions.append(
+            "Close backup coverage gaps: "
+            + ", ".join(
+                f"{item['host']} ({', '.join(item.get('services', []))})"
+                for item in backup_coverage_gaps
+            )
+        )
     if internal_tls_attention:
         critical_actions.append("Internal ACME renewal has less than four hours remaining")
     if external_tls_attention:
@@ -1460,6 +1701,18 @@ def build_ops_summary(
         "maintenance": {
             "backups": backups,
             "stale_backups": stale_backups,
+            "unverified_restores": unverified_restores,
+            "backup_coverage_gaps": backup_coverage_gaps,
+            "backup_coverage": {
+                "datasets": len(backups),
+                "protected": sum(
+                    1 for item in backups if item.get("protected", not item["stale"])
+                ),
+                "restore_verified": sum(
+                    1 for item in backups if item.get("restore_verified", False)
+                ),
+                "gaps": len(backup_coverage_gaps),
+            },
         },
         "deployment": {
             "targets": len(host_commits),
@@ -1607,6 +1860,7 @@ class Relay:
         )
         self.loki = LokiClient(settings.loki_url)
         self.prometheus = PrometheusClient(settings.prometheus_url)
+        self.backup_catalog = load_backup_catalog(settings.backup_catalog_file)
         self.state = StateStore(settings.state_file)
         self.hmac_secret = read_secret(settings.hmac_secret_file).encode("utf-8")
         self.metrics = Metrics()
@@ -1615,7 +1869,12 @@ class Relay:
     def query_ops_summary(self, payload: dict[str, Any]) -> dict[str, Any]:
         window = parse_ops_summary_request(payload)
         self.metrics.increment("ops_summary_requests_total")
-        result = build_ops_summary(self.prometheus, self.loki, window)
+        result = build_ops_summary(
+            self.prometheus,
+            self.loki,
+            window,
+            backup_catalog=self.backup_catalog,
+        )
         if result.get("errors"):
             self.metrics.increment("ops_summary_errors_total")
         self.metrics.success()

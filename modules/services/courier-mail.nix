@@ -169,6 +169,14 @@
         };
       };
 
+      thorn.backup = {
+        enable = true;
+        schedule = "*-*-* 04:20:00";
+        paths = [ stateDirectory ];
+        quiesceServices = [ "stalwart.service" ];
+        restorePaths = [ "${stateDirectory}/CURRENT" ];
+      };
+
       # Stalwart owns 443 and every mail protocol directly, so Courier uses
       # lego's temporary standalone HTTP-01 listener instead of adding a
       # second reverse proxy solely for certificate issuance. Anvil is the

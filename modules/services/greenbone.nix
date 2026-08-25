@@ -230,6 +230,10 @@
 
       system.checks = [ composeCheck ];
 
+      systemd.tmpfiles.rules = [
+        "d /var/backup/sieve 0700 root root -"
+      ];
+
       virtualisation.docker = {
         enable = true;
         enableOnBoot = true;
@@ -384,6 +388,32 @@
           AccuracySec = "1m";
           Unit = "sieve-greenbone-health.service";
         };
+      };
+
+      # Greenbone's 23 GiB PostgreSQL volume is database state, while the
+      # large feed volumes are reproducible from the signed community feed.
+      # Produce a logical dump online and prove that pg_restore can parse the
+      # recovered archive instead of copying Docker's live database files.
+      thorn.backup = {
+        enable = true;
+        schedule = "*-*-* 06:10:00";
+        paths = [
+          "/var/backup/sieve"
+          "/var/lib/sieve"
+        ];
+        prepareCommand = ''
+          temporary=/var/backup/sieve/gvmd.dump.new
+          ${compose} exec -T pg-gvm \
+            pg_dump -U postgres --format=custom --compress=9 gvmd > "$temporary"
+          ${compose} exec -T pg-gvm pg_restore --list < "$temporary" >/dev/null
+          ${pkgs.coreutils}/bin/chmod 0600 "$temporary"
+          ${pkgs.coreutils}/bin/mv -T "$temporary" /var/backup/sieve/gvmd.dump
+        '';
+        restorePaths = [ "/var/backup/sieve/gvmd.dump" ];
+        restoreValidationCommand = ''
+          ${compose} exec -T pg-gvm pg_restore --list \
+            < "$RESTORE_ROOT/var/backup/sieve/gvmd.dump" >/dev/null
+        '';
       };
 
       # Anvil owns the user-facing certificate. Greenbone's generated TLS is

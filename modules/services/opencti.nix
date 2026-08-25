@@ -148,25 +148,36 @@
       healthCheck = pkgs.writeShellScript "oracle-opencti-health" ''
         set -o errexit -o nounset -o pipefail
 
-        for service in \
-          redis elasticsearch minio rabbitmq opencti worker \
-          connector-opencti connector-mitre connector-cisa-kev \
-          connector-threatfox connector-first-epss
-        do
-          container_id=$(${compose} ps --quiet --status running "$service")
-          if [[ -z "$container_id" ]]; then
-            echo "error: critical Oracle container is not running: $service" >&2
+        check_oracle() {
+          for service in \
+            redis elasticsearch minio rabbitmq opencti worker \
+            connector-opencti connector-mitre connector-cisa-kev \
+            connector-threatfox connector-first-epss
+          do
+            container_id=$(${compose} ps --quiet --status running "$service")
+            [[ -n "$container_id" ]] || return 1
+          done
+
+          # shellcheck disable=SC1090
+          source ${lib.escapeShellArg secretsFile}
+          ${pkgs.curl}/bin/curl --fail --silent \
+            --connect-timeout 3 --max-time 30 --output /dev/null \
+            --cacert ${inputs.self}/certs/ThornCloud_CA.crt \
+            --resolve ${hostname}:443:127.0.0.1 \
+            "https://${hostname}/health?health_access_key=$OPENCTI_HEALTHCHECK_ACCESS_KEY"
+        }
+
+        for ((attempt = 1; attempt <= 90; attempt++)); do
+          if check_oracle; then
+            exit 0
+          fi
+          if ((attempt == 90)); then
+            echo "error: Oracle did not become healthy within fifteen minutes" >&2
+            ${compose} ps >&2 || true
             exit 1
           fi
+          sleep 10
         done
-
-        # shellcheck disable=SC1090
-        source ${lib.escapeShellArg secretsFile}
-        ${pkgs.curl}/bin/curl --fail --silent --show-error \
-          --connect-timeout 3 --max-time 30 --output /dev/null \
-          --cacert ${inputs.self}/certs/ThornCloud_CA.crt \
-          --resolve ${hostname}:443:127.0.0.1 \
-          "https://${hostname}/health?health_access_key=$OPENCTI_HEALTHCHECK_ACCESS_KEY"
       '';
 
       composeCommand = pkgs.writeShellApplication {
@@ -291,7 +302,7 @@
           serviceConfig = {
             Type = "oneshot";
             ExecStart = healthCheck;
-            TimeoutStartSec = "1min";
+            TimeoutStartSec = "16min";
           };
         };
       };
@@ -305,6 +316,20 @@
           AccuracySec = "1m";
           Unit = "oracle-opencti-health.service";
         };
+      };
+
+      thorn.backup = {
+        enable = true;
+        schedule = "*-*-* 05:30:00";
+        paths = [
+          stateDirectory
+          "/var/lib/docker/volumes"
+        ];
+        quiesceServices = [ "oracle-opencti.service" ];
+        cleanupCommand = ''
+          ${pkgs.systemd}/bin/systemctl start oracle-opencti-health.service
+        '';
+        restorePaths = [ secretsFile ];
       };
 
       thorn.acme = {

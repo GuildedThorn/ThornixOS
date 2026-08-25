@@ -151,6 +151,84 @@ class RelayPureFunctionTests(unittest.TestCase):
         self.assertEqual(relay.service_slo_status(True, 98.9, 0.4), "breached")
         self.assertEqual(relay.service_slo_status(True, 100.0, 2.1), "breached")
 
+    def test_backup_catalog_proves_fresh_snapshot_and_restore_per_dataset(self):
+        now = 1_786_752_000.0
+        raw_catalog = [
+            {
+                "id": "atlas-state",
+                "host": "atlas",
+                "metricHost": "atlas",
+                "metricDataset": "atlas",
+                "services": ["netbox"],
+                "protection": "off-host-restic",
+                "backupTimer": "restic-backups-atlas.timer",
+                "restoreTimer": "thorn-backup-restore-test.timer",
+                "maxAgeHours": 36,
+                "restoreMaxAgeHours": 192,
+            },
+            {
+                "id": "truenas-app-state",
+                "host": "truenas",
+                "metricHost": "truenas",
+                "services": ["jellyfin"],
+                "protection": "external-unverified",
+                "backupTimer": None,
+                "restoreTimer": None,
+                "maxAgeHours": 36,
+                "restoreMaxAgeHours": 192,
+            },
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "backup-catalog.json"
+            path.write_text(json.dumps(raw_catalog), encoding="utf-8")
+            catalog = relay.load_backup_catalog(path)
+
+        def row(dataset, age_hours):
+            return {
+                "metric": {
+                    "instance": "atlas.guildedthorn.arpa:9100",
+                    "dataset": dataset,
+                },
+                "value": [now, str(now - age_hours * 3600)],
+            }
+
+        class FakePrometheus:
+            def query(self, expression):
+                if expression == "thorn_backup_last_success_seconds":
+                    return [row("atlas", 2)]
+                if expression == "thorn_backup_restore_last_success_seconds":
+                    return [row("atlas", 10)]
+                return []
+
+        class FakeLoki:
+            def count(self, expression):
+                return 0
+
+        summary = relay.build_ops_summary(
+            FakePrometheus(),
+            FakeLoki(),
+            "24h",
+            now=now,
+            backup_catalog=catalog,
+        )
+        by_id = {
+            item["id"]: item for item in summary["maintenance"]["backups"]
+        }
+        self.assertEqual(by_id["atlas-state"]["status"], "verified")
+        self.assertTrue(by_id["atlas-state"]["protected"])
+        self.assertTrue(by_id["atlas-state"]["restore_verified"])
+        self.assertTrue(by_id["truenas-app-state"]["coverage_gap"])
+        self.assertEqual(
+            summary["maintenance"]["backup_coverage"],
+            {
+                "datasets": 2,
+                "protected": 1,
+                "restore_verified": 1,
+                "gaps": 1,
+            },
+        )
+        self.assertIn("Close backup coverage gaps", json.dumps(summary["actions"]))
+
     def test_ops_summary_prioritizes_maintenance_without_raw_queries(self):
         now = 1_786_752_000.0
 

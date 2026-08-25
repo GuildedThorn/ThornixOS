@@ -83,6 +83,18 @@
         databases = [ "netbox" ];
         startAt = "*-*-* 02:30:00";
         compression = "zstd";
+        pgdumpOptions = "";
+      };
+
+      thorn.backup = {
+        enable = true;
+        schedule = "*-*-* 02:45:00";
+        paths = [
+          "/var/backup/postgresql"
+          "/var/lib/netbox"
+        ];
+        restorePaths = [ "/var/lib/netbox/secret.key" ];
+        postgresDumps.netbox = "/var/backup/postgresql/netbox.sql.zstd";
       };
 
       # A manual, transactional and idempotent seed. Keeping this out of the

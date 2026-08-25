@@ -76,6 +76,19 @@
         databases = [ "n8n" ];
         startAt = "*-*-* 03:30:00";
         compression = "zstd";
+        pgdumpOptions = "";
+      };
+
+      thorn.backup = {
+        enable = true;
+        schedule = "*-*-* 03:50:00";
+        paths = [
+          "/var/backup/postgresql"
+          secretStateDirectory
+          "/var/lib/private/n8n"
+        ];
+        restorePaths = [ "${secretStateDirectory}/encryption-key" ];
+        postgresDumps.n8n = "/var/backup/postgresql/n8n.sql.zstd";
       };
 
       # Generate installation-specific secrets on the VM at first boot. They

@@ -22,6 +22,7 @@ keys:
   - &host_herald age1alkat333udvy0mw0ef07fhyyzcxk8kpqud7kmwkcw7jdf6yewdeqz0rrvc
   - &host_courier age1znu04a67p362wzxgguu83d89n4mvh5tf2fc4kywm5x6xf4pzyp7sgf9yrp
   - &host_loom age1az503gz828gjmk5zrmx2z9nxe86v44karethcfz8afyum3fvdv9q5u0ntv
+  - &host_mitm age1k3pmw077qagpeqwnlsftj365nkdjqcdtcr5ux2rxxku0wx3xgvgs0ynfts
 
 creation_rules:
   # Shared Alloy writer identity. Every telemetry-enrolled host must be able
@@ -76,3 +77,45 @@ creation_rules:
   - path_regex: hosts/forge/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_forge
+  - path_regex: hosts/anvil/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_anvil
+  - path_regex: hosts/atlas/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_atlas
+  - path_regex: hosts/casebook/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_casebook
+  - path_regex: hosts/courier/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_courier
+  - path_regex: hosts/forge/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_forge
+  - path_regex: hosts/herald/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_herald
+  - path_regex: hosts/hound/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_hound
+  - path_regex: hosts/identity/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_identity
+  - path_regex: hosts/loom/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_loom
+  - path_regex: hosts/mac/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_mac
+  - path_regex: hosts/mitm/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_mitm
+  - path_regex: hosts/oracle/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_oracle
+  - path_regex: hosts/sieve/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_sieve
+  - path_regex: hosts/websites/backup-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_websites

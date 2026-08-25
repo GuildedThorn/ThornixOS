@@ -99,6 +99,20 @@
             rtmp-port = 1935;
           };
 
+          thorn.backup = {
+            enable = true;
+            schedule = "*-*-* 04:50:00";
+            paths = [ "/var/lib/owncast" ];
+            quiesceServices = [ "owncast.service" ];
+            restorePaths = [ "/var/lib/owncast/data/owncast.db" ];
+            restoreValidationCommand = ''
+              ${pkgs.sqlite}/bin/sqlite3 \
+                "$RESTORE_ROOT/var/lib/owncast/data/owncast.db" \
+                'PRAGMA integrity_check;' \
+                | ${pkgs.gnugrep}/bin/grep --fixed-strings --line-regexp ok >/dev/null
+            '';
+          };
+
           services.rabbitmq.enable = true;
           # epmd listens on IPv6 by default, which is disabled on this host.
           # It must cover 127.0.0.2 too: RabbitMQ's node is rabbit@websites,

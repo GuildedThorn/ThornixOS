@@ -924,6 +924,29 @@ in
           systemd.services.home-assistant.preStart = lib.mkAfter ''
             ${storageMigration}/bin/casita-ha-storage
           '';
+
+          thorn.backup = {
+            enable = true;
+            schedule = "*-*-* 04:40:00";
+            paths = [ "/var/lib/hass" ];
+            exclude = [
+              "/var/lib/hass/.cache"
+              "/var/lib/hass/deps"
+              "/var/lib/hass/home-assistant.log*"
+              "/var/lib/hass/tts"
+            ];
+            quiesceServices = [ "home-assistant.service" ];
+            restorePaths = [
+              "/var/lib/hass/.storage/core.config_entries"
+              "/var/lib/hass/home-assistant_v2.db"
+            ];
+            restoreValidationCommand = ''
+              ${pkgs.sqlite}/bin/sqlite3 \
+                "$RESTORE_ROOT/var/lib/hass/home-assistant_v2.db" \
+                'PRAGMA integrity_check;' \
+                | ${pkgs.gnugrep}/bin/grep --fixed-strings --line-regexp ok >/dev/null
+            '';
+          };
         }
       )
     ];

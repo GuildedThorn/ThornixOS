@@ -27,7 +27,12 @@ in
       { home-manager.users.thorn = import "${inputs.self}/hosts/mac/home.nix"; }
 
       (
-        { lib, modulesPath, ... }:
+        {
+          lib,
+          modulesPath,
+          pkgs,
+          ...
+        }:
         let
           topologyFleet = lib.filterAttrs (
             _: host: host.address != null && lib.hasPrefix "172.16.25." host.address
@@ -64,6 +69,35 @@ in
             RuntimeMaxUse=128M
             MaxRetentionSec=7day
           '';
+
+          systemd.tmpfiles.rules = [
+            "d /var/backup/proxmox 0700 root root -"
+          ];
+
+          # Guest application state is protected on each VM. Preserve the
+          # hypervisor's own pmxcfs database separately so bridge, storage,
+          # ACL, and guest definitions can be recovered without a raw host
+          # image. SQLite's online backup API produces a consistent copy.
+          thorn.backup = {
+            enable = true;
+            schedule = "*-*-* 02:00:00";
+            paths = [ "/var/backup/proxmox" ];
+            prepareCommand = ''
+              temporary=/var/backup/proxmox/config.db.new
+              ${pkgs.sqlite}/bin/sqlite3 /var/lib/pve-cluster/config.db \
+                ".backup '$temporary'"
+              ${pkgs.coreutils}/bin/chmod 0600 "$temporary"
+              ${pkgs.coreutils}/bin/mv -T "$temporary" \
+                /var/backup/proxmox/config.db
+            '';
+            restorePaths = [ "/var/backup/proxmox/config.db" ];
+            restoreValidationCommand = ''
+              ${pkgs.sqlite}/bin/sqlite3 \
+                "$RESTORE_ROOT/var/backup/proxmox/config.db" \
+                'PRAGMA integrity_check;' \
+                | ${pkgs.gnugrep}/bin/grep --fixed-strings --line-regexp ok >/dev/null
+            '';
+          };
 
           # vmbr0 is the point at which Proxmox guest-to-guest and
           # guest-to-physical traffic converges. The bridge capture was

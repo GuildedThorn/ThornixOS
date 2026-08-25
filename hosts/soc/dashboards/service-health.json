@@ -59,11 +59,11 @@
       "id": 4,
       "type": "stat",
       "title": "Prometheus backup age",
-      "description": "Time since the nightly restic backup timer last fired; Discord alerts after 36 hours.",
+      "description": "Time since the Prometheus and Grafana snapshot actually completed; alerts after 36 hours.",
       "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "(time() - node_systemd_timer_last_trigger_seconds{name=\"restic-backups-prometheus.timer\"}) / 3600", "instant": true }
+        { "refId": "A", "expr": "(time() - thorn_backup_last_success_seconds{dataset=\"soc\"}) / 3600", "instant": true }
       ],
       "fieldConfig": { "defaults": { "unit": "h", "decimals": 1, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 30 }, { "color": "red", "value": 36 }] } }, "overrides": [] },
       "options": { "colorMode": "background_solid", "graphMode": "area", "textMode": "value", "justifyMode": "center", "reduceOptions": { "calcs": ["lastNotNull"] } }

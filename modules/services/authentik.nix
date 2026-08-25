@@ -179,6 +179,18 @@
         databases = [ "authentik" ];
         startAt = "*-*-* 02:15:00";
         compression = "zstd";
+        pgdumpOptions = "";
+      };
+
+      thorn.backup = {
+        enable = true;
+        schedule = "*-*-* 02:35:00";
+        paths = [
+          "/var/backup/postgresql"
+          authentikStateDirectory
+        ];
+        restorePaths = [ "${authentikStateDirectory}/secret-key" ];
+        postgresDumps.authentik = "/var/backup/postgresql/authentik.sql.zstd";
       };
 
       systemd.services.authentik-secret-key = {

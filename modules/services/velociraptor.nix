@@ -368,6 +368,14 @@
         };
       };
 
+      thorn.backup = {
+        enable = true;
+        schedule = "*-*-* 04:30:00";
+        paths = [ stateDirectory ];
+        quiesceServices = [ "velociraptor-server.service" ];
+        restorePaths = [ configFile ];
+      };
+
       thorn.acme = {
         enable = true;
         domain = hostname;

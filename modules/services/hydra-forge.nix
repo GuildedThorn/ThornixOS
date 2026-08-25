@@ -285,6 +285,17 @@
             databases = [ "hydra" ];
             startAt = "*-*-* 03:15:00";
             compression = "zstd";
+            pgdumpOptions = "";
+          };
+
+          thorn.backup = {
+            enable = true;
+            schedule = "*-*-* 03:40:00";
+            paths = [
+              "/var/backup/postgresql"
+              stateDirectory
+            ];
+            postgresDumps.hydra = "/var/backup/postgresql/hydra.sql.zstd";
           };
 
           thorn.acme = {

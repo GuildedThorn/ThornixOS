@@ -242,19 +242,30 @@
       healthCheck = pkgs.writeShellScript "casebook-thehive-health" ''
         set -o errexit -o nounset -o pipefail
 
-        for service in cassandra elasticsearch thehive; do
-          container_id=$(${compose} ps --quiet --status running "$service")
-          if [[ -z "$container_id" ]]; then
-            echo "error: critical Casebook container is not running: $service" >&2
+        check_casebook() {
+          for service in cassandra elasticsearch thehive; do
+            container_id=$(${compose} ps --quiet --status running "$service")
+            [[ -n "$container_id" ]] || return 1
+          done
+
+          ${pkgs.curl}/bin/curl --fail --silent --location \
+            --connect-timeout 3 --max-time 20 --output /dev/null \
+            --cacert ${inputs.self}/certs/ThornCloud_CA.crt \
+            --resolve ${hostname}:443:127.0.0.1 \
+            https://${hostname}/
+        }
+
+        for ((attempt = 1; attempt <= 30; attempt++)); do
+          if check_casebook; then
+            exit 0
+          fi
+          if ((attempt == 30)); then
+            echo "error: Casebook did not become healthy within five minutes" >&2
+            ${compose} ps >&2 || true
             exit 1
           fi
+          sleep 10
         done
-
-        ${pkgs.curl}/bin/curl --fail --silent --show-error --location \
-          --connect-timeout 3 --max-time 20 --output /dev/null \
-          --cacert ${inputs.self}/certs/ThornCloud_CA.crt \
-          --resolve ${hostname}:443:127.0.0.1 \
-          https://${hostname}/
       '';
 
       composeCommand = pkgs.writeShellApplication {
@@ -395,7 +406,7 @@
           serviceConfig = {
             Type = "oneshot";
             ExecStart = healthCheck;
-            TimeoutStartSec = "1min";
+            TimeoutStartSec = "6min";
           };
         };
 
@@ -414,6 +425,20 @@
           AccuracySec = "1m";
           Unit = "casebook-thehive-health.service";
         };
+      };
+
+      thorn.backup = {
+        enable = true;
+        schedule = "*-*-* 05:00:00";
+        paths = [
+          stateDirectory
+          "/var/lib/docker/volumes"
+        ];
+        quiesceServices = [ "casebook-thehive.service" ];
+        cleanupCommand = ''
+          ${pkgs.systemd}/bin/systemctl start casebook-thehive-health.service
+        '';
+        restorePaths = [ secretsFile ];
       };
 
       thorn.acme = {

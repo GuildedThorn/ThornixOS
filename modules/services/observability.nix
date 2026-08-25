@@ -27,6 +27,7 @@
       telemetryCredentialDirectory = "/run/credentials/alloy.service";
       telemetryWriterCertificate = "${inputs.self}/certs/telemetry-writer.crt";
       telemetryWriterSecrets = "${inputs.self}/hosts/shared/telemetry-secrets.yaml";
+      nodeTextfileDirectory = "/var/lib/node-exporter-textfiles";
     in
     {
       options.thorn.telemetry.enable = lib.mkEnableOption "authenticated fleet telemetry shipping";
@@ -38,9 +39,21 @@
           # the SOC VM.
           services.prometheus.exporters.node = {
             enable = true;
-            enabledCollectors = [ "systemd" ];
+            enabledCollectors = [
+              "systemd"
+              "textfile"
+            ];
+            # Multiple textfile directories are supported. Zeek adds its
+            # fast-changing runtime directory on mac, while durable success
+            # proofs written here survive reboots on every fleet host.
+            extraFlags = [ "--collector.textfile.directory=${nodeTextfileDirectory}" ];
             openFirewall = false;
           };
+
+          systemd.tmpfiles.rules = [
+            "d ${nodeTextfileDirectory} 0755 root root -"
+            "d /var/lib/thorn-backup 0700 root root -"
+          ];
 
           # comin's metrics endpoint is similarly visible only to the SOC.
           # Loopback remains available for scout's local Alloy scrape.

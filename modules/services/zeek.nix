@@ -438,9 +438,10 @@
 
         # Reuse the already SOC-restricted node_exporter listener rather than
         # opening another HTTP port on the hypervisor. The exporter atomically
-        # replaces this file every five seconds.
+        # replaces this file every five seconds. Observability enables the
+        # textfile collector globally; only add Zeek's second directory here
+        # so node_exporter does not receive the collector flag twice.
         services.prometheus.exporters.node = lib.mkIf cfg.topology.enable {
-          enabledCollectors = [ "textfile" ];
           extraFlags = [ "--collector.textfile.directory=${topologyMetricsDirectory}" ];
         };
 

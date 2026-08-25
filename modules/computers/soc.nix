@@ -621,7 +621,35 @@ in
             repository = "s3:https://${seaweedfsS3}/prometheus-backup";
             passwordFile = config.sops.secrets.restic_password.path;
             environmentFile = config.sops.templates."restic-s3.env".path;
-            paths = [ "/var/lib/${config.services.prometheus.stateDir}" ];
+            paths = [
+              "/var/lib/${config.services.prometheus.stateDir}"
+              "/var/lib/grafana"
+            ];
+            backupPrepareCommand = ''
+              set -o errexit -o nounset -o pipefail
+              ${pkgs.rclone}/bin/rclone mkdir :s3:prometheus-backup \
+                --s3-provider Other \
+                --s3-env-auth \
+                --s3-endpoint https://${seaweedfsS3}
+            '';
+            backupCleanupCommand = ''
+              set -o errexit -o nounset -o pipefail
+              if [[ "''${SERVICE_RESULT:-}" == "success" ]]; then
+                timestamp=$(${pkgs.coreutils}/bin/date +%s)
+                marker_tmp=/var/lib/thorn-backup/soc.ready.tmp.$$
+                metrics_tmp=/var/lib/node-exporter-textfiles/thorn-backup-soc.prom.tmp.$$
+                : > "$marker_tmp"
+                ${pkgs.coreutils}/bin/mv -f "$marker_tmp" /var/lib/thorn-backup/soc.ready
+                {
+                  printf '# HELP thorn_backup_last_success_seconds Unix time of the last proven successful backup.\n'
+                  printf '# TYPE thorn_backup_last_success_seconds gauge\n'
+                  printf 'thorn_backup_last_success_seconds{dataset="soc"} %s\n' "$timestamp"
+                } > "$metrics_tmp"
+                ${pkgs.coreutils}/bin/chmod 0644 "$metrics_tmp"
+                ${pkgs.coreutils}/bin/mv -f "$metrics_tmp" \
+                  /var/lib/node-exporter-textfiles/thorn-backup-soc.prom
+              fi
+            '';
             timerConfig = {
               OnCalendar = "daily";
               # Spread load off the top of the hour; Persistent catches up a
@@ -634,6 +662,72 @@ in
               "--keep-weekly 4"
               "--keep-monthly 3"
             ];
+          };
+
+          systemd.services.restic-backups-prometheus.serviceConfig.TimeoutStartSec = "2h";
+
+          systemd.services.thorn-backup-restore-test = {
+            description = "Read SOC backup payloads and test Grafana recovery";
+            wants = [ "network-online.target" ];
+            after = [ "network-online.target" ];
+            unitConfig.ConditionPathExists = "/var/lib/thorn-backup/soc.ready";
+            serviceConfig = {
+              Type = "oneshot";
+              EnvironmentFile = config.sops.templates."restic-s3.env".path;
+              Environment = [
+                "RESTIC_REPOSITORY=s3:https://${seaweedfsS3}/prometheus-backup"
+                "RESTIC_PASSWORD_FILE=${config.sops.secrets.restic_password.path}"
+                "XDG_CACHE_HOME=/var/cache/thorn-backup-restore-test"
+              ];
+              RuntimeDirectory = "thorn-backup-restore-test";
+              RuntimeDirectoryMode = "0700";
+              CacheDirectory = "thorn-backup-restore-test";
+              CacheDirectoryMode = "0700";
+              Nice = 10;
+              IOSchedulingClass = "idle";
+              TimeoutStartSec = "2h";
+              UMask = "0077";
+              ExecStart = pkgs.writeShellScript "soc-backup-restore-test" ''
+                set -o errexit -o nounset -o pipefail
+
+                ${pkgs.restic}/bin/restic check --read-data-subset=5%
+
+                restore_root="$RUNTIME_DIRECTORY/restore"
+                ${pkgs.coreutils}/bin/install -d -m 0700 "$restore_root"
+                ${pkgs.restic}/bin/restic restore latest \
+                  --target "$restore_root" \
+                  --include /var/lib/grafana/data/grafana.db
+
+                database="$restore_root/var/lib/grafana/data/grafana.db"
+                [[ -s "$database" ]]
+                ${pkgs.sqlite}/bin/sqlite3 "$database" \
+                  'PRAGMA integrity_check;' \
+                  | ${pkgs.gnugrep}/bin/grep \
+                    --fixed-strings --line-regexp ok >/dev/null
+
+                timestamp=$(${pkgs.coreutils}/bin/date +%s)
+                metrics_tmp=/var/lib/node-exporter-textfiles/thorn-backup-restore-soc.prom.tmp.$$
+                {
+                  printf '# HELP thorn_backup_restore_last_success_seconds Unix time of the last proven successful application-aware restore.\n'
+                  printf '# TYPE thorn_backup_restore_last_success_seconds gauge\n'
+                  printf 'thorn_backup_restore_last_success_seconds{dataset="soc"} %s\n' "$timestamp"
+                } > "$metrics_tmp"
+                ${pkgs.coreutils}/bin/chmod 0644 "$metrics_tmp"
+                ${pkgs.coreutils}/bin/mv -f "$metrics_tmp" \
+                  /var/lib/node-exporter-textfiles/thorn-backup-restore-soc.prom
+              '';
+            };
+          };
+
+          systemd.timers.thorn-backup-restore-test = {
+            description = "Weekly SOC backup restore test";
+            wantedBy = [ "timers.target" ];
+            timerConfig = {
+              OnCalendar = "Sun *-*-* 10:00:00";
+              RandomizedDelaySec = "4h";
+              Persistent = true;
+              Unit = "thorn-backup-restore-test.service";
+            };
           };
 
           # An external dead-man switch for the monitoring host itself. A
@@ -1681,14 +1775,14 @@ in
                           uid = "soc-prometheus-backup-stale";
                           title = "Prometheus backup is stale";
                           datasourceUid = "prometheus";
-                          expr = ''time() - node_systemd_timer_last_trigger_seconds{name="restic-backups-prometheus.timer"}'';
+                          expr = ''time() - thorn_backup_last_success_seconds{dataset="soc"}'';
                           evaluator = {
                             type = "gt";
                             params = [ 129600 ];
                           };
                           for = "15m";
                           noDataState = "Alerting";
-                          summary = "The Prometheus restic backup timer has not triggered in more than 36 hours.";
+                          summary = "The Prometheus and Grafana restic snapshot has not completed successfully in more than 36 hours.";
                         })
                         (rule {
                           uid = "fleet-service-probe-down";

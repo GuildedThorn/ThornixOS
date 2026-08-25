@@ -51,6 +51,10 @@
           type = lib.types.path;
           description = "Root-readable shared key used to authenticate Grafana webhook bodies.";
         };
+        backupCatalogFile = lib.mkOption {
+          type = lib.types.path;
+          description = "Read-only JSON recovery contract consumed by the operations summary.";
+        };
         listenPort = lib.mkOption {
           type = lib.types.port;
           default = 9088;
@@ -133,6 +137,7 @@
             # text crosses the Loom-to-SOC boundary.
             SECURITY_RELAY_LOKI_URL = "http://127.0.0.1:3101";
             SECURITY_RELAY_PROMETHEUS_URL = "http://127.0.0.1:9091";
+            SECURITY_RELAY_BACKUP_CATALOG_FILE = toString cfg.backupCatalogFile;
             SECURITY_RELAY_CA_FILE = config.security.pki.caBundle;
           };
         };

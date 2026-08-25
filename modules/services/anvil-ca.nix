@@ -108,6 +108,14 @@
         # further intermediate.
         system.checks = [ chainCheck ];
 
+        thorn.backup = {
+          enable = true;
+          schedule = "*-*-* 02:05:00";
+          paths = [ "/var/lib/private/step-ca" ];
+          quiesceServices = [ "step-ca.service" ];
+          restorePaths = [ "/var/lib/private/step-ca/db/MANIFEST" ];
+        };
+
         systemd.services.step-ca.serviceConfig = {
           NoNewPrivileges = true;
           PrivateDevices = true;

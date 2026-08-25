@@ -214,6 +214,20 @@
         };
       };
 
+      thorn.backup = {
+        enable = true;
+        schedule = "*-*-* 04:10:00";
+        paths = [ "/var/lib/private/ntfy-sh" ];
+        quiesceServices = [ "ntfy-sh.service" ];
+        restorePaths = [ "/var/lib/private/ntfy-sh/user.db" ];
+        restoreValidationCommand = ''
+          ${pkgs.sqlite}/bin/sqlite3 \
+            "$RESTORE_ROOT/var/lib/private/ntfy-sh/user.db" \
+            'PRAGMA integrity_check;' \
+            | ${pkgs.gnugrep}/bin/grep --fixed-strings --line-regexp ok >/dev/null
+        '';
+      };
+
       thorn.acme = {
         enable = true;
         domain = hostname;
