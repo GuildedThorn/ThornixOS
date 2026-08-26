@@ -402,7 +402,13 @@ class WorkflowGateway:
         return workflow_id
 
     def _lookup(self, workflow_id: str) -> dict[str, Any]:
-        search_response = self.client.call("search_workflows", {"limit": 200})
+        if workflow_id in self.policy.protected_ids:
+            raise GatewayError(
+                HTTPStatus.FORBIDDEN,
+                "That personal workflow is protected from the voice model",
+            )
+
+        search_response = self.client.call("search_workflows", {"limit": 50})
         if not search_response.get("ok"):
             raise GatewayError(
                 HTTPStatus.BAD_GATEWAY,

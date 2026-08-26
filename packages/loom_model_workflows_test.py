@@ -142,7 +142,7 @@ class WorkflowPolicyTest(unittest.TestCase):
             )
         )
         self.assertEqual(
-            [tool for tool, _ in self.client.calls], ["search_workflows"]
+            self.client.calls, []
         )
 
     def test_details_strip_credential_and_scope_metadata(self) -> None:
@@ -156,6 +156,9 @@ class WorkflowPolicyTest(unittest.TestCase):
         self.assertNotIn("credentials", workflow["nodes"][0])
         self.assertNotIn("scopes", workflow)
         self.assertNotIn("canExecute", workflow)
+        self.assertEqual(
+            self.client.calls[0], ("search_workflows", {"limit": 50})
+        )
 
     def test_update_rejects_protected_workflow_before_mutation(self) -> None:
         self.assert_forbidden(
