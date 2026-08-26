@@ -18,7 +18,7 @@ from hassil.recognize import RecognizeResult
 
 from homeassistant.components import conversation, http
 from homeassistant.components.conversation.const import DATA_COMPONENT
-from homeassistant.const import MATCH_ALL
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, MATCH_ALL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -1297,18 +1297,14 @@ class CasitaHealthView(http.HomeAssistantView):
 
     async def get(self, request):
         hass = request.app[http.KEY_HASS]
-        entities = {
-            entity_id: hass.states.get(entity_id)
+        ready = {
+            entity_id: conversation.async_get_agent(hass, entity_id) is not None
             for entity_id in (
                 ROUTER_ENTITY_ID,
                 CHAT_AGENT,
                 CONTROL_AGENT,
                 WORKFLOW_AGENT,
             )
-        }
-        ready = {
-            entity_id: state is not None and state.state not in {"unavailable", "unknown"}
-            for entity_id, state in entities.items()
         }
         healthy = all(ready.values())
         return self.json(
@@ -1348,6 +1344,33 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         "unregister_workflow_api": unregister_workflow_api,
         "turn_serial": 0,
     }
+
+    async def async_ensure_workflow_agent() -> None:
+        """Reload Ollama once when a newly migrated subentry missed initial setup."""
+        if conversation.async_get_agent(hass, WORKFLOW_AGENT) is not None:
+            return
+        for entry in hass.config_entries.async_entries("ollama"):
+            if not any(
+                subentry.title == "Casita Workflows"
+                for subentry in entry.subentries.values()
+            ):
+                continue
+            _LOGGER.info("Reloading Ollama to register the Casita workflow agent")
+            if not await hass.config_entries.async_reload(entry.entry_id):
+                _LOGGER.error("Ollama reload did not register the Casita workflow agent")
+            return
+        _LOGGER.error("Casita Workflows Ollama subentry is missing")
+
+    def schedule_workflow_agent_check(_event) -> None:
+        hass.async_create_task(
+            async_ensure_workflow_agent(),
+            "ensure Casita workflow agent",
+        )
+
+    hass.data[DOMAIN]["cancel_workflow_agent_check"] = hass.bus.async_listen_once(
+        EVENT_HOMEASSISTANT_STARTED,
+        schedule_workflow_agent_check,
+    )
     hass.http.register_view(CasitaHealthView)
     _LOGGER.info("Casita router and isolated LLM tool APIs are ready")
     return True

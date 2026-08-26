@@ -147,11 +147,6 @@ def configure_entries(
             "think": False,
         },
     )
-    ollama_before.pop("modified_at", None)
-    ollama_comparable = json.loads(json.dumps(ollama_entry))
-    ollama_comparable.pop("modified_at", None)
-    if ollama_before != ollama_comparable:
-        ollama_entry["modified_at"] = now
     ensure_subentry(
         ollama_entry,
         "Casita Control",
@@ -178,6 +173,11 @@ def configure_entries(
             "think": False,
         },
     )
+    ollama_before.pop("modified_at", None)
+    ollama_comparable = json.loads(json.dumps(ollama_entry))
+    ollama_comparable.pop("modified_at", None)
+    if ollama_before != ollama_comparable:
+        ollama_entry["modified_at"] = now
 
     kokoro_entry = next(
         (

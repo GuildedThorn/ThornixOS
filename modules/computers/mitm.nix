@@ -3,7 +3,8 @@ let
   adminSshKeys = import ../../hosts/mitm/admin-ssh-keys.nix;
   deckHost = "172.16.25.26";
   serviceCatalog = import ../../hosts/service-catalog.nix;
-  serviceEntityId = service: "sensor.thornix_service_${service.id}";
+  serviceEntitySlug = service: builtins.replaceStrings [ "-" ] [ "_" ] service.id;
+  serviceEntityId = service: "sensor.thornix_service_${serviceEntitySlug service}";
   serviceEntityIds = map serviceEntityId serviceCatalog;
   serviceCatalogMatch = service: ''
     {% set service_data = state_attr("sensor.thornix_soc_status", "services") or {} %}
@@ -17,7 +18,7 @@ let
   mkServiceSensor = service: {
     name = "Thornix Service ${service.name}";
     default_entity_id = serviceEntityId service;
-    unique_id = "thornix_service_${service.id}";
+    unique_id = "thornix_service_${serviceEntitySlug service}";
     icon = service.icon;
     availability = ''
       {{ states("sensor.thornix_soc_status") not in ["unknown", "unavailable"] }}
@@ -893,7 +894,7 @@ in
           casitaAssist = pkgs.buildHomeAssistantComponent {
             owner = "GuildedThorn";
             domain = "casita_assist";
-            version = "1.1.0";
+            version = "1.1.1";
             src = ../../packages/casita-assist;
           };
           storageSource = pkgs.writeText "casita-ha-storage.py" (
