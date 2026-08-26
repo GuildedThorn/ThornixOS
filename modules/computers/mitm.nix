@@ -893,7 +893,7 @@ in
           casitaAssist = pkgs.buildHomeAssistantComponent {
             owner = "GuildedThorn";
             domain = "casita_assist";
-            version = "1.0.0";
+            version = "1.1.0";
             src = ../../packages/casita-assist;
           };
           storageSource = pkgs.writeText "casita-ha-storage.py" (

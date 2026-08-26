@@ -11,11 +11,28 @@
       hostname = "loom.guildedthorn.arpa";
       secretStateDirectory = "/var/lib/loom-n8n-secrets";
       seedStateDirectory = "/var/lib/loom-n8n-seed";
+      modelCredentialDirectory = "/var/lib/loom-model-workflows-credential";
       starterWorkflowDirectory = ../../hosts/loom/workflows;
       workflowFilesDirectory = "/var/lib/n8n-files";
       # Keep the security override isolated from the rest of the fleet's
       # nixpkgs package set. See packages/n8n.nix for the pinned advisory.
       n8nPackage = pkgs.callPackage ../../packages/n8n.nix { };
+      modelGatewaySource = ../../packages/loom_model_workflows.py;
+      modelGatewayTestsSource = ../../packages/loom_model_workflows_test.py;
+      modelGatewayPackage = pkgs.writeShellApplication {
+        name = "loom-model-workflows";
+        runtimeInputs = [ pkgs.python3 ];
+        text = ''
+          exec python3 ${modelGatewaySource} "$@"
+        '';
+      };
+      modelGatewayTests =
+        pkgs.runCommand "loom-model-workflows-tests" { nativeBuildInputs = [ pkgs.python3 ]; }
+          ''
+            export PYTHONPATH=${../../packages}
+            python3 ${modelGatewayTestsSource}
+            touch "$out"
+          '';
       createSecrets = pkgs.writeShellScript "loom-n8n-create-secrets" ''
         set -o errexit -o nounset -o pipefail
         umask 0077
@@ -54,6 +71,8 @@
           message = "services-n8n-loom is a fixed service profile for the loom host";
         }
       ];
+
+      system.checks = [ modelGatewayTests ];
 
       # n8n stores workflow metadata in a local PostgreSQL database. Peer
       # authentication binds the database role to systemd's dynamic `n8n`
@@ -266,6 +285,144 @@
         };
       };
 
+      # Keep n8n's MCP credential on Loom.  Casita talks only to the policy
+      # gateway below; neither Home Assistant nor its local language model can
+      # recover or bypass the bearer token.  Refreshing this oneshot after an
+      # MCP-key rotation updates the private source credential for a gateway
+      # restart without placing the key in Git or the Nix store.
+      systemd.services.loom-model-workflows-credential = {
+        description = "Stage Loom's n8n MCP credential for the model policy gateway";
+        after = [
+          "n8n.service"
+          "postgresql.service"
+        ];
+        requires = [
+          "n8n.service"
+          "postgresql.service"
+        ];
+        serviceConfig = {
+          Type = "oneshot";
+          User = "n8n";
+          Group = "n8n";
+          StateDirectory = "loom-model-workflows-credential";
+          StateDirectoryMode = "0700";
+          UMask = "0077";
+          RemainAfterExit = true;
+          NoNewPrivileges = true;
+          PrivateTmp = true;
+          ProtectHome = true;
+          ProtectSystem = "strict";
+          ReadWritePaths = [ modelCredentialDirectory ];
+          ExecStart = pkgs.writeShellScript "stage-loom-model-mcp-token" ''
+            set -o errexit -o nounset -o pipefail
+
+            token="$(${config.services.postgresql.package}/bin/psql \
+              --host=/run/postgresql \
+              --dbname=n8n \
+              --username=n8n \
+              --no-align \
+              --tuples-only \
+              --command="SELECT \"apiKey\" FROM user_api_keys WHERE audience = 'mcp-server-api' ORDER BY \"updatedAt\" DESC LIMIT 1;")"
+            token="$(${pkgs.coreutils}/bin/printf '%s' "$token" | ${pkgs.coreutils}/bin/tr -d '\r\n')"
+            if [[ ! "$token" =~ ^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$ ]]; then
+              echo "error: n8n MCP access must be enabled once in the owner settings" >&2
+              exit 1
+            fi
+
+            ${pkgs.coreutils}/bin/printf '%s' "$token" > ${modelCredentialDirectory}/n8n-mcp-token.new
+            unset token
+            ${pkgs.coreutils}/bin/chmod 0400 ${modelCredentialDirectory}/n8n-mcp-token.new
+            if ! ${pkgs.diffutils}/bin/cmp --silent \
+              ${modelCredentialDirectory}/n8n-mcp-token.new \
+              ${modelCredentialDirectory}/n8n-mcp-token; then
+              ${pkgs.coreutils}/bin/mv -T \
+                ${modelCredentialDirectory}/n8n-mcp-token.new \
+                ${modelCredentialDirectory}/n8n-mcp-token
+            else
+              ${pkgs.coreutils}/bin/rm -f ${modelCredentialDirectory}/n8n-mcp-token.new
+            fi
+          '';
+        };
+      };
+
+      systemd.services.loom-model-workflows = {
+        description = "Policy-enforced draft workflow tools for Casita";
+        wantedBy = [ "multi-user.target" ];
+        after = [
+          "loom-model-workflows-credential.service"
+          "n8n.service"
+          "network-online.target"
+        ];
+        requires = [
+          "loom-model-workflows-credential.service"
+          "n8n.service"
+        ];
+        wants = [ "network-online.target" ];
+        environment = {
+          LOOM_MODEL_LISTEN_HOST = "127.0.0.1";
+          LOOM_MODEL_LISTEN_PORT = "5681";
+          LOOM_MODEL_MCP_URL = "http://127.0.0.1:5678/mcp-server/http";
+          LOOM_MODEL_PROTECTED_IDS = lib.concatStringsSep "," [
+            "ThornEveningDrop"
+            "ThornFrictionToFix"
+            "ThornMorningOperatorBrief"
+            "ThornNightBrainDump"
+            "ThornRestartCapsule"
+          ];
+          LOOM_MODEL_PROTECTED_NAMES = lib.concatStringsSep "," [
+            "Thorn | Evening drop"
+            "Thorn | Friction-to-fix pipeline"
+            "Thorn | Morning operator brief"
+            "Thorn | Night brain dump"
+            "Thorn | Restart capsule"
+          ];
+          LOOM_MODEL_PROTECTED_TAGS = "personal,protected,casita-protected";
+          LOOM_MODEL_PROTECTED_PREFIXES = "Thorn |";
+        };
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = "${modelGatewayPackage}/bin/loom-model-workflows";
+          Restart = "on-failure";
+          RestartSec = "3s";
+          DynamicUser = true;
+          LoadCredential = "n8n_mcp_token:${modelCredentialDirectory}/n8n-mcp-token";
+
+          AmbientCapabilities = "";
+          CapabilityBoundingSet = "";
+          IPAddressAllow = [
+            "127.0.0.0/8"
+            "::1/128"
+          ];
+          IPAddressDeny = "any";
+          LockPersonality = true;
+          MemoryDenyWriteExecute = true;
+          NoNewPrivileges = true;
+          PrivateDevices = true;
+          PrivateTmp = true;
+          ProtectClock = true;
+          ProtectControlGroups = true;
+          ProtectHome = true;
+          ProtectHostname = true;
+          ProtectKernelLogs = true;
+          ProtectKernelModules = true;
+          ProtectKernelTunables = true;
+          ProtectProc = "invisible";
+          ProtectSystem = "strict";
+          RemoveIPC = true;
+          RestrictAddressFamilies = [
+            "AF_INET"
+            "AF_INET6"
+          ];
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          SystemCallArchitectures = "native";
+          UMask = "0077";
+          MemoryMax = "192M";
+          TasksMax = 32;
+        };
+      };
+
       # Import an inactive starter pack after the first owner account is
       # created. Each workflow gets its own immutable marker: later additions
       # are imported automatically, while deployments never overwrite a
@@ -397,6 +554,31 @@
                 proxy_send_timeout 300s;
               '';
             };
+            "= /model-workflows/health" = {
+              proxyPass = "http://127.0.0.1:5681/health";
+              extraConfig = ''
+                allow 172.16.25.2;
+                allow 172.16.25.51;
+                deny all;
+                proxy_buffering off;
+              '';
+            };
+            "= /model-workflows/v1/call" = {
+              proxyPass = "http://127.0.0.1:5681/v1/call";
+              extraConfig = ''
+                allow 172.16.25.2;
+                deny all;
+                client_max_body_size 96k;
+                if ($request_method != POST) {
+                  return 405;
+                }
+                proxy_buffering off;
+                proxy_request_buffering off;
+                proxy_connect_timeout 5s;
+                proxy_read_timeout 60s;
+                proxy_send_timeout 60s;
+              '';
+            };
             "/" = {
               proxyPass = "http://127.0.0.1:5678";
               proxyWebsockets = true;
@@ -411,10 +593,19 @@
       };
 
       systemd.services.nginx = {
-        wants = [ "n8n.service" ];
-        after = [ "n8n.service" ];
+        wants = [
+          "loom-model-workflows.service"
+          "n8n.service"
+        ];
+        after = [
+          "loom-model-workflows.service"
+          "n8n.service"
+        ];
       };
 
-      environment.systemPackages = [ n8nPackage ];
+      environment.systemPackages = [
+        modelGatewayPackage
+        n8nPackage
+      ];
     };
 }
