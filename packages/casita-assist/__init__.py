@@ -35,6 +35,7 @@ CONTROL_AGENT = "conversation.casita_control"
 WORKFLOW_AGENT = "conversation.casita_workflows"
 LEGACY_AGENT = "conversation.casita_local"
 MODEL_NAME = "granite4.1:3b"
+WORKFLOW_MODEL_NAME = "qwen3:14b"
 VOICE_NAME = "Kokoro · Heart"
 EVENT_PROGRESS = "casita_assist_progress"
 LOOM_WORKFLOW_URL = "https://loom.guildedthorn.arpa/model-workflows/v1/call"
@@ -315,6 +316,7 @@ class CasitaRouter(conversation.ConversationEntity):
             self.hass,
             "routing",
             route=route,
+            model=(WORKFLOW_MODEL_NAME if route == "workflow" else MODEL_NAME),
             label=label,
             detail=detail,
         )
@@ -366,6 +368,7 @@ class CasitaRouter(conversation.ConversationEntity):
             self.hass,
             "complete",
             route=route,
+            model=(WORKFLOW_MODEL_NAME if route == "workflow" else MODEL_NAME),
             label="Response ready",
             detail=f"{route.title()} route completed",
             elapsed_ms=round((time.monotonic() - started) * 1000),
@@ -752,6 +755,7 @@ class GetVoiceHealth(CasitaTool):
                 ),
             ),
             "model": _state(hass, "sensor.deck_conversation_model"),
+            "workflow_model": _state(hass, "sensor.casita_workflow_model"),
             "natural_voice": _state(
                 hass,
                 "sensor.deck_natural_voice",
@@ -1306,7 +1310,28 @@ class CasitaHealthView(http.HomeAssistantView):
                 WORKFLOW_AGENT,
             )
         }
-        healthy = all(ready.values())
+        workflow_agent = conversation.async_get_agent(hass, WORKFLOW_AGENT)
+        workflow_model = WORKFLOW_MODEL_NAME
+        workflow_backend = "unknown"
+        if workflow_agent is not None:
+            subentry_data = getattr(
+                getattr(workflow_agent, "subentry", None), "data", {}
+            )
+            if isinstance(subentry_data, Mapping):
+                workflow_model = str(
+                    subentry_data.get("model") or WORKFLOW_MODEL_NAME
+                )
+            entry_data = getattr(getattr(workflow_agent, "entry", None), "data", {})
+            if isinstance(entry_data, Mapping):
+                workflow_url = str(entry_data.get("url") or "")
+                if "192.168.1.6:11435" in workflow_url:
+                    workflow_backend = "nixos-gpu"
+                elif "172.16.25.26:11434" in workflow_url:
+                    workflow_backend = "deck"
+        workflow_backend_ready = hass.states.is_state(
+            "sensor.casita_workflow_model", "ready"
+        )
+        healthy = all(ready.values()) and workflow_backend_ready
         return self.json(
             {
                 "status": "healthy" if healthy else "degraded",
@@ -1315,6 +1340,9 @@ class CasitaHealthView(http.HomeAssistantView):
                 "control_agent": ready[CONTROL_AGENT],
                 "workflow_agent": ready[WORKFLOW_AGENT],
                 "model": MODEL_NAME,
+                "workflow_model": workflow_model,
+                "workflow_backend": workflow_backend,
+                "workflow_backend_ready": workflow_backend_ready,
                 "voice": VOICE_NAME,
             },
             status_code=(HTTPStatus.OK if healthy else HTTPStatus.SERVICE_UNAVAILABLE),

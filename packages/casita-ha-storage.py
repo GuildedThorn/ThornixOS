@@ -46,6 +46,8 @@ Archiving requires two separate user turns: stage it, ask Jamie to confirm the e
 workflow name, wait for the next utterance, then call the archive tool again. Report tool failures
 honestly. Reply in concise plain spoken English without Markdown."""
 
+WORKFLOW_SUBENTRY_TITLE = "Casita Workflows"
+
 
 def new_id() -> str:
     """Generate a config-entry-compatible 26-character identifier."""
@@ -96,8 +98,14 @@ def ensure_subentry(
 
 
 def configure_entries(
-    document: dict[str, Any], deck_host: str, model: str
-) -> None:
+    document: dict[str, Any],
+    deck_host: str,
+    model: str,
+    workflow_url: str,
+    workflow_model: str,
+    workflow_keep_alive: int,
+    workflow_num_ctx: int,
+) -> tuple[str, str, set[str]]:
     entries = document["data"]["entries"]
     now = timestamp()
 
@@ -116,27 +124,36 @@ def configure_entries(
             esphome_data["host"] = deck_host
             esphome_entry["modified_at"] = now
 
-    ollama_entry = next(
+    ollama_entries = [
+        entry for entry in entries if entry.get("domain") == "ollama"
+    ]
+    ollama_before = {
+        str(entry.get("entry_id")): json.loads(json.dumps(entry))
+        for entry in ollama_entries
+    }
+    deck_ollama_entry = next(
         (
             entry
-            for entry in entries
-            if entry.get("domain") == "ollama"
-            and any(
+            for entry in ollama_entries
+            if any(
                 subentry.get("title") == "Casita Local"
                 for subentry in entry.get("subentries", [])
             )
         ),
         None,
     )
-    if ollama_entry is None:
+    if deck_ollama_entry is None:
         raise RuntimeError("The existing Casita Local Ollama entry was not found")
 
-    ollama_before = json.loads(json.dumps(ollama_entry))
-    ollama_url = f"http://{deck_host}:11434"
-    ollama_entry["data"] = {"url": ollama_url}
-    ollama_entry["title"] = ollama_url
+    deck_ollama_url = f"http://{deck_host}:11434"
+    workflow_url = workflow_url.rstrip("/")
+    if workflow_url == deck_ollama_url:
+        raise RuntimeError("The workflow Ollama route must be isolated from the Deck route")
+
+    deck_ollama_entry["data"] = {"url": deck_ollama_url}
+    deck_ollama_entry["title"] = deck_ollama_url
     ensure_subentry(
-        ollama_entry,
+        deck_ollama_entry,
         "Casita Chat",
         {
             "keep_alive": -1.0,
@@ -148,7 +165,7 @@ def configure_entries(
         },
     )
     ensure_subentry(
-        ollama_entry,
+        deck_ollama_entry,
         "Casita Control",
         {
             "keep_alive": -1.0,
@@ -160,24 +177,79 @@ def configure_entries(
             "think": False,
         },
     )
-    ensure_subentry(
-        ollama_entry,
-        "Casita Workflows",
+
+    previous_workflow_entry_ids: set[str] = set()
+    workflow_subentry: dict[str, Any] | None = None
+    for entry in ollama_entries:
+        retained_subentries = []
+        for subentry in entry.get("subentries", []):
+            if subentry.get("title") != WORKFLOW_SUBENTRY_TITLE:
+                retained_subentries.append(subentry)
+                continue
+            previous_workflow_entry_ids.add(str(entry.get("entry_id")))
+            if workflow_subentry is None:
+                workflow_subentry = subentry
+        entry["subentries"] = retained_subentries
+
+    workflow_entry = next(
+        (
+            entry
+            for entry in ollama_entries
+            if entry.get("data", {}).get("url", "").rstrip("/") == workflow_url
+        ),
+        None,
+    )
+    if workflow_entry is None:
+        workflow_entry = {
+            "created_at": now,
+            "data": {"url": workflow_url},
+            "disabled_by": None,
+            "discovery_keys": {},
+            "domain": "ollama",
+            "entry_id": new_id(),
+            "minor_version": 3,
+            "modified_at": now,
+            "options": {},
+            "pref_disable_new_entities": False,
+            "pref_disable_polling": False,
+            "source": "user",
+            "subentries": [],
+            "title": workflow_url,
+            "unique_id": None,
+            "version": 3,
+        }
+        entries.append(workflow_entry)
+        ollama_entries.append(workflow_entry)
+    else:
+        workflow_entry["data"] = {"url": workflow_url}
+        workflow_entry["title"] = workflow_url
+
+    if workflow_subentry is not None:
+        workflow_entry.setdefault("subentries", []).append(workflow_subentry)
+    workflow_subentry = ensure_subentry(
+        workflow_entry,
+        WORKFLOW_SUBENTRY_TITLE,
         {
-            "keep_alive": -1.0,
+            "keep_alive": float(workflow_keep_alive),
             "llm_hass_api": ["casita_workflows"],
             "max_history": 3.0,
-            "model": model,
-            "num_ctx": 8192.0,
+            "model": workflow_model,
+            "num_ctx": float(workflow_num_ctx),
             "prompt": WORKFLOW_PROMPT,
             "think": False,
         },
     )
-    ollama_before.pop("modified_at", None)
-    ollama_comparable = json.loads(json.dumps(ollama_entry))
-    ollama_comparable.pop("modified_at", None)
-    if ollama_before != ollama_comparable:
-        ollama_entry["modified_at"] = now
+    workflow_subentry.setdefault("subentry_id", new_id())
+
+    for entry in ollama_entries:
+        before = ollama_before.get(str(entry.get("entry_id")))
+        if before is None:
+            continue
+        before.pop("modified_at", None)
+        comparable = json.loads(json.dumps(entry))
+        comparable.pop("modified_at", None)
+        if before != comparable:
+            entry["modified_at"] = now
 
     kokoro_entry = next(
         (
@@ -221,6 +293,12 @@ def configure_entries(
             kokoro_entry["title"] = "kokoro"
             kokoro_entry["modified_at"] = now
 
+    return (
+        str(workflow_entry["entry_id"]),
+        str(workflow_subentry["subentry_id"]),
+        previous_workflow_entry_ids,
+    )
+
 
 def configure_pipelines(document: dict[str, Any]) -> None:
     data = document["data"]
@@ -252,11 +330,60 @@ def configure_pipelines(document: dict[str, Any]) -> None:
         pipeline.update({"id": pipeline_id, **settings})
 
 
+def configure_registries(
+    entity_document: dict[str, Any],
+    device_document: dict[str, Any],
+    workflow_entry_id: str,
+    workflow_subentry_id: str,
+    previous_workflow_entry_ids: set[str],
+) -> None:
+    """Preserve the workflow entity and device while moving its parent entry."""
+    for entity in entity_document.get("data", {}).get("entities", []):
+        if (
+            entity.get("platform") == "ollama"
+            and entity.get("unique_id") == workflow_subentry_id
+        ):
+            entity["config_entry_id"] = workflow_entry_id
+            entity["config_subentry_id"] = workflow_subentry_id
+
+    for device in device_document.get("data", {}).get("devices", []):
+        identifiers = device.get("identifiers", [])
+        if ["ollama", workflow_subentry_id] not in identifiers:
+            continue
+
+        subentry_map = device.setdefault("config_entries_subentries", {})
+        for entry_id in list(subentry_map):
+            retained = [
+                subentry_id
+                for subentry_id in subentry_map[entry_id]
+                if subentry_id != workflow_subentry_id
+            ]
+            if retained:
+                subentry_map[entry_id] = retained
+            else:
+                subentry_map.pop(entry_id)
+
+        config_entries = [
+            entry_id
+            for entry_id in device.get("config_entries", [])
+            if entry_id not in previous_workflow_entry_ids
+        ]
+        if workflow_entry_id not in config_entries:
+            config_entries.append(workflow_entry_id)
+        device["config_entries"] = config_entries
+        subentry_map.setdefault(workflow_entry_id, []).append(workflow_subentry_id)
+        subentry_map[workflow_entry_id] = sorted(set(subentry_map[workflow_entry_id]))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config-dir", type=Path, default=Path("/var/lib/hass"))
     parser.add_argument("--deck-host", default="172.16.25.26")
     parser.add_argument("--model", default="granite4.1:3b")
+    parser.add_argument("--workflow-url", default="http://192.168.1.6:11435")
+    parser.add_argument("--workflow-model", default="qwen3:14b")
+    parser.add_argument("--workflow-keep-alive", type=int, default=300)
+    parser.add_argument("--workflow-num-ctx", type=int, default=8192)
     args = parser.parse_args()
 
     storage = args.config_dir / ".storage"
@@ -265,20 +392,52 @@ def main() -> None:
 
     entries_before = load(entries_path)
     entries_after = json.loads(json.dumps(entries_before))
-    configure_entries(entries_after, args.deck_host, args.model)
+    workflow_entry_id, workflow_subentry_id, previous_workflow_entry_ids = (
+        configure_entries(
+            entries_after,
+            args.deck_host,
+            args.model,
+            args.workflow_url,
+            args.workflow_model,
+            args.workflow_keep_alive,
+            args.workflow_num_ctx,
+        )
+    )
 
     pipelines_before = load(pipelines_path)
     pipelines_after = json.loads(json.dumps(pipelines_before))
     configure_pipelines(pipelines_after)
 
+    entity_registry_path = storage / "core.entity_registry"
+    entity_registry_before = load(entity_registry_path)
+    entity_registry_after = json.loads(json.dumps(entity_registry_before))
+    device_registry_path = storage / "core.device_registry"
+    device_registry_before = load(device_registry_path)
+    device_registry_after = json.loads(json.dumps(device_registry_before))
+    configure_registries(
+        entity_registry_after,
+        device_registry_after,
+        workflow_entry_id,
+        workflow_subentry_id,
+        previous_workflow_entry_ids,
+    )
+
     entries_changed = save_if_changed(entries_path, entries_before, entries_after)
     pipelines_changed = save_if_changed(
         pipelines_path, pipelines_before, pipelines_after
     )
+    entity_registry_changed = save_if_changed(
+        entity_registry_path, entity_registry_before, entity_registry_after
+    )
+    device_registry_changed = save_if_changed(
+        device_registry_path, device_registry_before, device_registry_after
+    )
     print(
         "Casita storage migration: "
         f"entries={'updated' if entries_changed else 'current'}, "
-        f"pipelines={'updated' if pipelines_changed else 'current'}"
+        f"pipelines={'updated' if pipelines_changed else 'current'}, "
+        f"entities={'updated' if entity_registry_changed else 'current'}, "
+        f"devices={'updated' if device_registry_changed else 'current'}"
     )
 
 

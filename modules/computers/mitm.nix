@@ -2,6 +2,9 @@
 let
   adminSshKeys = import ../../hosts/mitm/admin-ssh-keys.nix;
   deckHost = "172.16.25.26";
+  workflowModelHost = "192.168.1.6";
+  workflowModelName = "qwen3:14b";
+  workflowModelUrl = "http://${workflowModelHost}:11435";
   serviceCatalog = import ../../hosts/service-catalog.nix;
   serviceEntitySlug = service: builtins.replaceStrings [ "-" ] [ "_" ] service.id;
   serviceEntityId = service: "sensor.thornix_service_${serviceEntitySlug service}";
@@ -300,6 +303,22 @@ in
                 ];
               }
               {
+                resource = "${workflowModelUrl}/api/tags";
+                method = "GET";
+                scan_interval = 30;
+                timeout = 5;
+                sensor = [
+                  {
+                    name = "Casita Workflow Model";
+                    unique_id = "casita_workflow_model";
+                    value_template = ''
+                      {% set models = value_json.models | default([], true) %}
+                      {{ "ready" if models | selectattr("name", "equalto", "${workflowModelName}") | list | count > 0 else "missing" }}
+                    '';
+                  }
+                ];
+              }
+              {
                 resource = "http://${deckHost}:10202/health";
                 method = "GET";
                 scan_interval = 15;
@@ -394,6 +413,9 @@ in
                     "assistant": states("select.deck_voice_assistant"),
                     "model": states("sensor.deck_conversation_model"),
                     "model_name": "granite4.1:3b",
+                    "workflow_model": states("sensor.casita_workflow_model"),
+                    "workflow_model_name": "${workflowModelName}",
+                    "workflow_model_host": "nixos-gpu",
                     "natural_voice": states("sensor.deck_natural_voice"),
                     "natural_voice_name": state_attr("sensor.deck_natural_voice", "voice") or "af_heart",
                     "voice_mode": state_attr("sensor.deck_natural_voice", "last_mode") or "natural",
@@ -894,23 +916,41 @@ in
           casitaAssist = pkgs.buildHomeAssistantComponent {
             owner = "GuildedThorn";
             domain = "casita_assist";
-            version = "1.1.2";
+            version = "1.1.3";
             src = ../../packages/casita-assist;
           };
           storageSource = pkgs.writeText "casita-ha-storage.py" (
             builtins.readFile ../../packages/casita-ha-storage.py
           );
+          storageTestSource = pkgs.writeText "casita-ha-storage_test.py" (
+            builtins.readFile ../../packages/casita-ha-storage_test.py
+          );
+          storageTests =
+            pkgs.runCommand "casita-ha-storage-tests" { nativeBuildInputs = [ pkgs.python3 ]; }
+              ''
+                mkdir test
+                cp ${storageSource} test/casita-ha-storage.py
+                cp ${storageTestSource} test/casita-ha-storage_test.py
+                cd test
+                python3 -B casita-ha-storage_test.py
+                touch "$out"
+              '';
           storageMigration = pkgs.writeShellApplication {
             name = "casita-ha-storage";
             text = ''
               exec ${pkgs.python3}/bin/python3 ${storageSource} \
                 --config-dir /var/lib/hass \
                 --deck-host ${deckHost} \
-                --model granite4.1:3b
+                --model granite4.1:3b \
+                --workflow-url ${workflowModelUrl} \
+                --workflow-model ${workflowModelName} \
+                --workflow-keep-alive 300 \
+                --workflow-num-ctx 8192
             '';
           };
         in
         {
+          system.checks = [ storageTests ];
           services.home-assistant = {
             customComponents = [ casitaAssist ];
             config.casita_assist = { };
