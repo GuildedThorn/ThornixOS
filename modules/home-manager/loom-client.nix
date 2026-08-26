@@ -8,6 +8,93 @@
     }:
     let
       cfg = config.thorn.programs.loom-client;
+      mcpServerUrl = "https://loom.guildedthorn.arpa/mcp-server/http";
+      configureCodexMcp = pkgs.writeShellApplication {
+        name = "configure-codex-loom-mcp";
+        runtimeInputs = with pkgs; [
+          coreutils
+          gawk
+        ];
+        text = ''
+          set -o errexit -o nounset -o pipefail
+
+          codex_home="''${CODEX_HOME:-$HOME/.codex}"
+          config_file="$codex_home/config.toml"
+          token_file="''${XDG_CONFIG_HOME:-$HOME/.config}/loom/n8n-mcp-token"
+          mkdir -p "$codex_home"
+          touch "$config_file"
+
+          temporary="$(mktemp "$codex_home/config.toml.XXXXXX")"
+          trap 'rm -f "$temporary"' EXIT
+
+          awk -v desired_url=${lib.escapeShellArg mcpServerUrl} -v token_file="$token_file" '
+            function emit_url() {
+              print "url = \"" desired_url "\""
+            }
+            function emit_auth() {
+              if (have_token) {
+                print "http_headers = { Authorization = \"Bearer " bearer "\" }"
+              }
+            }
+            BEGIN {
+              in_target = 0
+              found_target = 0
+              found_url = 0
+              found_auth = 0
+              have_token = 0
+              if ((getline bearer < token_file) > 0) {
+                gsub(/[\r\n]/, "", bearer)
+                if (bearer !~ /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/) {
+                  print "Invalid n8n MCP API key in " token_file > "/dev/stderr"
+                  exit 1
+                }
+                have_token = 1
+              }
+              close(token_file)
+            }
+            $0 == "[mcp_servers.n8n]" {
+              in_target = 1
+              found_target = 1
+              print
+              next
+            }
+            in_target && /^\[/ {
+              if (!found_url) emit_url()
+              if (!found_auth) emit_auth()
+              in_target = 0
+            }
+            in_target && /^[[:space:]]*url[[:space:]]*=/ {
+              if (!found_url) emit_url()
+              found_url = 1
+              next
+            }
+            in_target && /^[[:space:]]*http_headers[[:space:]]*=/ {
+              if (have_token && !found_auth) emit_auth()
+              found_auth = 1
+              next
+            }
+            { print }
+            END {
+              if (in_target && !found_url) emit_url()
+              if (in_target && !found_auth) emit_auth()
+              if (!found_target) {
+                print ""
+                print "[mcp_servers.n8n]"
+                emit_url()
+                emit_auth()
+              }
+            }
+          ' "$config_file" > "$temporary"
+
+          if cmp --silent "$temporary" "$config_file"; then
+            exit 0
+          fi
+
+          chmod 0600 "$temporary"
+          mv -T "$temporary" "$config_file"
+          trap - EXIT
+        '';
+      };
       loomClient = pkgs.writeShellApplication {
         name = "loomctl";
         runtimeInputs = with pkgs; [
@@ -27,6 +114,7 @@
             cat <<'EOF'
           Usage:
             loomctl setup
+            loomctl mcp-auth
             loomctl friction [TEXT] [CONTEXT]
             loomctl dump [TEXT]
             loomctl pause [NEXT_STEP] [FAILED_COMMAND]
@@ -78,6 +166,22 @@
               install -m 0600 /dev/null "$token_file"
               printf '%s' "$intake_token" > "$token_file"
               printf 'Stored Loom token in %s.\n' "$token_file"
+              ;;
+            mcp-auth)
+              mcp_token_file="$config_dir/n8n-mcp-token"
+              mkdir -p "$config_dir"
+              chmod 0700 "$config_dir"
+              read -r -s -p 'n8n MCP API key: ' mcp_token
+              printf '\n'
+              if [[ ! "$mcp_token" =~ ^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$ ]]; then
+                printf 'API key is not a valid JWT.\n' >&2
+                exit 1
+              fi
+              install -m 0600 /dev/null "$mcp_token_file"
+              printf '%s' "$mcp_token" > "$mcp_token_file"
+              unset mcp_token
+              configure-codex-loom-mcp
+              printf 'Stored n8n MCP authentication and refreshed Codex.\n'
               ;;
             friction)
               text="''${2:-}"
@@ -168,7 +272,30 @@
       options.thorn.programs.loom-client.enable = lib.mkEnableOption "Loom personal workflow client";
 
       config = lib.mkIf cfg.enable {
-        home.packages = [ loomClient ];
+        home.packages = [
+          configureCodexMcp
+          loomClient
+        ];
+
+        # Keep both coding-agent clients pointed at Loom without storing an
+        # access token in Nix. OpenCode uses n8n's OAuth discovery. Codex can
+        # use the instance MCP API key from mutable, mode-0600 user state;
+        # the activation helper copies only that value into Codex's own
+        # mutable mode-0600 config.
+        thorn.programs.opencode.managedSettings.mcp.n8n = {
+          type = "remote";
+          url = mcpServerUrl;
+          enabled = true;
+          timeout = 120000;
+        };
+
+        # Codex owns a mutable config.toml (project trust, runtime-added MCPs,
+        # and tool approval policy). Merge only Loom's endpoint and locally
+        # enrolled authentication during activation instead of replacing the
+        # rest of that file with a Nix store symlink.
+        home.activation.configureCodexLoomMcp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          run ${configureCodexMcp}/bin/configure-codex-loom-mcp
+        '';
       };
     };
 }

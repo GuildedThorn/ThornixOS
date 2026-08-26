@@ -13,6 +13,9 @@
       seedStateDirectory = "/var/lib/loom-n8n-seed";
       starterWorkflowDirectory = ../../hosts/loom/workflows;
       workflowFilesDirectory = "/var/lib/n8n-files";
+      # Keep the security override isolated from the rest of the fleet's
+      # nixpkgs package set. See packages/n8n.nix for the pinned advisory.
+      n8nPackage = pkgs.callPackage ../../packages/n8n.nix { };
       createSecrets = pkgs.writeShellScript "loom-n8n-create-secrets" ''
         set -o errexit -o nounset -o pipefail
         umask 0077
@@ -118,6 +121,7 @@
 
       services.n8n = {
         enable = true;
+        package = n8nPackage;
         openFirewall = false;
         environment = {
           N8N_LISTEN_ADDRESS = "127.0.0.1";
@@ -125,7 +129,7 @@
           N8N_PORT = 5678;
           N8N_PROTOCOL = "https";
           N8N_EDITOR_BASE_URL = "https://${hostname}/";
-          WEBHOOK_URL = "https://${hostname}/";
+          N8N_WEBHOOK_URL = "https://${hostname}/";
           N8N_PROXY_HOPS = 1;
 
           DB_TYPE = "postgresdb";
@@ -149,21 +153,26 @@
           N8N_RESTRICT_FILE_ACCESS_TO = workflowFilesDirectory;
           N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS = true;
           N8N_COMMUNITY_PACKAGES_ENABLED = false;
+          N8N_UNVERIFIED_PACKAGES_ENABLED = false;
           N8N_COMMUNITY_PACKAGES_MANAGED_BY_ENV = true;
           N8N_COMMUNITY_PACKAGES = "";
           NODES_EXCLUDE = ''["n8n-nodes-base.executeCommand"]'';
 
-          # Loom does not currently use n8n's hosted AI, MCP registry, or
-          # public chat surfaces. Keep them policy-controlled and disabled so
-          # a UI setting cannot silently introduce a new outbound trust path.
+          # Expose n8n's authenticated instance-level MCP server so local
+          # coding agents can inspect and build workflows. Keep the setting
+          # declarative, keep MCP Apps/registry disabled, and retain the node
+          # sandbox below: every MCP client must authenticate as an n8n user
+          # and cannot silently add a new outbound trust path.
           N8N_AI_ENABLED = false;
           N8N_AI_ALLOW_SENDING_PARAMETER_VALUES = false;
           N8N_MCP_MANAGED_BY_ENV = true;
-          N8N_MCP_ACCESS_ENABLED = false;
-          N8N_MCP_BUILDER_ENABLED = false;
+          N8N_MCP_ACCESS_ENABLED = true;
+          N8N_MCP_BUILDER_ENABLED = true;
           N8N_MCP_APPS_ENABLED = false;
+          N8N_MCP_SERVER_RATE_LIMIT = 100;
+          N8N_MCP_MAX_REGISTERED_CLIENTS = 8;
           N8N_DISABLE_PUBLIC_CHAT_TRIGGER = true;
-          N8N_DISABLED_MODULES = "mcp,mcp-registry,workflow-builder,chat-hub";
+          N8N_DISABLED_MODULES = "mcp-registry,workflow-builder,chat-hub";
 
           # Keep the authenticated API available for future ThornixOS
           # automation, but do not publish its interactive documentation.
@@ -198,6 +207,11 @@
           EXECUTIONS_DATA_MAX_AGE = 336;
           EXECUTIONS_DATA_PRUNE_MAX_COUNT = 10000;
           N8N_DEFAULT_BINARY_DATA_MODE = "filesystem";
+          N8N_RUNNERS_TASK_TIMEOUT = 300;
+          # Adopt the next release's safer decompression bounds now instead
+          # of retaining the legacy 2-GiB / 5000-entry defaults.
+          N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES = 268435456;
+          N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES = 1000;
         };
 
         taskRunners = {
@@ -371,6 +385,18 @@
                 deny all;
               '';
             };
+            # Streamable HTTP MCP endpoint. Authentication and per-user tool
+            # authorization remain in n8n; the edge only disables buffering
+            # so long-lived MCP responses are delivered immediately.
+            "= /mcp-server/http" = {
+              proxyPass = "http://127.0.0.1:5678";
+              extraConfig = ''
+                proxy_buffering off;
+                proxy_request_buffering off;
+                proxy_read_timeout 300s;
+                proxy_send_timeout 300s;
+              '';
+            };
             "/" = {
               proxyPass = "http://127.0.0.1:5678";
               proxyWebsockets = true;
@@ -389,6 +415,6 @@
         after = [ "n8n.service" ];
       };
 
-      environment.systemPackages = [ pkgs.n8n ];
+      environment.systemPackages = [ n8nPackage ];
     };
 }
