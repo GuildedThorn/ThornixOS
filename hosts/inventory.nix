@@ -98,6 +98,10 @@ in
     fqdn = "deck.guildedthorn.arpa";
     production = false;
     role = "gaming-voice-satellite";
+    monitoring = {
+      mode = "scrape";
+      probes = [ "http://172.16.25.26:10701/api/health" ];
+    };
   };
 
   firewall = mkHost {

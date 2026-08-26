@@ -213,6 +213,7 @@ class KokoroEventHandler(AsyncEventHandler):
                         sentence,
                         send_start=not self._stream_started,
                         send_stop=False,
+                        allow_fast=False,
                     )
                     self._stream_started = True
                 return True
@@ -235,6 +236,7 @@ class KokoroEventHandler(AsyncEventHandler):
                         final_text,
                         send_start=not self._stream_started,
                         send_stop=False,
+                        allow_fast=False,
                     )
                     self._stream_started = True
                 await self.write_event(SynthesizeStopped().event())
@@ -251,22 +253,21 @@ class KokoroEventHandler(AsyncEventHandler):
             return True
 
     async def _render_non_streaming(self, raw_text: str) -> None:
-        detector = SentenceBoundaryDetector()
-        sentences = list(detector.add_chunk(raw_text))
-        final_text = detector.finish()
-        if final_text:
-            sentences.append(final_text)
-        if not sentences:
+        if not normalize_for_speech(raw_text):
             await self.write_event(AudioStop().event())
             return
-        for index, sentence in enumerate(sentences):
-            await self._render(
-                sentence,
-                send_start=index == 0,
-                send_stop=index == len(sentences) - 1,
-            )
+        # Choose one engine for the entire non-streaming request. Switching
+        # between Piper and Kokoro at sentence boundaries changes sample rate
+        # inside one Wyoming stream and produces corrupt playback downstream.
+        await self._render(raw_text, send_start=True, send_stop=True)
 
-    async def _render(self, raw_text: str, send_start: bool, send_stop: bool) -> None:
+    async def _render(
+        self,
+        raw_text: str,
+        send_start: bool,
+        send_stop: bool,
+        allow_fast: bool = True,
+    ) -> None:
         text = normalize_for_speech(raw_text)
         if not text:
             if send_stop:
@@ -274,7 +275,7 @@ class KokoroEventHandler(AsyncEventHandler):
             return
 
         started = time.monotonic()
-        if should_use_fast_voice(text):
+        if allow_fast and should_use_fast_voice(text):
             try:
                 async with asyncio.timeout(3.0):
                     await self._render_with_piper(text, send_start, send_stop)

@@ -135,6 +135,34 @@ in
               systemctl restart linux-voice-assistant.service
             '';
           };
+          voiceE2ESource = pkgs.writeText "deck_voice_e2e.py" (
+            builtins.readFile ../../packages/deck_voice_e2e.py
+          );
+          voiceE2EPython = pkgs.python3.withPackages (
+            pythonPackages: with pythonPackages; [
+              websocket-client
+              wyoming
+            ]
+          );
+          voiceE2E = pkgs.writeShellApplication {
+            name = "deck-voice-e2e";
+            runtimeInputs = [
+              pkgs.alsa-utils
+              pkgs.pipewire
+              pkgs.systemd
+            ];
+            text = ''
+              exec ${voiceE2EPython}/bin/python3 ${voiceE2ESource} \
+                --status-file /var/lib/deck-voice-e2e/status.json \
+                --metrics-file /var/lib/node-exporter-textfiles/deck-voice-e2e.prom \
+                "$@"
+            '';
+          };
+          voiceE2ETests = pkgs.runCommand "deck-voice-e2e-tests" { } ''
+            export PYTHONPATH=${../../packages}
+            ${voiceE2EPython}/bin/python3 ${../../packages/deck_voice_e2e_test.py}
+            touch "$out"
+          '';
         in
         {
           nixpkgs.overlays = [
@@ -248,8 +276,11 @@ in
                 linuxVoiceAssistant
                 voiceHealth
                 voiceRecover
+                voiceE2E
               ];
           };
+
+          system.checks = [ voiceE2ETests ];
 
           security.sudo.extraRules = [
             {
@@ -463,6 +494,65 @@ in
                 RuntimeDirectoryPreserve = "yes";
               };
             };
+            services.deck-voice-e2e = {
+              description = "Prove the Deck Voice acoustic pipeline through HDMI";
+              after = [
+                "casita-kokoro.service"
+                "linux-voice-assistant.service"
+                "network-online.target"
+                "pipewire.service"
+                "wireplumber.service"
+              ];
+              requires = [
+                "casita-kokoro.service"
+                "linux-voice-assistant.service"
+                "pipewire.service"
+                "wireplumber.service"
+              ];
+              wants = [ "network-online.target" ];
+              unitConfig.ConditionACPower = true;
+              environment = {
+                PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
+                PULSE_SERVER = "unix:/run/pulse/native";
+              };
+              serviceConfig = {
+                Type = "oneshot";
+                ExecStart = "${voiceE2E}/bin/deck-voice-e2e";
+                StateDirectory = "deck-voice-e2e";
+                StateDirectoryMode = "0755";
+                SupplementaryGroups = [
+                  "audio"
+                  "pipewire"
+                ];
+                TimeoutStartSec = "2min";
+                Nice = 10;
+                IOSchedulingClass = "idle";
+                UMask = "0022";
+
+                CapabilityBoundingSet = "";
+                LockPersonality = true;
+                NoNewPrivileges = true;
+                PrivateDevices = false;
+                PrivateTmp = true;
+                ProtectClock = true;
+                ProtectControlGroups = true;
+                ProtectHome = true;
+                ProtectHostname = true;
+                ProtectKernelLogs = true;
+                ProtectKernelModules = true;
+                ProtectKernelTunables = true;
+                ProtectSystem = "strict";
+                ReadWritePaths = [ "/var/lib/node-exporter-textfiles" ];
+                RestrictAddressFamilies = [
+                  "AF_INET"
+                  "AF_INET6"
+                  "AF_UNIX"
+                ];
+                RestrictNamespaces = true;
+                RestrictRealtime = true;
+                SystemCallArchitectures = "native";
+              };
+            };
             timers.deck-voice-health = {
               description = "Frequent Deck Voice pipeline health check";
               wantedBy = [ "timers.target" ];
@@ -471,6 +561,16 @@ in
                 OnUnitInactiveSec = "45s";
                 AccuracySec = "5s";
                 Unit = "deck-voice-health.service";
+              };
+            };
+            timers.deck-voice-e2e = {
+              description = "Run the daily Deck Voice acoustic transaction";
+              wantedBy = [ "timers.target" ];
+              timerConfig = {
+                OnCalendar = "*-*-* 11:00:00";
+                RandomizedDelaySec = "10m";
+                AccuracySec = "1m";
+                Unit = "deck-voice-e2e.service";
               };
             };
           };

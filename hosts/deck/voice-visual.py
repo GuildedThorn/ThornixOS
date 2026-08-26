@@ -23,9 +23,12 @@ LOOPBACK_HOST = "127.0.0.1"
 PORT = 10701
 HOME_ASSISTANT_HOST = "172.16.25.2"
 SOC_HOST = "172.16.25.51"
-HEALTH_CLIENTS = {HOME_ASSISTANT_HOST, SOC_HOST}
+HERALD_HOST = "172.16.25.63"
+HEALTH_CLIENTS = {HOME_ASSISTANT_HOST, SOC_HOST, HERALD_HOST}
 EVENT_URL = f"http://{LOOPBACK_HOST}:{PORT}/api/event"
 LVA_PERIPHERAL_URL = "ws://127.0.0.1:6055"
+E2E_STATUS_FILE = Path("/var/lib/deck-voice-e2e/status.json")
+E2E_MAX_AGE = 36 * 60 * 60
 MAX_BODY = 65536
 RECONNECT_COOLDOWN = 4.0
 PAGE = ""
@@ -56,6 +59,57 @@ def sanitize(value, depth=0):
             for key, item in list(value.items())[:64]
         }
     return str(value)[:512]
+
+
+def e2e_health_snapshot():
+    try:
+        value = json.loads(E2E_STATUS_FILE.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return {
+            "status": "pending",
+            "success": None,
+            "last_attempt": 0,
+            "last_success": 0,
+            "last_success_age": None,
+            "stage": "pending",
+            "detail": "Waiting for the first acoustic transaction",
+        }
+    if not isinstance(value, dict):
+        return {
+            "status": "invalid",
+            "success": False,
+            "last_attempt": 0,
+            "last_success": 0,
+            "last_success_age": None,
+            "stage": "status",
+            "detail": "End-to-end status is invalid",
+        }
+
+    now = time.time()
+    try:
+        last_success = max(0.0, float(value.get("last_success", 0) or 0))
+    except (TypeError, ValueError):
+        last_success = 0
+    success_age = max(0.0, now - last_success) if last_success else None
+    latest_success = value.get("success") is True
+    if not latest_success:
+        status = "failed"
+    elif success_age is None or success_age > E2E_MAX_AGE:
+        status = "stale"
+    else:
+        status = "healthy"
+    return {
+        "status": status,
+        "success": latest_success,
+        "last_attempt": value.get("last_attempt", 0),
+        "last_success": last_success,
+        "last_success_age": success_age,
+        "duration_seconds": value.get("duration_seconds", 0),
+        "stage": str(value.get("stage") or "unknown")[:32],
+        "detail": str(value.get("detail") or "")[:240],
+        "microphone_rms": value.get("microphone_rms", 0),
+        "hdmi_rms": value.get("hdmi_rms", 0),
+    }
 
 
 class StateHub:
@@ -219,7 +273,12 @@ class StateHub:
         connected = bool(state.get("connected"))
         streaming = bool(state.get("streaming"))
         pipewire = bool(health.get("pipewire"))
-        if connected and streaming and pipewire:
+        e2e = e2e_health_snapshot()
+        if connected and streaming and pipewire and e2e["status"] not in {
+            "failed",
+            "stale",
+            "invalid",
+        }:
             status = "healthy"
         elif state.get("status") in {"starting", "offline"}:
             status = "recovering"
@@ -239,6 +298,7 @@ class StateHub:
             "last_recovery": state.get("last_recovery", 0),
             "recovery_reason": state.get("recovery_reason", ""),
             "audio": health,
+            "e2e": e2e,
         }
 
     def idle_later(self, revision, delay=10):

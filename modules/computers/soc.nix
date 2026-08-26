@@ -148,16 +148,19 @@ in
               host = fleetInventory.${name};
             in
             {
+              deploymentEnabled = host.deployment.enable;
               journalHost = name;
               metricsHost = host.fqdn;
               shipsJournal = host.monitoring.journal;
             }
           ) monitoredNames;
           fleetJournalHosts = map (host: host.journalHost) (lib.filter (host: host.shipsJournal) fleet);
-          fleetMetricsTargets = port: map (host: "${host.metricsHost}:${port}") fleet;
+          cominFleet = lib.filter (host: host.deploymentEnabled) fleet;
+          fleetNodeMetricsTargets = map (host: "${host.metricsHost}:9100") fleet;
+          fleetCominMetricsTargets = map (host: "${host.metricsHost}:4243") cominFleet;
           escapePrometheusRegex = value: builtins.replaceStrings [ "." ] [ "[.]" ] value;
           cominFetchInstanceRegex = lib.concatStringsSep "|" (
-            map (host: escapePrometheusRegex "${host.metricsHost}:4243") fleet
+            map (host: escapePrometheusRegex "${host.metricsHost}:4243") cominFleet
           );
           # These endpoints intentionally use Anvil's 24-hour leaves. Keep
           # them out of the public 21/7-day expiry bands and instead alert
@@ -315,7 +318,7 @@ in
               {
                 job_name = "node";
                 static_configs = [
-                  { targets = fleetMetricsTargets "9100"; }
+                  { targets = fleetNodeMetricsTargets; }
                 ];
                 # mac's textfile collector also carries the fast-changing
                 # live topology snapshot. Keep it out of the ordinary 30s
@@ -436,7 +439,7 @@ in
                 # samples that can't differ.
                 scrape_interval = "60s";
                 static_configs = [
-                  { targets = fleetMetricsTargets "4243"; }
+                  { targets = fleetCominMetricsTargets; }
                 ];
               }
             ]
@@ -1809,6 +1812,25 @@ in
                           };
                           for = "10m";
                           summary = "A monitored endpoint has taken more than five seconds to answer for ten minutes.";
+                        })
+                        (rule {
+                          uid = "deck-voice-e2e-failed";
+                          title = "Deck Voice acoustic pipeline failed";
+                          datasourceUid = "prometheus";
+                          expr = ''
+                            (thorn_deck_voice_e2e_success == bool 0)
+                            or (time() - thorn_deck_voice_e2e_last_success_seconds > bool 129600)
+                            or absent(thorn_deck_voice_e2e_success)
+                          '';
+                          evaluator = {
+                            type = "gt";
+                            params = [ 0 ];
+                          };
+                          for = "10m";
+                          noDataState = "Alerting";
+                          severity = "critical";
+                          category = "voice";
+                          summary = "The real Deck Voice microphone, wake word, STT, conversation, TTS, and HDMI transaction failed or has not succeeded within 36 hours.";
                         })
                         (rule {
                           uid = "fleet-tls-expiry-warning";
