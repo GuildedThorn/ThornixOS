@@ -190,22 +190,6 @@
     ];
   }
   {
-    id = "nabu-casa";
-    name = "Nabu Casa";
-    role = "Home Assistant Cloud remote access";
-    host = "mitm";
-    inventoryHost = "mitm";
-    probeUrl = "https://mitm.guildedthorn.arpa/health/nabu-casa";
-    launchUrl = "https://mitm.guildedthorn.arpa/config/cloud";
-    icon = "mdi:cloud-check-outline";
-    aliases = [
-      "nabu"
-      "nabu casa"
-      "home assistant cloud"
-      "remote ui"
-    ];
-  }
-  {
     id = "opencanary";
     name = "Lure OpenCanary";
     role = "Deception and honeypot sensor";

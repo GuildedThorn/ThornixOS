@@ -862,13 +862,6 @@ in
                 deny all;
               '';
             };
-            locations."= /health/nabu-casa" = {
-              proxyPass = "http://127.0.0.1:8123/api/casita/health/nabu-casa";
-              extraConfig = ''
-                allow 172.16.25.51;
-                deny all;
-              '';
-            };
             locations."= /pineapple-wifi-watch" = {
               proxyPass = "http://127.0.0.1:8123/api/webhook/pineapple-wifi-watch-6f4b2c1d9a8e7350";
               extraConfig = ''

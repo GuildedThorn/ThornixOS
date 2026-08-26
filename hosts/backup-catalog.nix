@@ -87,7 +87,6 @@ in
     services = [
       "casita"
       "home-assistant"
-      "nabu-casa"
     ];
   })
   (managed {

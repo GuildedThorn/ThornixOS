@@ -47,7 +47,7 @@ _CONTROL_PATTERNS = tuple(
         r"\b(thornixos service|service status|services online|service latency|service reliability|service availability|service uptime|slowest service|services? (?:down|degraded|staged))\b",
         r"\b(anvil|atlas|casebook|courier|forge|herald|hound|identity|loom|proxmox)\b",
         r"\b(oracle|pixie|sieve|truenas|seaweed|pfsense|loki|prometheus|netbox|thehive|authentik)\b",
-        r"\b(home assistant|nabu casa|ollama|granite|kokoro|open ?canary|owncast|jellyfin)\b",
+        r"\b(home assistant|ollama|granite|kokoro|open ?canary|owncast|jellyfin)\b",
         r"\b(thornflix|media|playing|pause|resume|skip|previous track|shopping list|grocery)\b",
         r"\b(tv|television|volume|mute|unmute|microphone|voice assistant|deck voice)\b",
         r"\b(jamie|anyone home|who is home|system status|what needs my attention)\b",
@@ -891,49 +891,6 @@ class CasitaHealthView(http.HomeAssistantView):
         )
 
 
-class NabuCasaHealthView(http.HomeAssistantView):
-    """Report the live Nabu Casa relayer and Remote UI connection."""
-
-    url = "/api/casita/health/nabu-casa"
-    name = "api:casita:health:nabu-casa"
-    requires_auth = False
-
-    async def get(self, request):
-        hass = request.app[http.KEY_HASS]
-        cloud = hass.data.get("cloud")
-        if cloud is None:
-            return self.json(
-                {"status": "not_configured", "logged_in": False},
-                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
-            )
-
-        try:
-            logged_in = bool(cloud.is_logged_in)
-            relayer_connected = bool(cloud.is_connected)
-            remote_enabled = bool(cloud.client.prefs.remote_enabled)
-            remote_connected = bool(cloud.remote.is_connected)
-            certificate_status = str(cloud.remote.certificate_status or "unknown")
-        except (AttributeError, RuntimeError) as err:
-            _LOGGER.warning("Nabu Casa health read failed: %s", err)
-            return self.json(
-                {"status": "unavailable", "logged_in": False},
-                status_code=HTTPStatus.SERVICE_UNAVAILABLE,
-            )
-
-        healthy = logged_in and relayer_connected and remote_enabled and remote_connected
-        return self.json(
-            {
-                "status": "healthy" if healthy else "disconnected",
-                "logged_in": logged_in,
-                "relayer_connected": relayer_connected,
-                "remote_enabled": remote_enabled,
-                "remote_connected": remote_connected,
-                "certificate_status": certificate_status,
-            },
-            status_code=(HTTPStatus.OK if healthy else HTTPStatus.SERVICE_UNAVAILABLE),
-        )
-
-
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the compact API and router entity."""
     unregister_api = llm.async_register_api(
@@ -948,6 +905,5 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         "unregister_api": unregister_api,
     }
     hass.http.register_view(CasitaHealthView)
-    hass.http.register_view(NabuCasaHealthView)
     _LOGGER.info("Casita router and compact LLM API are ready")
     return True
