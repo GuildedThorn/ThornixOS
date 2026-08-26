@@ -24,11 +24,13 @@
         loadModels = [
           "llama3.2:3b"
           "deepseek-r1:1.5b"
+          "qwen3:14b"
         ];
 
-        # The n8n news workflow invokes the models sequentially. Keep only
-        # one resident at a time and reject parallel pressure on the desktop
-        # GPU from a compromised or accidentally fanned-out workflow.
+        # The n8n news workflow and Casita's workflow-authoring route invoke
+        # models sequentially. Keep only one resident at a time and reject
+        # parallel pressure on the desktop GPU from a compromised or
+        # accidentally fanned-out workflow.
         environmentVariables = {
           OLLAMA_KEEP_ALIVE = "10m";
           OLLAMA_MAX_LOADED_MODELS = "1";
@@ -42,6 +44,8 @@
       # Ollama's native API has model-management endpoints and no built-in
       # authentication. Keep it on loopback and publish only chat plus a
       # read-only model inventory through a source-restricted nginx gateway.
+      # Loom uses it for bounded automations; MITM uses it only for Casita's
+      # isolated workflow-authoring agent.
       services.nginx = {
         enable = true;
         recommendedProxySettings = true;
@@ -54,6 +58,7 @@
             }
           ];
           extraConfig = ''
+            allow 172.16.25.2;
             allow 172.16.25.62;
             deny all;
             client_max_body_size 256k;
@@ -101,6 +106,8 @@
       };
 
       networking.firewall.extraCommands = ''
+        iptables -w -A nixos-fw -p tcp -s 172.16.25.2/32 \
+          --dport 11435 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 172.16.25.62/32 \
           --dport 11435 -j nixos-fw-accept
       '';
