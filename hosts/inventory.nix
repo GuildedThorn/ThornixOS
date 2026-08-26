@@ -201,6 +201,11 @@ in
     address = "172.16.25.2";
     fqdn = "mitm.guildedthorn.arpa";
     role = "lab";
+    monitoring = {
+      mode = "scrape";
+      journal = true;
+      canary = true;
+    };
   };
 
   nixos = mkHost {

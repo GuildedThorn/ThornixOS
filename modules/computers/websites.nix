@@ -77,6 +77,18 @@
             environmentFile = config.sops.secrets.guildedthorn_env.path;
           };
 
+          # The managed .NET heap can otherwise grow for days until this
+          # small public VM starts swapping, even though the normal working
+          # set after a restart is well below 256 MiB. Ask the kernel to
+          # reclaim at 3 GiB and bound a genuine leak at 3.5 GiB; the
+          # upstream unit already restarts on failure, so an exhausted cgroup
+          # recovers without taking the rest of the host with it.
+          systemd.services.guildedthorn.serviceConfig = {
+            MemoryHigh = "3G";
+            MemoryMax = "3500M";
+            MemorySwapMax = "512M";
+          };
+
           # Public traffic arrives through the Cloudflare tunnel, so on
           # eth0 it's just TLS to Cloudflare — the readable HTTP is on
           # loopback between cloudflared and the app. Watch both.

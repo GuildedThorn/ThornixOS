@@ -133,6 +133,7 @@
     name = "Casita Home Assistant";
     role = "Home automation and voice orchestration";
     host = "mitm";
+    inventoryHost = "mitm";
     probeUrl = "https://mitm.guildedthorn.arpa/health/casita";
     launchUrl = "https://mitm.guildedthorn.arpa/thorn-home/0";
     icon = "mdi:home-assistant";
@@ -193,6 +194,7 @@
     name = "Nabu Casa";
     role = "Home Assistant Cloud remote access";
     host = "mitm";
+    inventoryHost = "mitm";
     probeUrl = "https://mitm.guildedthorn.arpa/health/nabu-casa";
     launchUrl = "https://mitm.guildedthorn.arpa/config/cloud";
     icon = "mdi:cloud-check-outline";

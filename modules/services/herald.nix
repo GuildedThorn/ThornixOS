@@ -321,12 +321,15 @@
       thorn.backup = {
         enable = true;
         schedule = "*-*-* 04:10:00";
-        paths = [ "/var/lib/private/ntfy-sh" ];
+        # StateDirectory's stable public path survives while the DynamicUser
+        # service is quiesced. /var/lib/private/ntfy-sh exists only while
+        # ntfy is running, so backing that path races systemd's teardown.
+        paths = [ "/var/lib/ntfy-sh" ];
         quiesceServices = [ "ntfy-sh.service" ];
-        restorePaths = [ "/var/lib/private/ntfy-sh/user.db" ];
+        restorePaths = [ "/var/lib/ntfy-sh/user.db" ];
         restoreValidationCommand = ''
           ${pkgs.sqlite}/bin/sqlite3 \
-            "$RESTORE_ROOT/var/lib/private/ntfy-sh/user.db" \
+            "$RESTORE_ROOT/var/lib/ntfy-sh/user.db" \
             'PRAGMA integrity_check;' \
             | ${pkgs.gnugrep}/bin/grep --fixed-strings --line-regexp ok >/dev/null
         '';

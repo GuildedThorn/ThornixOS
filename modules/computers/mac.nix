@@ -81,7 +81,13 @@ in
           thorn.backup = {
             enable = true;
             schedule = "*-*-* 02:00:00";
-            paths = [ "/var/backup/proxmox" ];
+            # Archive any intentionally created full-VM dumps off-host before
+            # local retention removes them. Guest application state remains
+            # protected independently by each VM's own daily backup.
+            paths = [
+              "/var/backup/proxmox"
+              "/var/lib/vz/dump"
+            ];
             prepareCommand = ''
               temporary=/var/backup/proxmox/config.db.new
               ${pkgs.sqlite}/bin/sqlite3 /var/lib/pve-cluster/config.db \
@@ -97,6 +103,27 @@ in
                 'PRAGMA integrity_check;' \
                 | ${pkgs.gnugrep}/bin/grep --fixed-strings --line-regexp ok >/dev/null
             '';
+          };
+
+          # Full VM dumps are large and only supplement the authoritative
+          # per-guest backups. Remove aged local copies only after restic has
+          # successfully archived the dump directory off-host.
+          systemd.services."restic-backups-mac".unitConfig.OnSuccess = [
+            "proxmox-vzdump-retention.service"
+          ];
+          systemd.services.proxmox-vzdump-retention = {
+            description = "Remove off-host archived Proxmox VM dumps";
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = pkgs.writeShellScript "proxmox-vzdump-retention" ''
+                set -o errexit -o nounset -o pipefail
+                ${pkgs.findutils}/bin/find /var/lib/vz/dump \
+                  -maxdepth 1 -type f -mtime +14 \
+                  \( -name 'vzdump-*.vma.zst' \
+                     -o -name 'vzdump-*.vma.zst.sha256' \) \
+                  -delete
+              '';
+            };
           };
 
           # vmbr0 is the point at which Proxmox guest-to-guest and

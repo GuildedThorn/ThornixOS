@@ -99,22 +99,16 @@ SAFE_LOKI_LABELS = (
     "severity",
     "unit",
 )
-INTERNAL_ACME_HOSTS = {
-    "anvil.guildedthorn.arpa",
-    "atlas.guildedthorn.arpa",
-    "casebook.guildedthorn.arpa",
-    "courier.guildedthorn.arpa",
-    "forge.guildedthorn.arpa",
-    "herald.guildedthorn.arpa",
-    "hound.guildedthorn.arpa",
-    "loom.guildedthorn.arpa",
-    "oracle.guildedthorn.arpa",
-    "sieve.guildedthorn.arpa",
-}
+INTERNAL_ACME_SUFFIXES = (".guildedthorn.arpa",)
 
 
 class DeliveryError(RuntimeError):
     """A retryable alert-delivery failure."""
+
+
+def is_internal_acme_hostname(hostname: str) -> bool:
+    normalized = hostname.rstrip(".").casefold()
+    return any(normalized.endswith(suffix) for suffix in INTERNAL_ACME_SUFFIXES)
 
 
 @dataclasses.dataclass(frozen=True, order=True)
@@ -1224,7 +1218,7 @@ def build_ops_summary(
             "url": instance,
             "days_remaining": round(metric_value(result), 2),
         }
-        if hostname in INTERNAL_ACME_HOSTS:
+        if is_internal_acme_hostname(hostname):
             entry["hours_remaining"] = round(metric_value(result) * 24, 1)
             internal_tls.append(entry)
         else:

@@ -10,6 +10,12 @@ import security_alert_relay as relay
 
 
 class RelayPureFunctionTests(unittest.TestCase):
+    def test_internal_acme_classification_covers_the_private_namespace(self):
+        self.assertTrue(relay.is_internal_acme_hostname("mitm.guildedthorn.arpa"))
+        self.assertTrue(relay.is_internal_acme_hostname("MITM.GUILDEDTHORN.ARPA."))
+        self.assertFalse(relay.is_internal_acme_hostname("guildedthorn.com"))
+        self.assertFalse(relay.is_internal_acme_hostname("evilguildedthorn.arpa"))
+
     def alert(self):
         return {
             "status": "firing",
