@@ -127,6 +127,27 @@ def bounded_integer(
     return max(minimum, min(maximum, result))
 
 
+def model_safe_workflow(value: Any) -> Any:
+    """Remove credential metadata and irrelevant account scopes from model output."""
+    if isinstance(value, dict):
+        return {
+            str(key): model_safe_workflow(item)
+            for key, item in value.items()
+            if str(key) not in {"credentials", "scopes", "canExecute"}
+        }
+    if isinstance(value, list):
+        return [model_safe_workflow(item) for item in value]
+    return value
+
+
+def summarize_response_metadata(result: dict[str, Any]) -> None:
+    assignments = result.pop("autoAssignedCredentials", None)
+    if isinstance(assignments, list):
+        result["auto_bound_credential_count"] = len(assignments)
+    if result.pop("targetProject", None) is not None:
+        result["target_project"] = "default n8n project"
+
+
 class WorkflowPolicy:
     """Identify workflows that no model operation may inspect or mutate."""
 
@@ -462,8 +483,10 @@ class WorkflowGateway:
         return {
             "ok": True,
             "result": {
-                "workflow": workflow,
-                "policy": "visible and editable as an unpublished draft",
+                "workflow": model_safe_workflow(workflow),
+                "policy": (
+                    "Model-visible; changes remain in draft until Jamie publishes them"
+                ),
             },
         }
 
@@ -572,6 +595,7 @@ class WorkflowGateway:
             if not tag_response.get("ok"):
                 result["policy_warning"] = "Created, but the model-management tag failed"
         if isinstance(result, dict):
+            summarize_response_metadata(result)
             result["draft_only"] = True
             result["published"] = False
             result["credential_review_required"] = True
@@ -625,6 +649,7 @@ class WorkflowGateway:
         response = self.client.call("update_workflow", clean)
         result = response.get("result")
         if isinstance(result, dict):
+            summarize_response_metadata(result)
             result["draft_only"] = True
             result["published_version_changed"] = False
         return response

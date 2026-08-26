@@ -18,6 +18,16 @@ SYSTEM = {
     "name": "ThornixOS | Fleet health",
     "availableInMCP": True,
     "tags": [{"name": "operations"}],
+    "nodes": [
+        {
+            "name": "Notify",
+            "credentials": {
+                "httpBearerAuth": {"id": "secret-id", "name": "Private token"}
+            },
+        }
+    ],
+    "scopes": ["workflow:read", "workflow:publish"],
+    "canExecute": True,
 }
 TAGGED_PERSONAL = {
     "id": "FuturePersonal",
@@ -55,6 +65,18 @@ class FakeClient:
             created = {
                 "workflowId": "CasitaCreated",
                 "name": arguments.get("name", "Created"),
+                "autoAssignedCredentials": [
+                    {
+                        "nodeName": "Notify",
+                        "credentialName": "Private token",
+                        "credentialType": "httpBearerAuth",
+                    }
+                ],
+                "targetProject": {
+                    "id": "personal-project",
+                    "name": "Jamie <private@example.invalid>",
+                    "type": "personal",
+                },
             }
             self.workflows[created["workflowId"]] = {
                 "id": created["workflowId"],
@@ -123,6 +145,18 @@ class WorkflowPolicyTest(unittest.TestCase):
             [tool for tool, _ in self.client.calls], ["search_workflows"]
         )
 
+    def test_details_strip_credential_and_scope_metadata(self) -> None:
+        result = self.gateway.handle(
+            {
+                "tool": "get_workflow_details",
+                "arguments": {"workflowId": SYSTEM["id"]},
+            }
+        )
+        workflow = result["result"]["workflow"]
+        self.assertNotIn("credentials", workflow["nodes"][0])
+        self.assertNotIn("scopes", workflow)
+        self.assertNotIn("canExecute", workflow)
+
     def test_update_rejects_protected_workflow_before_mutation(self) -> None:
         self.assert_forbidden(
             lambda: self.gateway.handle(
@@ -169,6 +203,10 @@ class WorkflowPolicyTest(unittest.TestCase):
         self.assertTrue(result["result"]["draft_only"])
         self.assertFalse(result["result"]["published"])
         self.assertTrue(result["result"]["credential_review_required"])
+        self.assertEqual(result["result"]["auto_bound_credential_count"], 1)
+        self.assertNotIn("autoAssignedCredentials", result["result"])
+        self.assertEqual(result["result"]["target_project"], "default n8n project")
+        self.assertNotIn("targetProject", result["result"])
         self.assertEqual(
             [tool for tool, _ in self.client.calls],
             ["validate_workflow", "create_workflow_from_code", "update_workflow"],
