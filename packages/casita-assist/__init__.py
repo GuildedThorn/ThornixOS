@@ -19,7 +19,7 @@ from hassil.recognize import RecognizeResult
 from homeassistant.components import conversation, http
 from homeassistant.components.conversation.const import DATA_COMPONENT
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, MATCH_ALL
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import config_validation as cv, llm
@@ -1361,6 +1361,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             return
         _LOGGER.error("Casita Workflows Ollama subentry is missing")
 
+    @callback
     def schedule_workflow_agent_check(_event) -> None:
         hass.async_create_task(
             async_ensure_workflow_agent(),
