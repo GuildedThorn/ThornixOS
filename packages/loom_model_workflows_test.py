@@ -16,6 +16,7 @@ PERSONAL = {
 SYSTEM = {
     "id": "FleetHealth",
     "name": "ThornixOS | Fleet health",
+    "availableInMCP": True,
     "tags": [{"name": "operations"}],
 }
 TAGGED_PERSONAL = {
@@ -117,6 +118,9 @@ class WorkflowPolicyTest(unittest.TestCase):
                     "arguments": {"workflowId": PERSONAL["id"]},
                 }
             )
+        )
+        self.assertEqual(
+            [tool for tool, _ in self.client.calls], ["search_workflows"]
         )
 
     def test_update_rejects_protected_workflow_before_mutation(self) -> None:

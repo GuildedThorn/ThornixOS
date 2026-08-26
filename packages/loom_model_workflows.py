@@ -381,11 +381,42 @@ class WorkflowGateway:
         return workflow_id
 
     def _lookup(self, workflow_id: str) -> dict[str, Any]:
+        search_response = self.client.call("search_workflows", {"limit": 200})
+        if not search_response.get("ok"):
+            raise GatewayError(
+                HTTPStatus.BAD_GATEWAY,
+                "n8n could not verify the workflow policy",
+            )
+        search_result = search_response.get("result", {})
+        entries = (
+            search_result.get("data", []) if isinstance(search_result, dict) else []
+        )
+        summary = next(
+            (
+                entry
+                for entry in entries
+                if isinstance(entry, dict) and str(entry.get("id") or "") == workflow_id
+            ),
+            None,
+        )
+        if not isinstance(summary, dict):
+            raise GatewayError(HTTPStatus.NOT_FOUND, "Workflow was not found")
+        if self.policy.is_protected(summary):
+            raise GatewayError(
+                HTTPStatus.FORBIDDEN,
+                "That personal workflow is protected from the voice model",
+            )
+
         response = self.client.call(
             "get_workflow_details",
             {"workflowId": workflow_id, "detailLevel": "full"},
         )
         if not response.get("ok"):
+            if summary.get("availableInMCP") is False:
+                raise GatewayError(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "That non-personal workflow is not yet enabled for model editing",
+                )
             raise GatewayError(HTTPStatus.BAD_GATEWAY, str(response.get("error")))
         workflow = response.get("result", {}).get("workflow")
         if not isinstance(workflow, dict):

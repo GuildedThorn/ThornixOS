@@ -12,6 +12,14 @@
       secretStateDirectory = "/var/lib/loom-n8n-secrets";
       seedStateDirectory = "/var/lib/loom-n8n-seed";
       modelCredentialDirectory = "/var/lib/loom-model-workflows-credential";
+      modelEditableWorkflowIds = [
+        "ThornChangeWindowPreflight"
+        "ThornFleetHealth"
+        "ThornHydraStatus"
+        "ThornN8nFailure"
+        "ThornThreatNewsCorrelation"
+        "ThornWeeklyMaintenanceQueue"
+      ];
       starterWorkflowDirectory = ../../hosts/loom/workflows;
       workflowFilesDirectory = "/var/lib/n8n-files";
       # Keep the security override isolated from the rest of the fleet's
@@ -33,6 +41,24 @@
             python3 ${modelGatewayTestsSource}
             touch "$out"
           '';
+      enableModelWorkflowAccess = pkgs.writeShellScript "enable-loom-model-workflows" ''
+        set -o errexit -o nounset -o pipefail
+
+        ${config.services.postgresql.package}/bin/psql \
+          --host=/run/postgresql \
+          --dbname=n8n \
+          --username=n8n \
+          --set=ON_ERROR_STOP=1 \
+          --command="UPDATE workflow_entity
+            SET settings = jsonb_set(
+              COALESCE(settings::jsonb, '{}'::jsonb),
+              '{availableInMCP}',
+              'true'::jsonb,
+              true
+            )::json
+            WHERE id IN (${lib.concatMapStringsSep ", " (id: "'${id}'") modelEditableWorkflowIds})
+              AND COALESCE(settings::jsonb ->> 'availableInMCP', 'false') <> 'true';"
+      '';
       createSecrets = pkgs.writeShellScript "loom-n8n-create-secrets" ''
         set -o errexit -o nounset -o pipefail
         umask 0077
@@ -345,15 +371,56 @@
         };
       };
 
+      # n8n's builder refuses details and mutations until a workflow is marked
+      # available to MCP. Enable only the six declarative operational drafts;
+      # the five personal IDs remain unavailable in addition to the gateway's
+      # independent ID/name/tag protections. The timer catches starter imports
+      # that may occur after the first boot attempt.
+      systemd.services.loom-model-workflows-access = {
+        description = "Enable known non-personal Loom workflows for model editing";
+        wantedBy = [ "multi-user.target" ];
+        after = [
+          "n8n.service"
+          "postgresql.service"
+        ];
+        requires = [
+          "n8n.service"
+          "postgresql.service"
+        ];
+        serviceConfig = {
+          Type = "oneshot";
+          User = "n8n";
+          Group = "n8n";
+          ExecStart = enableModelWorkflowAccess;
+          NoNewPrivileges = true;
+          PrivateTmp = true;
+          ProtectHome = true;
+          ProtectSystem = "strict";
+        };
+      };
+
+      systemd.timers.loom-model-workflows-access = {
+        description = "Reconcile model-editable Loom workflow access";
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnBootSec = "2m";
+          OnUnitActiveSec = "5m";
+          AccuracySec = "15s";
+          Unit = "loom-model-workflows-access.service";
+        };
+      };
+
       systemd.services.loom-model-workflows = {
         description = "Policy-enforced draft workflow tools for Casita";
         wantedBy = [ "multi-user.target" ];
         after = [
+          "loom-model-workflows-access.service"
           "loom-model-workflows-credential.service"
           "n8n.service"
           "network-online.target"
         ];
         requires = [
+          "loom-model-workflows-access.service"
           "loom-model-workflows-credential.service"
           "n8n.service"
         ];
