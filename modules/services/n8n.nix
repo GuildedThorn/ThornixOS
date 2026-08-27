@@ -307,6 +307,7 @@
           "postgresql.target"
         ];
         wants = [
+          "loom-model-workflows-access.service"
           "loom-model-workflows-credential.service"
           "loom-model-workflows.service"
           "network-online.target"
@@ -408,6 +409,7 @@
       systemd.services.loom-model-workflows-access = {
         description = "Enable known non-personal Loom workflows for model editing";
         wantedBy = [ "multi-user.target" ];
+        partOf = [ "n8n.service" ];
         after = [
           "n8n.service"
           "postgresql.service"
@@ -420,6 +422,7 @@
           Type = "oneshot";
           User = "n8n";
           Group = "n8n";
+          DynamicUser = true;
           ExecStart = enableModelWorkflowAccess;
           NoNewPrivileges = true;
           PrivateTmp = true;
@@ -557,6 +560,7 @@
           Type = "oneshot";
           User = "n8n";
           Group = "n8n";
+          DynamicUser = true;
           StateDirectory = "loom-n8n-seed";
           StateDirectoryMode = "0700";
           LoadCredential = "n8n_encryption_key_file:${secretStateDirectory}/encryption-key";
