@@ -65,6 +65,9 @@
             alpha = {
               enable = true;
               theme = "dashboard";
+              # alpha-nvim can receive WinResized after its dashboard buffer
+              # has already been unloaded, then redraw an invalid buffer.
+              settings.opts.redraw_on_resize = false;
             };
             lualine.enable = true;
             web-devicons.enable = true;
