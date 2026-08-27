@@ -38,3 +38,11 @@ def is_sports_request(text: str) -> bool:
     """Return whether an utterance needs the live sports suite."""
     normalized = " ".join(text.casefold().split())
     return any(pattern.search(normalized) for pattern in _SPORTS_PATTERNS)
+
+
+def workflow_catalog_query(text: str) -> str:
+    """Map specific requests to a stable reviewed-tool catalogue term."""
+    normalized = " ".join(text.casefold().split())
+    if is_sports_request(normalized):
+        return "sports"
+    return normalized[:128]

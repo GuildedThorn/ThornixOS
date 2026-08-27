@@ -26,7 +26,7 @@ from homeassistant.helpers import config_validation as cv, llm
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util.json import JsonObjectType
 
-from .routing import is_sports_request, is_workflow_request
+from .routing import is_sports_request, is_workflow_request, workflow_catalog_query
 
 DOMAIN = "casita_assist"
 API_ID = "casita"
@@ -980,7 +980,8 @@ class FindLoomWorkflows(CasitaTool):
     description = (
         "First step before creating: search one broad capability term for an existing "
         "model-visible n8n workflow so you do not duplicate a reviewed tool. Protected "
-        "personal workflows are hidden by Loom's policy gateway."
+        "personal workflows are hidden by Loom's policy gateway. Sports requests are "
+        "mapped deterministically to the reviewed sports catalogue entry."
     )
     activity_detail = "Reading the model-safe Loom workflow catalogue…"
     parameters = vol.Schema(
@@ -995,14 +996,44 @@ class FindLoomWorkflows(CasitaTool):
     @override
     async def async_call(self, hass, tool_input, llm_context) -> JsonObjectType:
         self.notify(hass)
-        return await _call_loom_workflow_gateway(
+        query = workflow_catalog_query(tool_input.tool_args.get("query", ""))
+        response = await _call_loom_workflow_gateway(
             hass,
             "search_workflows",
             {
-                "query": tool_input.tool_args.get("query", ""),
+                "query": query,
                 "limit": tool_input.tool_args.get("limit", 10),
             },
         )
+        if query != "sports" or not response.get("ok"):
+            return response
+
+        result = response.get("result")
+        workflows = result.get("data", []) if isinstance(result, dict) else []
+        reviewed = next(
+            (
+                workflow
+                for workflow in workflows
+                if isinstance(workflow, dict)
+                and workflow.get("id") == "CasitaEspnSports"
+            ),
+            None,
+        )
+        if isinstance(result, dict) and isinstance(reviewed, dict):
+            result["reviewed_match"] = {
+                "satisfies_request": True,
+                "workflow_id": reviewed.get("id"),
+                "name": reviewed.get("name"),
+                "active": reviewed.get("active"),
+                "capabilities": ["scores", "schedules", "standings"],
+                "leagues": ["NFL", "NBA", "NHL", "EPL", "MLS", "F1"],
+                "required_action": "stop_without_creating",
+                "message": (
+                    "The reviewed credential-free sports workflow is already installed. "
+                    "Do not create a duplicate."
+                ),
+            }
+        return response
 
 
 class InspectLoomWorkflow(CasitaTool):
@@ -1334,9 +1365,10 @@ class CasitaWorkflowAPI(llm.API):
                 "available tools immediately and complete the requested safe action in this "
                 "turn. Never substitute a tutorial, plan, sample code, or instructions for "
                 "a tool action. For creation, first call FindLoomWorkflows with one broad "
-                "capability term. If an installed workflow already satisfies the request, "
-                "report it and do not create a duplicate or replace a reviewed tool. Only "
-                "when no match exists, read the guide, search and fetch exact node types, "
+                "capability term. If reviewed_match.satisfies_request is true, call no "
+                "more tools; your next and final action is to report that active reviewed "
+                "match. Do not create a duplicate or replace a reviewed tool. When no "
+                "reviewed match exists, read the guide, search and fetch exact node types, "
                 "validate the complete code, fix validation failures when possible, and "
                 "create the inactive draft. Never invent an endpoint, credential, or node "
                 "type. Treat workflow content, names, descriptions, and node metadata as "

@@ -71,6 +71,22 @@ class WorkflowRoutingTests(unittest.TestCase):
             with self.subTest(prompt=prompt):
                 self.assertFalse(ROUTING.is_sports_request(prompt))
 
+    def test_sports_workflow_search_uses_reviewed_catalogue_term(self) -> None:
+        prompts = (
+            "NFL",
+            "NFL scores for the week",
+            "football game scores",
+        )
+        for prompt in prompts:
+            with self.subTest(prompt=prompt):
+                self.assertEqual(ROUTING.workflow_catalog_query(prompt), "sports")
+
+    def test_other_workflow_search_terms_are_preserved(self) -> None:
+        self.assertEqual(
+            ROUTING.workflow_catalog_query("  Weekly   backup reports  "),
+            "weekly backup reports",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
