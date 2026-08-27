@@ -916,7 +916,7 @@ in
           casitaAssist = pkgs.buildHomeAssistantComponent {
             owner = "GuildedThorn";
             domain = "casita_assist";
-            version = "1.1.3";
+            version = "1.1.4";
             src = ../../packages/casita-assist;
           };
           storageSource = pkgs.writeText "casita-ha-storage.py" (
@@ -924,6 +924,12 @@ in
           );
           storageTestSource = pkgs.writeText "casita-ha-storage_test.py" (
             builtins.readFile ../../packages/casita-ha-storage_test.py
+          );
+          routingSource = pkgs.writeText "routing.py" (
+            builtins.readFile ../../packages/casita-assist/routing.py
+          );
+          routingTestSource = pkgs.writeText "routing_test.py" (
+            builtins.readFile ../../packages/casita-assist/routing_test.py
           );
           storageTests =
             pkgs.runCommand "casita-ha-storage-tests" { nativeBuildInputs = [ pkgs.python3 ]; }
@@ -935,6 +941,14 @@ in
                 python3 -B casita-ha-storage_test.py
                 touch "$out"
               '';
+          routingTests = pkgs.runCommand "casita-routing-tests" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+            mkdir test
+            cp ${routingSource} test/routing.py
+            cp ${routingTestSource} test/routing_test.py
+            cd test
+            python3 -B routing_test.py
+            touch "$out"
+          '';
           storageMigration = pkgs.writeShellApplication {
             name = "casita-ha-storage";
             text = ''
@@ -950,7 +964,10 @@ in
           };
         in
         {
-          system.checks = [ storageTests ];
+          system.checks = [
+            storageTests
+            routingTests
+          ];
           services.home-assistant = {
             customComponents = [ casitaAssist ];
             config.casita_assist = { };
