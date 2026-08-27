@@ -17,6 +17,7 @@
       # outside that range so an n8n restart cannot starve workflow execution.
       modelGatewayPort = 5689;
       modelEditableWorkflowIds = [
+        "6ZtXlBrFI0nGZ5R2"
         "CasitaEspnSports"
         "ThornChangeWindowPreflight"
         "ThornFleetHealth"
@@ -406,8 +407,8 @@
       };
 
       # n8n's builder refuses details and mutations until a workflow is marked
-      # available to MCP. Enable only the six declarative operational drafts;
-      # the five personal IDs remain unavailable in addition to the gateway's
+      # available to MCP. Enable only the known declarative operational tools;
+      # personal IDs remain unavailable in addition to the gateway's
       # independent ID/name/tag protections. The timer catches starter imports
       # that may occur after the first boot attempt.
       systemd.services.loom-model-workflows-access = {
@@ -593,6 +594,9 @@
 
             for workflow in ${starterWorkflowDirectory}/*.json; do
               workflow_name="$(${pkgs.coreutils}/bin/basename "$workflow")"
+              if [[ "$workflow_name" == "nascar-scores.json" ]]; then
+                continue
+              fi
               marker=${seedStateDirectory}/$workflow_name.imported
               if [[ -e "$marker" ]]; then
                 continue
@@ -601,6 +605,23 @@
               ${n8nPackage}/bin/n8n import:workflow --input="$workflow"
               ${pkgs.coreutils}/bin/touch "$marker"
             done
+
+            nascar_marker=${seedStateDirectory}/nascar-scores.imported
+            if [[ ! -e "$nascar_marker" ]]; then
+              nascar_exists="$(${config.services.postgresql.package}/bin/psql \
+                --host=/run/postgresql \
+                --dbname=n8n \
+                --username=n8n \
+                --no-align \
+                --tuples-only \
+                --command="SELECT count(*) FROM workflow_entity WHERE id = '6ZtXlBrFI0nGZ5R2';")"
+              if (( nascar_exists == 0 )); then
+                ${n8nPackage}/bin/n8n import:workflow \
+                  --input=${starterWorkflowDirectory}/nascar-scores.json
+              fi
+              ${n8nPackage}/bin/n8n publish:workflow --id=6ZtXlBrFI0nGZ5R2
+              ${pkgs.coreutils}/bin/touch "$nascar_marker"
+            fi
 
             espn_marker=${seedStateDirectory}/caal-espn-1.0.0.imported
             if [[ ! -e "$espn_marker" ]]; then

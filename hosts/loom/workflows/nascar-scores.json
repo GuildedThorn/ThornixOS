@@ -1,0 +1,223 @@
+{
+  "id": "6ZtXlBrFI0nGZ5R2",
+  "name": "NASCAR Scores",
+  "active": false,
+  "description": "Returns voice-friendly Cup, O’Reilly Auto Parts, or Truck race results from NASCAR’s credential-free public CDN feeds.",
+  "nodes": [
+    {
+      "id": "5b9c4766-2d0e-40cf-a0a9-207f797582be",
+      "name": "Read NASCAR Season Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -48,
+        160
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Prepare NASCAR Request').item.json.scheduleUrl }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 750
+    },
+    {
+      "id": "nascar-tool-webhook",
+      "name": "NASCAR Tool Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        160
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nascar-scores",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "notes": "NASCAR scores tool. Optional JSON input: series (cup, xfinity, truck), season, top (1-10), race_id.",
+      "webhookId": "e299662d-39eb-4a41-93b5-f769408b3fee"
+    },
+    {
+      "id": "prepare-nascar-request",
+      "name": "Prepare NASCAR Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const incoming = $input.first()?.json ?? {};\nconst body = incoming.body && typeof incoming.body === 'object' ? incoming.body : incoming;\nconst rawSeries = String(body.series ?? body.series_id ?? 'cup').trim().toLowerCase();\nconst seriesAliases = {\n  '1': 1, cup: 1, 'cup series': 1, nascar: 1,\n  '2': 2, xfinity: 2, oreilly: 2, \"o'reilly\": 2, 'xfinity series': 2,\n  '3': 3, truck: 3, trucks: 3, 'truck series': 3, craftsman: 3,\n};\nconst seriesId = seriesAliases[rawSeries] ?? 1;\nconst labels = { 1: 'NASCAR Cup Series', 2: \"NASCAR O'Reilly Auto Parts Series\", 3: 'NASCAR Craftsman Truck Series' };\nconst currentYear = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', year: 'numeric' }).format(new Date()));\nconst requestedSeason = Number.parseInt(String(body.season ?? body.race_season ?? currentYear), 10);\nconst season = Number.isInteger(requestedSeason) && requestedSeason >= 1948 && requestedSeason <= currentYear + 1\n  ? requestedSeason\n  : currentYear;\nconst requestedTop = Number.parseInt(String(body.top ?? body.limit ?? 5), 10);\nconst top = Number.isInteger(requestedTop) ? Math.min(10, Math.max(1, requestedTop)) : 5;\nconst requestedRaceId = Number.parseInt(String(body.race_id ?? body.raceId ?? ''), 10);\nconst raceId = Number.isInteger(requestedRaceId) && requestedRaceId > 0 ? requestedRaceId : null;\nconst scheduleUrl = seriesId === 1\n  ? 'https://cf.nascar.com/cacher/' + season + '/1/race_list_basic.json'\n  : 'https://cf.nascar.com/cacher/' + season + '/race_list_basic.json';\n\nreturn [{ json: {\n  action: 'scores',\n  seriesId,\n  series: labels[seriesId],\n  season,\n  top,\n  raceId,\n  scheduleUrl,\n} }];"
+      }
+    },
+    {
+      "id": "format-nascar-results",
+      "name": "Format NASCAR Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const request = $('Select Latest NASCAR Race').first().json;\nconst payload = $input.first()?.json ?? {};\nconst rawError = payload.error?.message ?? payload.error ?? request.error;\nif (rawError) {\n  const detail = String(rawError);\n  return [{ json: {\n    ok: false,\n    message: 'NASCAR results are temporarily unavailable: ' + detail.slice(0, 240),\n    error: detail.slice(0, 500),\n    source: 'cf.nascar.com',\n  } }];\n}\n\nconst race = Array.isArray(payload.weekend_race) ? payload.weekend_race[0] : payload.weekend_race;\nif (!race || !race.race_id) {\n  return [{ json: {\n    ok: false,\n    message: 'NASCAR returned the season schedule but no detailed result for the selected race.',\n    source: 'cf.nascar.com',\n  } }];\n}\n\nconst finishers = (Array.isArray(race.results) ? race.results : [])\n  .filter((result) => Number(result.finishing_position) > 0)\n  .sort((a, b) => Number(a.finishing_position) - Number(b.finishing_position))\n  .slice(0, request.top)\n  .map((result) => ({\n    position: Number(result.finishing_position),\n    driver: String(result.driver_fullname || result.driver_name || 'Unknown driver'),\n    car: String(result.car_number || result.official_car_number || ''),\n    make: String(result.car_make || result.manufacturer || ''),\n    status: String(result.finishing_status || result.comment || ''),\n    lapsCompleted: Number(result.laps_completed || 0),\n    points: Number(result.points_earned || 0),\n    disqualified: Boolean(result.disqualified),\n  }));\nconst ordinal = (value) => {\n  const mod100 = value % 100;\n  if (mod100 >= 11 && mod100 <= 13) return value + 'th';\n  return value + ({ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] || 'th');\n};\nconst whenValue = race.race_date || race.date_scheduled || race.tunein_date;\nconst when = Number.isFinite(Date.parse(whenValue || ''))\n  ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(whenValue))\n  : String(request.season);\nconst raceName = String(race.race_name || 'NASCAR race');\nconst track = race.track_name ? ' at ' + race.track_name : '';\nconst leaders = finishers.length\n  ? finishers.map((result) => ordinal(result.position) + ', ' + result.driver + (result.car ? ' in the number ' + result.car : '')).join('; ')\n  : 'Official finishing positions are not available yet.';\nconst message = 'Latest ' + request.series + ' result: ' + raceName + track + ' on ' + when + '. ' + leaders + '.';\n\nreturn [{ json: {\n  ok: true,\n  message,\n  source: 'cf.nascar.com',\n  series: request.series,\n  season: request.season,\n  race: {\n    id: Number(race.race_id),\n    name: raceName,\n    track: String(race.track_name || ''),\n    date: whenValue || null,\n    scheduledLaps: Number(race.scheduled_laps || 0),\n    actualLaps: Number(race.actual_laps || 0),\n    inspectionComplete: Boolean(race.inspection_complete),\n  },\n  finishers,\n} }];"
+      }
+    },
+    {
+      "id": "respond-nascar-tool",
+      "name": "Respond to NASCAR Tool",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        976,
+        160
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "nascar-api-setup-note",
+      "name": "NASCAR API Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -256
+      ],
+      "parameters": {
+        "content": "## Credential-free NASCAR results\n\nUses NASCAR’s public CDN cache:\n- Season: `cf.nascar.com/cacher/{year}/.../race_list_basic.json`\n- Result: `cf.nascar.com/cacher/{year}/{series}/{race}/weekend-feed.json`\n\nNo account, API key, or credential is required. The workflow selects the latest completed race before requesting its detailed results.\n\nInput: `series` = cup/xfinity/truck; optional `season`, `top` (1-10), or `race_id`.",
+        "height": 320,
+        "width": 700
+      }
+    },
+    {
+      "id": "select-latest-nascar-race",
+      "name": "Select Latest NASCAR Race",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const request = $('Prepare NASCAR Request').first().json;\nconst inputs = $input.all().map((item) => item.json ?? {});\nconst payload = inputs[0] ?? {};\nconst error = payload.error?.message ?? payload.error;\nif (error) {\n  return [{ json: { ...request, error: String(error), resultUrl: null } }];\n}\n\nconst races = inputs.length > 1 && inputs.every((item) => item && item.race_id)\n  ? inputs\n  : Array.isArray(payload)\n    ? payload\n  : Array.isArray(payload['series_' + request.seriesId])\n    ? payload['series_' + request.seriesId]\n    : [];\nconst requested = request.raceId\n  ? races.find((race) => Number(race.race_id) === request.raceId)\n  : null;\nconst now = Date.now();\nconst completed = races\n  .filter((race) => {\n    const start = Date.parse(race.race_date || race.date_scheduled || race.tunein_date || '');\n    return Number.isFinite(start) && start <= now && (race.inspection_complete || Number(race.winner_driver_id) > 0);\n  })\n  .sort((a, b) => Date.parse(b.race_date || b.date_scheduled) - Date.parse(a.race_date || a.date_scheduled));\nconst race = requested || completed[0] || null;\nconst resultUrl = race\n  ? 'https://cf.nascar.com/cacher/' + request.season + '/' + request.seriesId + '/' + race.race_id + '/weekend-feed.json'\n  : null;\n\nreturn [{ json: {\n  ...request,\n  selectedRace: race,\n  resultUrl,\n  error: race ? null : 'No completed race was found in the NASCAR season feed',\n} }];"
+      }
+    },
+    {
+      "id": "read-nascar-weekend-results",
+      "name": "Read NASCAR Weekend Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        464,
+        160
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Select Latest NASCAR Race').item.json.resultUrl }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 750
+    }
+  ],
+  "connections": {
+    "NASCAR Tool Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare NASCAR Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare NASCAR Request": {
+      "main": [
+        [
+          {
+            "node": "Read NASCAR Season Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format NASCAR Results": {
+      "main": [
+        [
+          {
+            "node": "Respond to NASCAR Tool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read NASCAR Season Feed": {
+      "main": [
+        [
+          {
+            "node": "Select Latest NASCAR Race",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Latest NASCAR Race": {
+      "main": [
+        [
+          {
+            "node": "Read NASCAR Weekend Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read NASCAR Weekend Results": {
+      "main": [
+        [
+          {
+            "node": "Format NASCAR Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Chicago",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionTimeout": 45
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

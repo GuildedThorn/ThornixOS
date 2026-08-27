@@ -16,6 +16,13 @@ _WORKFLOW_PATTERNS = tuple(
     )
 )
 
+_NASCAR_PATTERN = re.compile(
+    r"\b(?:nascar|cup\s+(?:series|race)|xfinity(?:\s+(?:series|race))?|"
+    r"o['’]?\s*reilly(?:\s+auto\s+parts)?(?:\s+(?:series|race))?|"
+    r"craftsman(?:\s+truck)?(?:\s+(?:series|race))?|truck\s+series)\b",
+    re.IGNORECASE,
+)
+
 _SPORTS_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
@@ -34,15 +41,25 @@ def is_workflow_request(text: str) -> bool:
     return any(pattern.search(normalized) for pattern in _WORKFLOW_PATTERNS)
 
 
+def is_nascar_request(text: str) -> bool:
+    """Return whether an utterance specifically needs the NASCAR workflow."""
+    normalized = " ".join(text.casefold().split())
+    return bool(_NASCAR_PATTERN.search(normalized))
+
+
 def is_sports_request(text: str) -> bool:
     """Return whether an utterance needs the live sports suite."""
     normalized = " ".join(text.casefold().split())
-    return any(pattern.search(normalized) for pattern in _SPORTS_PATTERNS)
+    return is_nascar_request(normalized) or any(
+        pattern.search(normalized) for pattern in _SPORTS_PATTERNS
+    )
 
 
 def workflow_catalog_query(text: str) -> str:
     """Map specific requests to a stable reviewed-tool catalogue term."""
     normalized = " ".join(text.casefold().split())
+    if is_nascar_request(normalized):
+        return "nascar"
     if is_sports_request(normalized):
         return "sports"
     return normalized[:128]

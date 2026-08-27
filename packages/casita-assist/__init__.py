@@ -42,6 +42,7 @@ VOICE_NAME = "Kokoro · Heart"
 EVENT_PROGRESS = "casita_assist_progress"
 LOOM_WORKFLOW_URL = "https://loom.guildedthorn.arpa/model-workflows/v1/call"
 LOOM_SPORTS_URL = "https://loom.guildedthorn.arpa/webhook/espn"
+LOOM_NASCAR_URL = "https://loom.guildedthorn.arpa/webhook/nascar-scores"
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
@@ -466,39 +467,71 @@ class GetSports(CasitaTool):
     name = "GetSports"
     description = (
         "Get live or recent scores, upcoming schedules, or standings from the "
-        "credential-free ESPN suite. Use for NFL, NBA, NHL, EPL, MLS, and Formula One. "
+        "credential-free reviewed Loom sports workflows. Use ESPN for NFL, NBA, "
+        "NHL, EPL, MLS, and Formula One. For NASCAR recent race results, set sport "
+        "to nascar and series to cup, xfinity, or truck. "
         "Speak the returned message and keep structured game data for follow-up questions."
     )
-    activity_detail = "Checking the reviewed ESPN workflow on Loom…"
+    activity_detail = "Checking the reviewed sports workflows on Loom…"
     parameters = vol.Schema(
         {
             vol.Required("action"): vol.In(["scores", "schedule", "standings"]),
             vol.Required("sport"): vol.In(
-                ["nfl", "nba", "nhl", "epl", "mls", "f1"]
+                ["nfl", "nba", "nhl", "epl", "mls", "f1", "nascar"]
             ),
             vol.Optional("team", default=""): vol.All(str, vol.Length(max=80)),
             vol.Optional("conference", default=""): vol.In(["", "east", "west"]),
+            vol.Optional("series", default="cup"): vol.In(
+                ["cup", "xfinity", "truck"]
+            ),
+            vol.Optional("top", default=5): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=10)
+            ),
+            vol.Optional("season"): vol.All(
+                vol.Coerce(int), vol.Range(min=1948, max=3000)
+            ),
+            vol.Optional("race_id"): vol.All(
+                vol.Coerce(int), vol.Range(min=1)
+            ),
         }
     )
 
     @override
     async def async_call(self, hass, tool_input, llm_context) -> JsonObjectType:
         self.notify(hass)
-        payload = {
-            "action": tool_input.tool_args["action"],
-            "sport": tool_input.tool_args["sport"],
-        }
-        for key in ("team", "conference"):
-            value = str(tool_input.tool_args.get(key, "")).strip()
-            if value:
-                payload[key] = value
+        action = tool_input.tool_args["action"]
+        sport = tool_input.tool_args["sport"]
+        endpoint = LOOM_SPORTS_URL
+        if sport == "nascar":
+            if action != "scores":
+                return {
+                    "ok": False,
+                    "error": (
+                        "The reviewed NASCAR tool currently supports recent race "
+                        "results, not schedules or standings"
+                    ),
+                }
+            endpoint = LOOM_NASCAR_URL
+            payload = {
+                "series": tool_input.tool_args.get("series", "cup"),
+                "top": tool_input.tool_args.get("top", 5),
+            }
+            for key in ("season", "race_id"):
+                if key in tool_input.tool_args:
+                    payload[key] = tool_input.tool_args[key]
+        else:
+            payload = {"action": action, "sport": sport}
+            for key in ("team", "conference"):
+                value = str(tool_input.tool_args.get(key, "")).strip()
+                if value:
+                    payload[key] = value
 
         session = async_get_clientsession(hass)
         try:
             async with session.post(
-                LOOM_SPORTS_URL,
+                endpoint,
                 json=payload,
-                timeout=ClientTimeout(total=20),
+                timeout=ClientTimeout(total=30),
             ) as response:
                 data = await response.json(content_type=None)
                 if response.status >= 400:
@@ -513,8 +546,13 @@ class GetSports(CasitaTool):
         if not isinstance(data, dict):
             return {"ok": False, "error": "Loom returned an invalid sports response"}
         message = str(data.get("message") or "Sports data returned without a summary")
+        reported_ok = data.get("ok")
         return {
-            "ok": not bool(data.get("error")),
+            "ok": (
+                reported_ok
+                if isinstance(reported_ok, bool)
+                else not bool(data.get("error"))
+            ),
             "message": message[:2_000],
             "result": _loom_value(data),
         }
@@ -981,7 +1019,7 @@ class FindLoomWorkflows(CasitaTool):
         "First step before creating: search one broad capability term for an existing "
         "model-visible n8n workflow so you do not duplicate a reviewed tool. Protected "
         "personal workflows are hidden by Loom's policy gateway. Sports requests are "
-        "mapped deterministically to the reviewed sports catalogue entry."
+        "mapped deterministically to the matching ESPN or NASCAR catalogue entry."
     )
     activity_detail = "Reading the model-safe Loom workflow catalogue…"
     parameters = vol.Schema(
@@ -1005,7 +1043,32 @@ class FindLoomWorkflows(CasitaTool):
                 "limit": tool_input.tool_args.get("limit", 10),
             },
         )
-        if query != "sports" or not response.get("ok"):
+        reviewed_catalog = {
+            "sports": {
+                "workflow_id": "CasitaEspnSports",
+                "capabilities": ["scores", "schedules", "standings"],
+                "leagues": ["NFL", "NBA", "NHL", "EPL", "MLS", "F1"],
+                "message": (
+                    "The reviewed credential-free ESPN sports workflow is already "
+                    "installed. Do not create a duplicate."
+                ),
+            },
+            "nascar": {
+                "workflow_id": "6ZtXlBrFI0nGZ5R2",
+                "capabilities": ["scores", "recent race results"],
+                "leagues": [
+                    "NASCAR Cup",
+                    "NASCAR O'Reilly Auto Parts",
+                    "NASCAR Craftsman Truck",
+                ],
+                "message": (
+                    "The reviewed credential-free NASCAR results workflow is already "
+                    "installed. Do not create a duplicate."
+                ),
+            },
+        }
+        reviewed_spec = reviewed_catalog.get(query)
+        if reviewed_spec is None or not response.get("ok"):
             return response
 
         result = response.get("result")
@@ -1015,7 +1078,7 @@ class FindLoomWorkflows(CasitaTool):
                 workflow
                 for workflow in workflows
                 if isinstance(workflow, dict)
-                and workflow.get("id") == "CasitaEspnSports"
+                and workflow.get("id") == reviewed_spec["workflow_id"]
             ),
             None,
         )
@@ -1025,13 +1088,10 @@ class FindLoomWorkflows(CasitaTool):
                 "workflow_id": reviewed.get("id"),
                 "name": reviewed.get("name"),
                 "active": reviewed.get("active"),
-                "capabilities": ["scores", "schedules", "standings"],
-                "leagues": ["NFL", "NBA", "NHL", "EPL", "MLS", "F1"],
+                "capabilities": reviewed_spec["capabilities"],
+                "leagues": reviewed_spec["leagues"],
                 "required_action": "stop_without_creating",
-                "message": (
-                    "The reviewed credential-free sports workflow is already installed. "
-                    "Do not create a duplicate."
-                ),
+                "message": reviewed_spec["message"],
             }
         return response
 
@@ -1325,6 +1385,8 @@ class CasitaAPI(llm.API):
                 "Call a read tool before answering current-state questions; never guess "
                 "live values. For sports, call GetSports immediately, answer faithfully "
                 "from its message field, and do not dump structured arrays unless asked. "
+                "For NASCAR results, set sport to nascar and series to cup, xfinity, "
+                "or truck. NASCAR schedules and standings are not available. "
                 "Only call a control or refresh tool after an explicit user request. "
                 "Service health includes current reachability plus bounded availability "
                 "and latency SLOs. SOC tools are read-only. Locks, doors, alarms, "

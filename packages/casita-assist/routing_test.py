@@ -56,6 +56,9 @@ class WorkflowRoutingTests(unittest.TestCase):
             "When do the Bears play next?",
             "Show me the NBA standings",
             "Who won the Formula One race?",
+            "Who won the latest NASCAR Cup race?",
+            "Give me the Xfinity Series results",
+            "What happened in the Craftsman Truck Series?",
         )
         for prompt in prompts:
             with self.subTest(prompt=prompt):
@@ -70,6 +73,27 @@ class WorkflowRoutingTests(unittest.TestCase):
         for prompt in prompts:
             with self.subTest(prompt=prompt):
                 self.assertFalse(ROUTING.is_sports_request(prompt))
+
+    def test_nascar_phrasings_select_nascar(self) -> None:
+        prompts = (
+            "NASCAR",
+            "latest NASCAR scores",
+            "Who won the Cup Series race?",
+            "Show me the O'Reilly Auto Parts Series results",
+            "Give me the Xfinity race finishers",
+            "What happened in the Craftsman Truck race?",
+        )
+        for prompt in prompts:
+            with self.subTest(prompt=prompt):
+                self.assertTrue(ROUTING.is_nascar_request(prompt))
+                self.assertEqual(
+                    ROUTING.workflow_catalog_query(prompt),
+                    "nascar",
+                )
+
+    def test_other_cup_phrasings_do_not_select_nascar(self) -> None:
+        self.assertFalse(ROUTING.is_nascar_request("Stanley Cup standings"))
+        self.assertFalse(ROUTING.is_nascar_request("World Cup scores"))
 
     def test_sports_workflow_search_uses_reviewed_catalogue_term(self) -> None:
         prompts = (
