@@ -32,7 +32,16 @@
       caalEspnWorkflow =
         pkgs.runCommand "casita-espn-workflow.json" { nativeBuildInputs = [ pkgs.jq ]; }
           ''
-            jq '.id = "CasitaEspnSports" | .name = "Casita | ESPN sports"' \
+            # n8n 2.35 rejects the two upstream sticky notes sharing a name.
+            # Rename only the registry-attribution note; executable nodes and
+            # their connections remain byte-for-byte equivalent upstream.
+            jq '
+              .id = "CasitaEspnSports" |
+              .name = "Casita | ESPN sports" |
+              (.nodes[] |
+                select(.id == "b7d0b124-bd77-4cf8-8c11-f0702f9c5924") |
+                .name) = "CAAL Registry Tracking"
+            ' \
               ${caalEspnWorkflowSource} > "$out"
           '';
       workflowFilesDirectory = "/var/lib/n8n-files";
