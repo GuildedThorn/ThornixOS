@@ -125,6 +125,9 @@
         # therefore ignored. Preserve the intended process isolation with a
         # supported value until the upstream module is corrected.
         systemd.services.suricata.serviceConfig.ProtectProc = lib.mkForce "invisible";
+        # Validating the full ET ruleset can exceed systemd's 90-second
+        # default on lower-power sensors such as the edge firewall.
+        systemd.services.suricata.serviceConfig.TimeoutStartSec = "5min";
 
         # Disable NIC offloads on the physical capture interfaces so the
         # engine sees real wire-sized segments: GRO/GSO hand af-packet
