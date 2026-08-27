@@ -358,6 +358,7 @@
           Type = "oneshot";
           User = "n8n";
           Group = "n8n";
+          DynamicUser = true;
           StateDirectory = "loom-model-workflows-credential";
           StateDirectoryMode = "0700";
           UMask = "0077";
