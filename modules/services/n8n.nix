@@ -12,6 +12,10 @@
       secretStateDirectory = "/var/lib/loom-n8n-secrets";
       seedStateDirectory = "/var/lib/loom-n8n-seed";
       modelCredentialDirectory = "/var/lib/loom-model-workflows-credential";
+      # The external task-runner launcher owns 5680 and allocates adjacent
+      # health ports to its JavaScript/Python runners. Keep the policy gateway
+      # outside that range so an n8n restart cannot starve workflow execution.
+      modelGatewayPort = 5689;
       modelEditableWorkflowIds = [
         "CasitaEspnSports"
         "ThornChangeWindowPreflight"
@@ -460,7 +464,7 @@
         wants = [ "network-online.target" ];
         environment = {
           LOOM_MODEL_LISTEN_HOST = "127.0.0.1";
-          LOOM_MODEL_LISTEN_PORT = "5681";
+          LOOM_MODEL_LISTEN_PORT = toString modelGatewayPort;
           LOOM_MODEL_MCP_URL = "http://127.0.0.1:5678/mcp-server/http";
           LOOM_MODEL_PROTECTED_IDS = lib.concatStringsSep "," [
             "ThornEveningDrop"
@@ -673,7 +677,7 @@
               '';
             };
             "= /model-workflows/health" = {
-              proxyPass = "http://127.0.0.1:5681/health";
+              proxyPass = "http://127.0.0.1:${toString modelGatewayPort}/health";
               extraConfig = ''
                 allow 172.16.25.2;
                 allow 172.16.25.51;
@@ -682,7 +686,7 @@
               '';
             };
             "= /model-workflows/v1/call" = {
-              proxyPass = "http://127.0.0.1:5681/v1/call";
+              proxyPass = "http://127.0.0.1:${toString modelGatewayPort}/v1/call";
               extraConfig = ''
                 allow 172.16.25.2;
                 deny all;
