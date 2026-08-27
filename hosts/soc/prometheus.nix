@@ -74,19 +74,6 @@ in
           }
         ];
       }
-      # pfSense (node_exporter package). Kept in its own job with an
-      # explicit instance label because it's not a flake host, and
-      # addressed by IP — pfsense.guildedthorn.arpa's own override
-      # oddly resolves to the other subnet (192.168.1.1).
-      {
-        job_name = "pfsense";
-        static_configs = [
-          {
-            targets = [ "172.16.25.1:9100" ];
-            labels.instance = "pfsense.guildedthorn.arpa:9100";
-          }
-        ];
-      }
       # Loki's own metrics — lets us alert when the log pipeline
       # itself breaks (soc going blind is worse than any single
       # host going down, since it's the thing that would tell us).

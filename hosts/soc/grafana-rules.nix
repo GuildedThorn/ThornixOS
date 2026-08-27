@@ -749,18 +749,15 @@ in
                 summary = "Zeek observed an invalid, expired, not-yet-valid, or soon-expiring certificate from an OPT1 TLS service.";
               })
               (rule {
-                # pfSense's perimeter Suricata arrives as raw syslog
-                # (job=syslog), not EVE JSON, so match the priority
-                # tag in the text. Only 1-2 (high/critical) alert,
-                # to keep low-severity decoder noise off Discord.
-                uid = "siem-pfsense-suricata";
-                title = "pfSense Suricata high-severity alert";
+                uid = "siem-firewall-suricata";
+                title = "Firewall Suricata high-severity alert";
                 datasourceUid = "loki";
                 expr = ''
-                  topk(20, sum by (geoip_src_ip) (count_over_time(
-                    {job="syslog", pfsense_log="suricata"}
-                      |~ "Priority: [12]"
-                      | geoip_src_ip != "" [10m]
+                  topk(20, sum by (alert_signature, src_ip, dest_ip) (count_over_time(
+                    {job="suricata", host="firewall"}
+                      | json
+                      | event_type = "alert"
+                      | alert_severity <= 2 [10m]
                   )))
                 '';
                 evaluator = {
@@ -770,16 +767,13 @@ in
                 for = "0s";
                 severity = "critical";
                 category = "security";
-                summary = "pfSense's perimeter Suricata raised a high-severity (priority 1-2) alert.";
+                summary = "The firewall's WAN Suricata sensor raised a high-severity alert.";
               })
               (rule {
-                # Unlike DNS alone, the combined pfSense stream has
-                # near-constant WAN filter activity. Its absence is
-                # therefore a useful end-to-end receiver check.
-                uid = "siem-pfsense-syslog-silent";
-                title = "pfSense syslog feed is silent";
+                uid = "siem-firewall-telemetry-silent";
+                title = "Firewall telemetry feed is silent";
                 datasourceUid = "loki";
-                expr = "sum(count_over_time({job=\"syslog\", host=\"pfsense\"} [20m]))";
+                expr = "sum(count_over_time({host=\"firewall\"} [20m]))";
                 evaluator = {
                   type = "lt";
                   params = [ 1 ];
@@ -789,7 +783,7 @@ in
                 noDataState = "Alerting";
                 severity = "critical";
                 category = "pipeline";
-                summary = "No pfSense DNS, firewall, or IDS syslog has reached Loki in 20 minutes.";
+                summary = "No firewall journal or IDS telemetry has reached Loki in 20 minutes.";
               })
               (rule {
                 uid = "siem-pineapple-wireless-alert";
@@ -832,62 +826,6 @@ in
                 severity = "critical";
                 category = "pipeline";
                 summary = "No Pineapple wifi-watch heartbeat has reached Loki in 15 minutes.";
-              })
-              (rule {
-                # Group on structured metadata at query time rather
-                # than indexing client addresses as stream labels.
-                uid = "siem-pfsense-nxdomain-burst";
-                title = "Client generated an NXDOMAIN burst";
-                datasourceUid = "loki";
-                expr = ''
-                  sum by (dns_client_ip) (count_over_time(
-                    {job="syslog", pfsense_log="dns", dns_event="reply", dns_rcode="NXDOMAIN"}
-                      | dns_client_ip != ""
-                      | keep dns_client_ip [10m]
-                  ))
-                '';
-                evaluator = {
-                  type = "gt";
-                  params = [ 50 ];
-                };
-                for = "0s";
-                category = "security";
-                summary = "One resolver client received more than 50 NXDOMAIN replies in 10 minutes; investigate mistyped automation, scanning, or DGA-like behavior.";
-              })
-              (rule {
-                uid = "siem-pfsense-dns-servfail";
-                title = "pfSense DNS SERVFAIL spike";
-                datasourceUid = "loki";
-                expr = "sum(count_over_time({job=\"syslog\", pfsense_log=\"dns\", dns_event=\"reply\", dns_rcode=\"SERVFAIL\"} [10m]))";
-                evaluator = {
-                  type = "gt";
-                  params = [ 10 ];
-                };
-                for = "0s";
-                category = "dns";
-                summary = "Unbound returned more than 10 SERVFAIL responses in 10 minutes; upstream DNS, DNSSEC, or local resolver health may be degraded.";
-              })
-              (rule {
-                # `in` on an internal interface means a client sent
-                # the packet into pfSense. Restrict to IPv4 to avoid
-                # routine link-local IPv6 multicast block noise.
-                uid = "siem-pfsense-internal-block-burst";
-                title = "Internal client repeatedly blocked by pfSense";
-                datasourceUid = "loki";
-                expr = ''
-                  sum by (firewall_source_ip) (count_over_time(
-                    {job="syslog", pfsense_log="firewall", firewall_interface=~"igb0|igb1", firewall_action="block", firewall_direction="in", firewall_ip_version="4"}
-                      | firewall_source_ip != ""
-                      | keep firewall_source_ip [10m]
-                  ))
-                '';
-                evaluator = {
-                  type = "gt";
-                  params = [ 25 ];
-                };
-                for = "0s";
-                category = "network";
-                summary = "One LAN or OPT1 client hit pfSense block rules more than 25 times in 10 minutes.";
               })
               (rule {
                 uid = "siem-crowdsec-alert";

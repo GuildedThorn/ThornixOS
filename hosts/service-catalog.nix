@@ -385,21 +385,6 @@
     ];
   }
   {
-    id = "pfsense";
-    name = "pfSense";
-    role = "Firewall and routing";
-    host = "pfsense";
-    probeUrl = "https://pfsense.guildedthorn.arpa/";
-    launchUrl = "https://pfsense.guildedthorn.arpa/";
-    icon = "mdi:wall-fire";
-    aliases = [
-      "p f sense"
-      "pfsense"
-      "firewall"
-      "router"
-    ];
-  }
-  {
     id = "loki";
     name = "Loki";
     role = "Central log aggregation";

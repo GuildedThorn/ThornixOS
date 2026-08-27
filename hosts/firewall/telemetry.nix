@@ -1,0 +1,3 @@
+{
+  thorn.telemetry.enable = true;
+}

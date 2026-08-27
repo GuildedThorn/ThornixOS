@@ -23,6 +23,7 @@ keys:
   - &host_courier age1znu04a67p362wzxgguu83d89n4mvh5tf2fc4kywm5x6xf4pzyp7sgf9yrp
   - &host_loom age1az503gz828gjmk5zrmx2z9nxe86v44karethcfz8afyum3fvdv9q5u0ntv
   - &host_mitm age1k3pmw077qagpeqwnlsftj365nkdjqcdtcr5ux2rxxku0wx3xgvgs0ynfts
+  - &host_firewall age107ct049vtdxkcyqd50dvkkz94juz0gclxmhsvhdehtllz8m5tpwqxj8k57
 
 creation_rules:
   # Shared Alloy writer identity. Every telemetry-enrolled host must be able
@@ -46,7 +47,11 @@ creation_rules:
       age1n4q4dg0399qlu839yx00zdhc3a9aaehks7m593pevr6yyn27f4uqsywyse,
       age1alkat333udvy0mw0ef07fhyyzcxk8kpqud7kmwkcw7jdf6yewdeqz0rrvc,
       age1znu04a67p362wzxgguu83d89n4mvh5tf2fc4kywm5x6xf4pzyp7sgf9yrp,
-      age1az503gz828gjmk5zrmx2z9nxe86v44karethcfz8afyum3fvdv9q5u0ntv
+      age1az503gz828gjmk5zrmx2z9nxe86v44karethcfz8afyum3fvdv9q5u0ntv,
+      age107ct049vtdxkcyqd50dvkkz94juz0gclxmhsvhdehtllz8m5tpwqxj8k57
+  - path_regex: hosts/firewall/secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_firewall
   - path_regex: hosts/mac/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_mac

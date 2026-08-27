@@ -251,10 +251,6 @@
                           url = "https://truenas.guildedthorn.arpa:8920";
                         }
                         {
-                          title = "Pfsense";
-                          url = "https://pfsense.guildedthorn.arpa";
-                        }
-                        {
                           title = "TrueNAS";
                           url = "https://truenas.guildedthorn.arpa";
                         }

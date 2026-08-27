@@ -105,10 +105,14 @@ in
   };
 
   firewall = mkHost {
-    class = "retired";
-    deploy = false;
-    production = false;
-    role = "firewall-template";
+    address = "172.16.25.1";
+    fqdn = "firewall.guildedthorn.arpa";
+    role = "edge-firewall";
+    monitoring = {
+      mode = "scrape";
+      journal = true;
+      readyFiles = [ "hosts/firewall/telemetry.nix" ];
+    };
   };
 
   forge = mkHost {

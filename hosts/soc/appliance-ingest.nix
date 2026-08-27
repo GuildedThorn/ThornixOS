@@ -63,11 +63,6 @@
     local.file_match "remote_syslog" {
       path_targets = [
         {
-          "__path__" = "/var/log/remote/172.16.25.1.log",
-          job        = "syslog",
-          host       = "pfsense",
-        },
-        {
           "__path__" = "/var/log/remote/192.168.1.31.log",
           job        = "syslog",
           host       = "pineapple",
