@@ -15,9 +15,7 @@ in
       config.nixos.modules.services-canary
       config.nixos.modules.services-ssh
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
-
-      "${inputs.self}/hosts/anvil/hardware-configuration.nix"
+      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/anvil/disko.nix"
       "${inputs.self}/hosts/anvil/networking.nix"
 

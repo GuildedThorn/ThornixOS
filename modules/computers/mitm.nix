@@ -63,7 +63,7 @@ in
       config.nixos.modules.services-ssh
       config.nixos.modules.services-thorncloud-acme
 
-      "${inputs.self}/hosts/mitm/hardware-configuration.nix"
+      config.nixos.modules.hardware-mitm
       "${inputs.self}/hosts/mitm/disko.nix"
       "${inputs.self}/hosts/mitm/networking.nix"
 

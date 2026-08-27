@@ -12,7 +12,7 @@
       config.nixos.modules.services-ssh
       config.nixos.modules.services-vmware-guest
 
-      "${inputs.self}/hosts/vmware-guest/hardware-configuration.nix"
+      config.nixos.modules.hardware-bios-placeholder
       "${inputs.self}/hosts/vmware-guest/networking.nix"
 
       { home-manager.users.thorn = import "${inputs.self}/hosts/vmware-guest/home.nix"; }

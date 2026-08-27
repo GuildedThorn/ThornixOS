@@ -49,8 +49,9 @@ Two option namespaces carry almost everything:
   `thorn-core`, `thorn-user`, etc. A host's `flake.nixosConfigurations.<host>`
   in `modules/computers/<host>.nix` is just a list of
   `config.nixos.modules.*` picks plus that host's `hosts/<host>/*.nix` data
-  files (hardware-configuration, disko, networking, secrets) and an inline
-  host-specific config block.
+  files (disko, networking, secrets) and an inline host-specific config
+  block. Hardware is composed from named modules under `modules/hardware/`;
+  do not reintroduce generated `hardware-configuration.nix` imports.
 - `homeManager.modules.<name>` (declared in `modules/core/home-manager-modules.nix`)
   — Home Manager pieces, wired into NixOS via `nixos.modules.thorn-user`
   (`modules/users/thorn.nix`), which sets
@@ -76,8 +77,8 @@ flake.nix                  inputs only; outputs = import-tree ./modules
 modules/
   computers/<host>.nix      one file per host: composes named modules + hosts/<host>/ files into flake.nixosConfigurations.<host>
   core/                      base config, the module-option plumbing (nixos.modules / homeManager.modules), thorn-core bundle
-  desktop/  graphics/  processor/  services/  apps/  home-manager/  users/    named modules grouped by area
-hosts/<host>/               per-host data: hardware-configuration, disko, networking, secrets.nix + secrets.yaml (sops), home.nix (which home-manager modules are enabled)
+  desktop/  graphics/  hardware/  processor/  services/  apps/  home-manager/  users/    named modules grouped by area
+hosts/<host>/               per-host data: disko, networking, secrets.nix + secrets.yaml (sops), home.nix (which home-manager modules are enabled)
 ```
 
 ### Deployment model (GitOps via comin)

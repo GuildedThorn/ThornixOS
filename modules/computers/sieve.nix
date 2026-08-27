@@ -14,9 +14,7 @@ in
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.services-ssh
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
-
-      "${inputs.self}/hosts/sieve/hardware-configuration.nix"
+      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/sieve/disko.nix"
       "${inputs.self}/hosts/sieve/networking.nix"
 

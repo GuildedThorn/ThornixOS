@@ -12,9 +12,7 @@ in
       config.nixos.modules.services-authentik
       config.nixos.modules.services-ssh
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
-
-      "${inputs.self}/hosts/identity/hardware-configuration.nix"
+      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/identity/disko.nix"
       "${inputs.self}/hosts/identity/networking.nix"
       "${inputs.self}/hosts/identity/secrets.nix"

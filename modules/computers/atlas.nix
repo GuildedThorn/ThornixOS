@@ -13,9 +13,7 @@ in
       config.nixos.modules.services-netbox
       config.nixos.modules.services-ssh
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
-
-      "${inputs.self}/hosts/atlas/hardware-configuration.nix"
+      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/atlas/disko.nix"
       "${inputs.self}/hosts/atlas/networking.nix"
       "${inputs.self}/hosts/atlas/secrets.nix"

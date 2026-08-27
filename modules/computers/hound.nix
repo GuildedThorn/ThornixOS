@@ -14,9 +14,7 @@ in
       config.nixos.modules.services-velociraptor
       config.nixos.modules.services-ssh
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
-
-      "${inputs.self}/hosts/hound/hardware-configuration.nix"
+      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/hound/disko.nix"
       "${inputs.self}/hosts/hound/networking.nix"
 

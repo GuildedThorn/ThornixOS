@@ -12,7 +12,7 @@
       config.nixos.modules.services-ssh
       config.nixos.modules.services-vmware-guest
 
-      "${inputs.self}/hosts/vmware-test/hardware-configuration.nix"
+      config.nixos.modules.hardware-bios-placeholder
       "${inputs.self}/hosts/vmware-test/networking.nix"
     ];
   };

@@ -22,7 +22,7 @@
 
       config.nixos.modules.thorn-glance
 
-      "${inputs.self}/hosts/scout/hardware-configuration.nix"
+      config.nixos.modules.hardware-scout
       "${inputs.self}/hosts/scout/networking.nix"
       "${inputs.self}/hosts/scout/secrets.nix"
       "${inputs.self}/hosts/scout/wireguard.nix"

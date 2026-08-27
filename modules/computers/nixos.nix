@@ -29,7 +29,7 @@
 
       config.nixos.modules.thorn-glance
 
-      "${inputs.self}/hosts/nixos/hardware-configuration.nix"
+      config.nixos.modules.hardware-nixos
       "${inputs.self}/hosts/nixos/disko.nix"
       "${inputs.self}/hosts/nixos/networking.nix"
       "${inputs.self}/hosts/nixos/secrets.nix"

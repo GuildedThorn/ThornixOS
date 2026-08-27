@@ -17,9 +17,7 @@
 
       inputs.guildedthorn-com.nixosModules.default
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
-
-      "${inputs.self}/hosts/websites/hardware-configuration.nix"
+      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/websites/disko.nix"
       "${inputs.self}/hosts/websites/networking.nix"
       "${inputs.self}/hosts/websites/secrets.nix"

@@ -14,9 +14,7 @@ in
       config.nixos.modules.services-courier-mail
       config.nixos.modules.services-ssh
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
-
-      "${inputs.self}/hosts/courier/hardware-configuration.nix"
+      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/courier/disko.nix"
       "${inputs.self}/hosts/courier/networking.nix"
 

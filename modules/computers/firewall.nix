@@ -5,7 +5,7 @@
     modules = [
       config.nixos.modules.thorn-core
 
-      "${inputs.self}/hosts/firewall/hardware-configuration.nix"
+      config.nixos.modules.hardware-bios-placeholder
       "${inputs.self}/hosts/firewall/networking.nix"
     ];
   };

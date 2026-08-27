@@ -13,10 +13,8 @@
 
       config.nixos.modules.thorn-glance
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
-
       "${inputs.self}/hosts/proxmox-guest/networking.nix"
-      "${inputs.self}/hosts/proxmox-guest/hardware-configuration.nix"
+      config.nixos.modules.hardware-proxmox-guest
 
       { home-manager.users.thorn = import "${inputs.self}/hosts/proxmox-guest/home.nix"; }
 

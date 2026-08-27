@@ -13,9 +13,7 @@ in
       config.nixos.modules.services-opencanary
       config.nixos.modules.services-ssh
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
-
-      "${inputs.self}/hosts/lure/hardware-configuration.nix"
+      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/lure/disko.nix"
       "${inputs.self}/hosts/lure/networking.nix"
 

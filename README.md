@@ -16,9 +16,9 @@ flake.nix                  inputs only; outputs = import-tree ./modules
 modules/
   computers/<host>.nix     one file per host: composes named modules + hosts/<host>/ files
   core/                    base config, thorn-core bundle, module plumbing
-  desktop/  graphics/  processor/  services/  home-manager/  users/
-hosts/<host>/              per-host data: hardware-configuration, disko,
-                           networking, secrets.nix + secrets.yaml (sops)
+  desktop/  graphics/  hardware/  processor/  services/  home-manager/  users/
+hosts/<host>/              per-host data: disko, networking,
+                           secrets.nix + secrets.yaml (sops)
 hosts/inventory.nix        authoritative production/deployment/monitoring membership
 ```
 

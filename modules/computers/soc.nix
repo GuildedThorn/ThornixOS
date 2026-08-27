@@ -15,10 +15,9 @@ in
       config.nixos.modules.services-security-workflow
       config.nixos.modules.services-ssh
 
-      ({ modulesPath, ... }: { imports = [ (modulesPath + "/profiles/qemu-guest.nix") ]; })
       { _module.args.inputs = inputs; }
 
-      "${inputs.self}/hosts/soc/hardware-configuration.nix"
+      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/soc/disko.nix"
       "${inputs.self}/hosts/soc/networking.nix"
       "${inputs.self}/hosts/soc/secrets.nix"
