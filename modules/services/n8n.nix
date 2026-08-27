@@ -306,7 +306,11 @@
           "network-online.target"
           "postgresql.target"
         ];
-        wants = [ "network-online.target" ];
+        wants = [
+          "loom-model-workflows-credential.service"
+          "loom-model-workflows.service"
+          "network-online.target"
+        ];
         serviceConfig = {
           StateDirectoryMode = "0700";
           SupplementaryGroups = [ "n8n-files" ];
@@ -341,6 +345,7 @@
       # restart without placing the key in Git or the Nix store.
       systemd.services.loom-model-workflows-credential = {
         description = "Stage Loom's n8n MCP credential for the model policy gateway";
+        partOf = [ "n8n.service" ];
         after = [
           "n8n.service"
           "postgresql.service"
@@ -436,6 +441,7 @@
       systemd.services.loom-model-workflows = {
         description = "Policy-enforced draft workflow tools for Casita";
         wantedBy = [ "multi-user.target" ];
+        partOf = [ "n8n.service" ];
         after = [
           "loom-model-workflows-access.service"
           "loom-model-workflows-credential.service"
