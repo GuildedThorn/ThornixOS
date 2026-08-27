@@ -1,12 +1,14 @@
 # Loom starter workflows
 
-These workflows are imported once, inactive, after the n8n owner account
-exists. Each JSON file has its own marker under `/var/lib/loom-n8n-seed`, so a
-later deployment can add a new workflow without overwriting edits made in the
-n8n UI.
+These workflows are imported once after the n8n owner account exists. Each JSON
+file has its own marker under `/var/lib/loom-n8n-seed`, so a later deployment
+can add a new workflow without overwriting edits made in the n8n UI. ThornixOS
+workflows import inactive. The pinned, credential-free CAAL ESPN suite is the
+only starter published automatically.
 
 | Workflow | Purpose |
 | --- | --- |
+| `Casita \| ESPN sports` | Pinned credential-free [CAAL ESPN suite](https://github.com/CoreWorxLab/caal-tools/tree/main/tools/sports/espn), authored by [cmac86](https://github.com/cmac86) and maintained by CoreWorxLab. |
 | `ThornixOS \| Fleet health → Herald` | Probes the service tier every five minutes, requires two failed polls, and reports recovery. |
 | `ThornixOS \| Hydra production gate → Herald` | Reports one pass/fail result for each completed Hydra production evaluation. |
 | `ThornixOS \| n8n failures → Herald` | Shared Error Trigger workflow referenced by scheduled Loom automations. |

@@ -13,6 +13,7 @@
       seedStateDirectory = "/var/lib/loom-n8n-seed";
       modelCredentialDirectory = "/var/lib/loom-model-workflows-credential";
       modelEditableWorkflowIds = [
+        "CasitaEspnSports"
         "ThornChangeWindowPreflight"
         "ThornFleetHealth"
         "ThornHydraStatus"
@@ -21,6 +22,19 @@
         "ThornWeeklyMaintenanceQueue"
       ];
       starterWorkflowDirectory = ../../hosts/loom/workflows;
+      caalEspnWorkflowSource = pkgs.fetchurl {
+        name = "caal-espn-1.0.0.json";
+        # Personal, non-commercial use under the CAAL Tool Registry License.
+        # ESPN tool author: cmac86; registry maintained by CoreWorxLab.
+        url = "https://raw.githubusercontent.com/CoreWorxLab/caal-tools/2ed43969082ab892e6c024f5c21d3ae8b9ff2aa6/tools/sports/espn/workflow.json";
+        hash = "sha256-TRmieVS/24meYVyhi7qydQYWqNs88L1ZnJdnr7yJxhw=";
+      };
+      caalEspnWorkflow =
+        pkgs.runCommand "casita-espn-workflow.json" { nativeBuildInputs = [ pkgs.jq ]; }
+          ''
+            jq '.id = "CasitaEspnSports" | .name = "Casita | ESPN sports"' \
+              ${caalEspnWorkflowSource} > "$out"
+          '';
       workflowFilesDirectory = "/var/lib/n8n-files";
       # Keep the security override isolated from the rest of the fleet's
       # nixpkgs package set. See packages/n8n.nix for the pinned advisory.
@@ -490,12 +504,13 @@
         };
       };
 
-      # Import an inactive starter pack after the first owner account is
-      # created. Each workflow gets its own immutable marker: later additions
-      # are imported automatically, while deployments never overwrite a
-      # workflow that has since been edited in the UI. A timer handles both
-      # the already-configured VM and clean reinstalls where owner setup
-      # happens after the first boot.
+      # Import a starter pack after the first owner account is created. Each
+      # workflow gets its own immutable marker: later additions are imported
+      # automatically, while deployments never overwrite a workflow that has
+      # since been edited in the UI. The pinned, credential-free CAAL ESPN tool
+      # is the sole auto-published starter; all ThornixOS workflows stay
+      # inactive. A timer handles both the already-configured VM and clean
+      # reinstalls where owner setup happens after the first boot.
       systemd.services.loom-n8n-workflow-seed = {
         description = "Seed Loom n8n starter workflows";
         after = [
@@ -559,9 +574,25 @@
                 continue
               fi
 
-              ${pkgs.n8n}/bin/n8n import:workflow --input="$workflow"
+              ${n8nPackage}/bin/n8n import:workflow --input="$workflow"
               ${pkgs.coreutils}/bin/touch "$marker"
             done
+
+            espn_marker=${seedStateDirectory}/caal-espn-1.0.0.imported
+            if [[ ! -e "$espn_marker" ]]; then
+              espn_exists="$(${config.services.postgresql.package}/bin/psql \
+                --host=/run/postgresql \
+                --dbname=n8n \
+                --username=n8n \
+                --no-align \
+                --tuples-only \
+                --command="SELECT count(*) FROM workflow_entity WHERE id = 'CasitaEspnSports';")"
+              if (( espn_exists == 0 )); then
+                ${n8nPackage}/bin/n8n import:workflow --input=${caalEspnWorkflow}
+              fi
+              ${n8nPackage}/bin/n8n publish:workflow --id=CasitaEspnSports
+              ${pkgs.coreutils}/bin/touch "$espn_marker"
+            fi
           '';
         };
       };
@@ -644,6 +675,22 @@
                 proxy_connect_timeout 5s;
                 proxy_read_timeout 60s;
                 proxy_send_timeout 60s;
+              '';
+            };
+            "= /webhook/espn" = {
+              proxyPass = "http://127.0.0.1:5678";
+              extraConfig = ''
+                allow 172.16.25.2;
+                deny all;
+                client_max_body_size 8k;
+                if ($request_method != POST) {
+                  return 405;
+                }
+                proxy_buffering off;
+                proxy_request_buffering off;
+                proxy_connect_timeout 5s;
+                proxy_read_timeout 20s;
+                proxy_send_timeout 20s;
               '';
             };
             "/" = {

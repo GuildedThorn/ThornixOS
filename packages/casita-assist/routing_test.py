@@ -50,6 +50,27 @@ class WorkflowRoutingTests(unittest.TestCase):
             with self.subTest(prompt=prompt):
                 self.assertFalse(ROUTING.is_workflow_request(prompt))
 
+    def test_live_sports_phrasings_use_sports_route(self) -> None:
+        prompts = (
+            "Give me the NFL scores for this week",
+            "When do the Bears play next?",
+            "Show me the NBA standings",
+            "Who won the Formula One race?",
+        )
+        for prompt in prompts:
+            with self.subTest(prompt=prompt):
+                self.assertTrue(ROUTING.is_sports_request(prompt))
+
+    def test_unrelated_scores_stay_out_of_sports_route(self) -> None:
+        prompts = (
+            "What is the SOC risk score?",
+            "Is Loom online?",
+            "Score this deployment from one to ten",
+        )
+        for prompt in prompts:
+            with self.subTest(prompt=prompt):
+                self.assertFalse(ROUTING.is_sports_request(prompt))
+
 
 if __name__ == "__main__":
     unittest.main()

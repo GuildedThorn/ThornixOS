@@ -16,8 +16,25 @@ _WORKFLOW_PATTERNS = tuple(
     )
 )
 
+_SPORTS_PATTERNS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\b(?:nfl|nba|nhl|epl|mls|football|basketball|hockey|soccer|"
+        r"premier league|formula\s*(?:one|1)|f1|sports? scores?)\b",
+        r"\b(?:play|race)\b.{0,80}\b(?:next|today|tonight|tomorrow|this week)\b",
+        r"\b(?:scores?|standings|who won)\b.{0,80}"
+        r"\b(?:game|games|race|week|today|tonight)\b",
+    )
+)
+
 
 def is_workflow_request(text: str) -> bool:
     """Return whether an utterance belongs to the isolated workflow route."""
     normalized = " ".join(text.casefold().split())
     return any(pattern.search(normalized) for pattern in _WORKFLOW_PATTERNS)
+
+
+def is_sports_request(text: str) -> bool:
+    """Return whether an utterance needs the live sports suite."""
+    normalized = " ".join(text.casefold().split())
+    return any(pattern.search(normalized) for pattern in _SPORTS_PATTERNS)
