@@ -1,18 +1,18 @@
 { config, ... }:
 let
-  # Road-warrior WireGuard back to pfSense, in two flavors sharing one
-  # identity (same keys/IP, so pfSense sees a single peer either way):
-  #   wg0 — FULL tunnel: all traffic routed home (LAN access + protection
-  #         on hostile networks + SOC telemetry).
-  #   wg1 — SPLIT tunnel: only home subnets routed; internet stays local
-  #         (faster, no MTU tax on general browsing).
+  # Road-warrior WireGuard back to the firewall, in two flavors sharing one
+  # identity (same keys/IP, so the firewall sees a single peer either way):
+  #   wg0 — FULL tunnel: all traffic routed home for protection on hostile
+  #         networks, SOC telemetry, and approved internal services.
+  #   wg1 — SPLIT tunnel: OPT1 is routed, but the firewall admits only
+  #         approved services; internet stays local (faster, no MTU tax).
   # Only one can be up at a time — the units Conflict, so starting one
   # stops the other:
   #   vpn-full / vpn-split / vpn-off / vpn-status   (aliases below)
   #
   # ON DEMAND, not auto-started (autostart = false). scout is sometimes
   # physically on the home LAN, and an always-up tunnel there would try to
-  # reach the WAN IP from inside the network (a hairpin pfSense won't do) —
+  # reach the WAN IP from inside the network (hairpin routing is disabled) —
   # the handshake fails but the routes are already installed, black-holing
   # traffic. So bring it up only when remote.
   peer = allowedIPs: {
@@ -24,7 +24,7 @@ let
   };
   iface = {
     address = [ "10.10.10.4/32" ];
-    # pfSense over the tunnel — resolves .arpa names. Set for both modes:
+    # The firewall over the tunnel resolves .arpa names. Set for both modes:
     # split still needs it for LAN name resolution, at the cost of all DNS
     # queries riding the tunnel.
     dns = [ "10.10.10.1" ];
@@ -42,7 +42,7 @@ in
     wg0 = iface // {
       peers = [ (peer [ "0.0.0.0/0" ]) ];
     };
-    # Home subnets only. Deliberately NOT 192.168.1.0/24 (the pfSense LAN
+    # Home subnets only. Deliberately NOT 192.168.1.0/24 (the firewall LAN
     # side): hotspots use that range constantly and a tunnel route for it
     # would fight the local network scout is actually sitting on.
     wg1 = iface // {

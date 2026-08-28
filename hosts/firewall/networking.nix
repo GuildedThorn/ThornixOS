@@ -26,9 +26,8 @@ in
       enable = true;
       backend = "nftables";
       allowPing = true;
-      checkReversePath = "loose";
+      checkReversePath = true;
       filterForward = true;
-      trustedInterfaces = [ "wg0" ];
 
       # thorn-core's observability default targets the fleet's iptables
       # backend. This host repeats that ACL below in native nftables syntax.
@@ -37,40 +36,77 @@ in
       interfaces = {
         wan.allowedUDPPorts = [ 4501 ];
         lan = {
-          allowedTCPPorts = [
-            22
-            53
-          ];
+          allowedTCPPorts = [ 53 ];
           allowedUDPPorts = [
             53
             67
           ];
         };
         opt1 = {
-          allowedTCPPorts = [
-            22
-            53
-          ];
+          allowedTCPPorts = [ 53 ];
           allowedUDPPorts = [
             53
             67
           ];
         };
+        wg0 = {
+          allowedTCPPorts = [ 53 ];
+          allowedUDPPorts = [ 53 ];
+        };
       };
 
-      # pfSense allowed unrestricted routed traffic from all three trusted
-      # networks. Public DNAT is intentionally absent until each stale target
-      # and protocol is validated during cutover. Retired declarations were
-      # TCP/UDP 28000 -> 172.16.25.34, TCP/UDP 15101 -> 172.16.25.33, and
-      # TCP/UDP 19132 -> unroutable 172.16.100.20.
+      # Keep each routed network as a separate trust zone. NixOS supplies the
+      # established/related return rule and NAT's internal-to-WAN rule; only
+      # these documented new cross-zone connections are admitted.
       extraForwardRules = ''
-        iifname { "lan", "opt1", "wg0" } accept
+        # Ordinary clients: Home Assistant, Authentik, ntfy, Jellyfin, and mail.
+        iifname "lan" ip daddr { 172.16.25.2, 172.16.25.52, 172.16.25.63 } tcp dport 443 accept
+        iifname "lan" ip daddr 172.16.25.4 tcp dport 8920 accept
+        iifname "lan" ip daddr 172.16.25.64 tcp dport { 465, 587, 993 } accept
+        iifname "wg0" ip daddr { 172.16.25.2, 172.16.25.52, 172.16.25.63 } tcp dport 443 accept
+        iifname "wg0" ip daddr 172.16.25.4 tcp dport 8920 accept
+        iifname "wg0" ip daddr 172.16.25.64 tcp dport { 465, 587, 993 } accept
+
+        # Lure intentionally exposes only its declared decoy protocol set.
+        iifname { "lan", "wg0" } ip daddr 172.16.25.58 tcp dport { 21, 23, 80, 443, 1433, 2222, 3306, 3389, 5900, 6379, 8080, 9418, 27017 } accept
+        iifname { "lan", "wg0" } ip daddr 172.16.25.58 udp dport { 69, 123, 5060 } accept
+
+        # The fixed LAN workstation is the administrative endpoint.
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.0/24 tcp dport { 22, 443 } accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.3 tcp dport 8006 accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.4 tcp dport { 30304, 8920 } accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.50 tcp dport 8090 accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.53 tcp dport 80 accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.57 tcp dport 8000 accept
+
+        # PXE and the Pineapple sensor cross from LAN into OPT1.
+        iifname "lan" ip daddr 172.16.25.53 tcp dport 80 accept
+        iifname "lan" ip daddr 172.16.25.53 udp dport 69 accept
+        iifname "lan" ip saddr 192.168.1.31 ip daddr 172.16.25.2 tcp dport 443 accept
+        iifname "lan" ip saddr 192.168.1.31 ip daddr 172.16.25.51 tcp dport 5514 accept
+
+        # Explicit OPT1 services that initiate connections into LAN.
+        iifname "opt1" ip saddr 172.16.25.2 ip daddr 192.168.1.6 tcp dport 11435 accept
+        iifname "opt1" ip saddr 172.16.25.51 ip daddr 192.168.1.6 tcp dport { 4243, 9100 } accept
+
+        # Scout is the only WireGuard administrative peer.
+        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.0/24 tcp dport { 22, 443 } accept
+        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.3 tcp dport 8006 accept
+        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.4 tcp dport { 30304, 8920 } accept
+        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.50 tcp dport 8090 accept
+        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
+        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.53 tcp dport 80 accept
+        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.57 tcp dport 8000 accept
       '';
 
-      # Baseline observability opens these through iptables. Repeat the narrow
-      # source rule in the active nftables firewall backend.
+      # Limit firewall administration to fixed administrator endpoints and pin
+      # observability to the SOC's physical ingress interface as well as source.
       extraInputRules = ''
-        ip saddr 172.16.25.51 tcp dport { 9100, 4243 } accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 tcp dport 22 accept
+        iifname "opt1" ip saddr 172.16.25.3 tcp dport 22 accept
+        iifname "wg0" ip saddr 10.10.10.4 tcp dport 22 accept
+        iifname "opt1" ip saddr 172.16.25.51 tcp dport { 9100, 4243 } accept
       '';
     };
 
@@ -87,6 +123,7 @@ in
 
   boot.kernel.sysctl = {
     "net.ipv4.conf.all.forwarding" = true;
+    "net.ipv4.conf.all.rp_filter" = 1;
     "net.ipv4.conf.default.rp_filter" = 1;
     "net.ipv4.conf.wan.rp_filter" = 1;
   };

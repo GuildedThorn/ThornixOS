@@ -294,11 +294,13 @@ ssh root@172.16.25.56 sieve-admin-password
 
 Deployment does not start an active scan. The explicitly authorized owner-run
 scope is available with `sieve-authorized-scope`; create targets and schedules
-in GSA only after reviewing it. OPT1 targets are directly reachable. To assess
-the LAN, add an explicit pfSense OPT1 pass rule from Sieve (`172.16.25.56`) to
-the LAN net (`192.168.1.0/24`); do not add a WAN inbound rule or authorize
-public ranges as scan targets. Container status and manual feed refreshes are
-available through `sieve-compose ps` and `sieve-update-feeds`.
+in GSA only after reviewing it. OPT1 targets are directly reachable. LAN scans
+are denied by the zone firewall by default. For a reviewed scan window, add
+only the approved LAN targets and protocols to the firewall's explicit forward
+allowlist, deploy it, and remove the exception afterward. Never add a WAN
+inbound rule or authorize public ranges as scan targets. Container status and
+manual feed refreshes are available through `sieve-compose ps` and
+`sieve-update-feeds`.
 
 Sieve telemetry is encrypted to its SSH-derived age recipient. The dedicated
 `hosts/sieve/telemetry.nix` enrollment marker enables Alloy, the detection

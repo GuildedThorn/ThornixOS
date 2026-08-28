@@ -59,3 +59,26 @@ install -Dm600 -o "$kea_uid" -g "$kea_gid" dhcp4.leases \
 
 Public port forwards remain disabled. Retired pfSense declarations are noted
 in `networking.nix`; validate every target before restoring any DNAT.
+
+## Zone policy
+
+LAN, OPT1, and WireGuard are separate routed trust zones. New cross-zone
+connections are denied unless listed in `networking.firewall.extraForwardRules`;
+stateful replies and internal-to-WAN egress remain allowed. WireGuard is not a
+trusted interface: every peer receives DNS, while only Scout receives the
+documented administrative paths.
+
+NixOS automatically accepts traffic carrying conntrack's DNAT status before
+the custom zone rules. Keep `networking.nat.forwardPorts` empty unless a public
+forward has been separately reviewed; any future DNAT must be treated as an
+explicit exception to this zone policy.
+
+The LAN workstation rule matches its reserved IP and Ethernet address as
+defense in depth, not as cryptographic host identity. Before treating physical
+LAN administration as a strong security boundary, place management clients on
+a dedicated VLAN or switch port with source binding. OPT1 is also one L2
+broadcast domain, so traffic between OPT1 hosts does not cross this firewall
+and must be constrained by each host firewall or by switch ACLs.
+
+Sieve has no permanent forwarding exception into LAN. Add exact targets and
+protocols only for an approved scan window, then remove and redeploy the rule.
