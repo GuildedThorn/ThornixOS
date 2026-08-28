@@ -489,6 +489,24 @@ def seed():
         "virtual",
         description="ThornCloud road-warrior tunnel",
     )
+    legacy_scout_wg_ip = IPAddress.objects.filter(
+        pk=scout.primary_ip4_id,
+        vrf=None,
+        address__net_host="10.10.10.3",
+    ).first()
+    scout_wg_ip_exists = IPAddress.objects.filter(
+        vrf=None,
+        address__net_host="10.10.10.4",
+    ).exists()
+    if (
+        legacy_scout_wg_ip is not None
+        and legacy_scout_wg_ip.assigned_object == scout_wg
+        and not scout_wg_ip_exists
+    ):
+        legacy_scout_wg_ip.address = "10.10.10.4/32"
+        legacy_scout_wg_ip.full_clean()
+        legacy_scout_wg_ip.save()
+        STATS["filled"] += 1
     set_primary_ip(
         scout,
         ensure_ip(scout_wg, "10.10.10.4/32", description="Scout WireGuard address"),
