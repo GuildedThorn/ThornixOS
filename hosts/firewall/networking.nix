@@ -71,7 +71,7 @@ in
         iifname { "lan", "wg0" } ip daddr 172.16.25.58 tcp dport { 21, 23, 80, 443, 1433, 2222, 3306, 3389, 5900, 6379, 8080, 9418, 27017 } accept
         iifname { "lan", "wg0" } ip daddr 172.16.25.58 udp dport { 69, 123, 5060 } accept
 
-        # The fixed LAN workstation is the administrative endpoint.
+        # The fixed workstation and Scout's home Wi-Fi are LAN admin endpoints.
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.0/24 tcp dport { 22, 443 } accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.3 tcp dport 8006 accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.4 tcp dport { 30304, 8920 } accept
@@ -79,6 +79,13 @@ in
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.53 tcp dport 80 accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.57 tcp dport 8000 accept
+        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.0/24 tcp dport { 22, 443 } accept
+        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.3 tcp dport 8006 accept
+        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.4 tcp dport { 30304, 8920 } accept
+        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.50 tcp dport 8090 accept
+        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
+        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.53 tcp dport 80 accept
+        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.57 tcp dport 8000 accept
 
         # PXE and the Pineapple sensor cross from LAN into OPT1.
         iifname "lan" ip daddr 172.16.25.53 tcp dport 80 accept
@@ -104,6 +111,7 @@ in
       # observability to the SOC's physical ingress interface as well as source.
       extraInputRules = ''
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 tcp dport 22 accept
+        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 tcp dport 22 accept
         iifname "opt1" ip saddr 172.16.25.3 tcp dport 22 accept
         iifname "wg0" ip saddr 10.10.10.4 tcp dport 22 accept
         iifname "opt1" ip saddr 172.16.25.51 tcp dport { 9100, 4243 } accept
@@ -279,6 +287,11 @@ in
               hw-address = "d8:bb:c1:13:9e:4a";
               ip-address = "192.168.1.6";
               hostname = "nixos";
+            }
+            {
+              hw-address = "64:bc:58:4f:db:9d";
+              ip-address = "192.168.1.74";
+              hostname = "scout";
             }
           ];
         }

@@ -73,12 +73,13 @@ the custom zone rules. Keep `networking.nat.forwardPorts` empty unless a public
 forward has been separately reviewed; any future DNAT must be treated as an
 explicit exception to this zone policy.
 
-The LAN workstation rule matches its reserved IP and Ethernet address as
-defense in depth, not as cryptographic host identity. Before treating physical
-LAN administration as a strong security boundary, place management clients on
-a dedicated VLAN or switch port with source binding. OPT1 is also one L2
-broadcast domain, so traffic between OPT1 hosts does not cross this firewall
-and must be constrained by each host firewall or by switch ACLs.
+The LAN administrator rules match the fixed NixOS workstation and Scout's home
+Wi-Fi IP/MAC pairs as defense in depth, not as cryptographic host identity.
+Before treating physical LAN administration as a strong security boundary,
+place management clients on a dedicated VLAN or switch port with source
+binding. OPT1 is also one L2 broadcast domain, so traffic between OPT1 hosts
+does not cross this firewall and must be constrained by each host firewall or
+by switch ACLs.
 
 Sieve has no permanent forwarding exception into LAN. Add exact targets and
 protocols only for an approved scan window, then remove and redeploy the rule.

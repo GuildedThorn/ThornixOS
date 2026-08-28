@@ -4,9 +4,10 @@ Run through Django, not with the system Python:
 
     thornix-netbox-seed
 
-The seed is deliberately conservative. It creates missing records and fills
-empty fields, but it never deletes records or overwrites a populated field.
-That makes it safe to rerun after adding richer data in the NetBox UI.
+The seed is deliberately conservative. It normally creates missing records or
+fills empty fields and never deletes records. Narrow, explicitly guarded
+migrations may correct a known stale assignment before the final invariant is
+enforced, so review those migrations before rerunning after manual UI changes.
 """
 
 from dcim.models import (Device, DeviceRole, DeviceType, Interface, MACAddress,
@@ -328,11 +329,6 @@ def seed():
             "LAN gateway",
         ),
     )
-    ensure_ip(
-        pfsense_lan,
-        "192.168.1.74/24",
-        description="Documented pfSense web UI and SSH management address",
-    )
     ensure_ip(pfsense_opt1, "172.16.25.1/24", description="OPT1 gateway")
     ensure_ip(pfsense_openvpn, "10.0.8.1/24", description="OpenVPN gateway")
     ensure_ip(pfsense_wireguard, "10.10.10.1/24", description="WireGuard gateway")
@@ -462,6 +458,30 @@ def seed():
             "description": "Roaming NixOS laptop",
             "comments": "Physical hardware model is not yet inventoried; home telemetry uses WireGuard.",
         },
+    )
+    scout_wifi = ensure_interface(
+        scout,
+        "Wi-Fi",
+        "other",
+        description="Home LAN wireless interface",
+    )
+    ensure_mac(scout_wifi, "64:bc:58:4f:db:9d")
+    scout_wifi_ip = IPAddress.objects.filter(
+        vrf=None,
+        address__net_host="192.168.1.74",
+    ).first()
+    if scout_wifi_ip is not None and scout_wifi_ip.assigned_object == pfsense_lan:
+        scout_wifi_ip.assigned_object = scout_wifi
+        scout_wifi_ip.dns_name = "scout.guildedthorn.arpa"
+        scout_wifi_ip.description = "Scout home Wi-Fi address"
+        scout_wifi_ip.full_clean()
+        scout_wifi_ip.save()
+        STATS["filled"] += 1
+    ensure_ip(
+        scout_wifi,
+        "192.168.1.74/24",
+        "scout.guildedthorn.arpa",
+        "Scout home Wi-Fi address",
     )
     scout_wg = ensure_interface(
         scout,

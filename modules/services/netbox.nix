@@ -99,8 +99,9 @@
 
       # A manual, transactional and idempotent seed. Keeping this out of the
       # activation path prevents a normal deployment from silently changing
-      # the source of truth; reruns only create missing records or fill fields
-      # that are still empty.
+      # the source of truth. Reruns normally create or fill records; narrowly
+      # guarded migrations in the seed correct explicitly documented stale
+      # assignments.
       environment.systemPackages = [ netboxSeed ];
 
       # Anvil issues a 24-hour leaf and the shared ACME module checks hourly.
