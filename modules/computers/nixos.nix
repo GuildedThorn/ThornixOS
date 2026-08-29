@@ -4,6 +4,7 @@
     system = "x86_64-linux";
     modules = [
       config.nixos.modules.thorn-core
+      inputs.hjem.nixosModules.default
 
       config.nixos.modules.desktop-hyprland
       config.nixos.modules.processor-amd
@@ -39,6 +40,38 @@
       (
         { pkgs, ... }:
         {
+          # Backport nixpkgs #548045; Coin3D's vendored Expat crashes FreeCAD
+          # when Python 3.14 parses XML.
+          nixpkgs.overlays = [
+            (final: prev: {
+              coin3d = prev.coin3d.overrideAttrs (oldAttrs: {
+                buildInputs = (oldAttrs.buildInputs or [ ]) ++ [ final.expat ];
+                cmakeFlags = (oldAttrs.cmakeFlags or [ ]) ++ [
+                  (final.lib.cmakeBool "USE_EXTERNAL_EXPAT" true)
+                ];
+              });
+            })
+          ];
+
+          hjem.users.thorn.packages = [ pkgs.freecad ];
+          hjem.users.thorn.files = {
+            ".local/share/FreeCAD/v1-1/Mod/FreeCADMCP".source =
+              inputs."opencode-freecad-mcp-src" + "/addon/FreeCADMCP";
+
+            ".local/share/FreeCAD/v1-1/freecad_mcp_settings.json" = {
+              type = "copy";
+              clobber = true;
+              permissions = "0600";
+              text = builtins.toJSON {
+                # RPC exposes arbitrary Python execution, so start it only
+                # for sessions where OpenCode needs FreeCAD control.
+                remote_enabled = false;
+                allowed_ips = "127.0.0.1";
+                auto_start_rpc = false;
+              };
+            };
+          };
+
           environment.systemPackages = with pkgs; [
             corectrl
             openrgb

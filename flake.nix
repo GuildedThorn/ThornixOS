@@ -62,6 +62,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    hjem = {
+      url = "github:feel-co/hjem";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     stylix = {
       url = "github:nix-community/stylix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -129,6 +134,12 @@
 
     opencode-graphify-src = {
       url = "github:Graphify-Labs/graphify/v0.9.43";
+      flake = false;
+    };
+
+    # Shared source for the FreeCAD addon and OpenCode's MCP bridge.
+    opencode-freecad-mcp-src = {
+      url = "github:neka-nat/freecad-mcp/0ff3dd380f0deb13677aff4d9a0c94fae326c44a";
       flake = false;
     };
   };

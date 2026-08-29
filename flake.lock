@@ -502,6 +502,26 @@
         "type": "github"
       }
     },
+    "hjem": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1787500880,
+        "narHash": "sha256-UrAlku7KST0DT+j1bdVGYI8tCz23PWL88uGMer3IZ2U=",
+        "owner": "feel-co",
+        "repo": "hjem",
+        "rev": "d248f0e4f7abd6e1f0eb9ace778dd7928481943e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "feel-co",
+        "repo": "hjem",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -1209,6 +1229,23 @@
         "type": "github"
       }
     },
+    "opencode-freecad-mcp-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1787758337,
+        "narHash": "sha256-Ozakh1RMvqEgQY4A4WFwypHc8L92mt4I3YalBjd4E2s=",
+        "owner": "neka-nat",
+        "repo": "freecad-mcp",
+        "rev": "0ff3dd380f0deb13677aff4d9a0c94fae326c44a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "neka-nat",
+        "repo": "freecad-mcp",
+        "rev": "0ff3dd380f0deb13677aff4d9a0c94fae326c44a",
+        "type": "github"
+      }
+    },
     "opencode-graphify-src": {
       "flake": false,
       "locked": {
@@ -1357,6 +1394,7 @@
         "flake-compat": "flake-compat_3",
         "flake-parts": "flake-parts",
         "guildedthorn-com": "guildedthorn-com",
+        "hjem": "hjem",
         "home-manager": "home-manager",
         "hyprland": "hyprland",
         "hyprland-plugins": "hyprland-plugins",
@@ -1368,6 +1406,7 @@
         "nixpkgs": "nixpkgs_4",
         "nixpkgs-rpi": "nixpkgs-rpi",
         "nixvim": "nixvim",
+        "opencode-freecad-mcp-src": "opencode-freecad-mcp-src",
         "opencode-graphify-src": "opencode-graphify-src",
         "opencode-jcodemunch-src": "opencode-jcodemunch-src",
         "opencode-serena-src": "opencode-serena-src",

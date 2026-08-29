@@ -113,6 +113,15 @@
             '';
           };
 
+          freecad.enable = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              Enable the pinned FreeCAD MCP bridge. FreeCAD must be running
+              with its loopback RPC addon enabled before tools can control it.
+            '';
+          };
+
           codex = {
             enable = lib.mkOption {
               type = lib.types.bool;

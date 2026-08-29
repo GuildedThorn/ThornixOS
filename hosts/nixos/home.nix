@@ -51,6 +51,7 @@ in
       thorn.programs.neomutt.enable = true;
       thorn.programs.claude-code.enable = true;
       thorn.programs.opencode.enable = true;
+      thorn.programs.opencode.integrations.freecad.enable = true;
       thorn.programs.loom-client.enable = true;
 
       thorn.programs.matcha = {

@@ -11,6 +11,8 @@ let
   readUvProject = source: (builtins.fromTOML (builtins.readFile "${source}/pyproject.toml")).project;
   jcodemunchSource = inputs."opencode-jcodemunch-src";
   jcodemunchProject = readUvProject jcodemunchSource;
+  freecadMcpSource = inputs."opencode-freecad-mcp-src";
+  freecadMcpProject = readUvProject freecadMcpSource;
 
   mkLockedUvTool =
     {
@@ -144,11 +146,34 @@ let
     };
   };
 
+  freecadMcp = pkgs.python313Packages.buildPythonApplication {
+    pname = freecadMcpProject.name;
+    inherit (freecadMcpProject) version;
+    src = freecadMcpSource;
+    pyproject = true;
+
+    build-system = [ pkgs.python313Packages.hatchling ];
+    dependencies = with pkgs.python313Packages; [
+      mcp
+      validators
+    ];
+
+    pythonImportsCheck = [ "freecad_mcp" ];
+
+    meta = {
+      mainProgram = "freecad-mcp";
+      description = "MCP bridge for controlling FreeCAD's loopback RPC addon";
+      homepage = "https://github.com/neka-nat/freecad-mcp";
+      license = lib.licenses.mit;
+    };
+  };
+
   integrationPackages = lib.unique (
     lib.optionals cfg.integrations.jcodemunch.enable [ jcodemunch ]
     ++ lib.optionals cfg.integrations.serena.enable [ serena ]
     ++ lib.optionals cfg.integrations.context7.enable [ cfg.integrations.context7.package ]
     ++ lib.optionals cfg.integrations.graphify.enable [ graphify ]
+    ++ lib.optionals cfg.integrations.freecad.enable [ freecadMcp ]
   );
 
   opencodeExtraPackages = lib.unique (cfg.extraPackages ++ integrationPackages);
@@ -213,6 +238,14 @@ let
         enabled = true;
         timeout = cfg.integrations.mcpTimeout;
         environment.CONTEXT7_API_KEY = "{env:CONTEXT7_API_KEY}";
+      };
+    }
+    // lib.optionalAttrs cfg.integrations.freecad.enable {
+      freecad = {
+        type = "local";
+        command = [ (lib.getExe freecadMcp) ];
+        enabled = true;
+        timeout = cfg.integrations.mcpTimeout;
       };
     };
 
@@ -347,6 +380,10 @@ let
       ${lib.optionalString cfg.integrations.graphify.enable ''
         printf '  Graphify: '
         ${lib.getExe graphify} --version
+      ''}
+      ${lib.optionalString cfg.integrations.freecad.enable ''
+        ${lib.getExe freecadMcp} --help >/dev/null
+        printf '  FreeCAD MCP: ready (%s)\n' ${lib.escapeShellArg freecadMcpProject.version}
       ''}
 
       printf 'All enabled integrations are ready.\n'
