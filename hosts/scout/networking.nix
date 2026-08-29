@@ -8,13 +8,6 @@
     # network's DHCP resolver — pfSense at home (which serves the .arpa
     # names), whatever the local network provides elsewhere.
 
-    firewall.allowedTCPPorts = [
-      53
-    ];
-    firewall.allowedUDPPorts = [
-      53
-    ];
-
   };
   # Optional: keep NM for Wi-Fi or VPNs
   networking.networkmanager.enable = true;

@@ -21,16 +21,15 @@
     ];
 
     firewall = {
-      allowedTCPPorts = [
-        22
-        3000 # Grafana
-      ];
-
       # Loki and Prometheus are behind nginx mTLS, but reject out-of-scope
       # sources before TLS as a second boundary. 192.168.1.6 is the main
       # workstation on LAN; 10.10.10.4 is scout's WireGuard address; the
       # fixed and DHCP server fleet lives on OPT1.
       extraCommands = ''
+        iptables -w -A nixos-fw -p tcp -m multiport --dports 22,3000 -s 172.16.25.3/32 -j nixos-fw-accept
+        iptables -w -A nixos-fw -p tcp -m multiport --dports 22,3000 -s 192.168.1.6/32 -j nixos-fw-accept
+        iptables -w -A nixos-fw -p tcp -m multiport --dports 22,3000 -s 10.10.10.4/32 -j nixos-fw-accept
+        iptables -w -A nixos-fw -p tcp --dport 3000 -s 172.16.25.51/32 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 172.16.25.0/24 \
           -m multiport --dports 3100,9090 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 192.168.1.6/32 \

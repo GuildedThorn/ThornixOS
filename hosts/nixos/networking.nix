@@ -12,7 +12,6 @@
     ];
 
     firewall.allowedTCPPorts = [
-      53
       4455
       8500
       5201
@@ -20,7 +19,6 @@
       8000
     ];
     firewall.allowedUDPPorts = [
-      53
       4455
       8500
       5201

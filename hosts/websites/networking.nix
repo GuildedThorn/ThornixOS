@@ -27,20 +27,17 @@
       "172.16.25.4" = [ "truenas.guildedthorn.arpa" ];
     };
 
-    # cloudflared is outbound-only; only SSH is exposed publicly.
-    firewall.allowedTCPPorts = [
-      22
-    ];
-
+    # cloudflared is outbound-only. SSH is restricted to administrator hosts,
+    # and Owncast ingest is restricted to OBS-capable workstations.
     firewall.extraCommands = ''
-      iptables -A nixos-fw -p tcp --dport 8000 -s 10.0.0.0/8 -j nixos-fw-accept
-      iptables -A nixos-fw -p tcp --dport 8000 -s 172.16.0.0/12 -j nixos-fw-accept
-      iptables -A nixos-fw -p tcp --dport 8000 -s 192.168.0.0/16 -j nixos-fw-accept
-      iptables -A nixos-fw -p tcp --dport 1935 -s 10.0.0.0/8 -j nixos-fw-accept
-      iptables -A nixos-fw -p tcp --dport 1935 -s 172.16.0.0/12 -j nixos-fw-accept
-      iptables -A nixos-fw -p tcp --dport 1935 -s 192.168.0.0/16 -j nixos-fw-accept
-      iptables -A nixos-fw -p tcp --dport 8090 -s 172.16.25.51/32 -j nixos-fw-accept
-      iptables -A nixos-fw -p tcp --dport 8090 -s 172.16.25.63/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 22 -s 172.16.25.3/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 22 -s 192.168.1.6/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 22 -s 10.10.10.4/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 1935 -s 192.168.1.6/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 1935 -s 192.168.1.74/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 1935 -s 10.10.10.4/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 8090 -s 172.16.25.51/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 8090 -s 172.16.25.63/32 -j nixos-fw-accept
     '';
 
   };

@@ -18,13 +18,15 @@
       "1.1.1.1"
     ];
 
-    # Hydra is loopback-only behind nginx. Admit its TLS UI and key-only SSH
-    # from trusted administrative networks; ACME HTTP-01 is separately
-    # restricted to Anvil by services-thorncloud-acme.
+    # Hydra is loopback-only behind nginx. Recovery SSH is administrator-only;
+    # its TLS UI remains internal. ACME HTTP-01 is separately Anvil-only.
     firewall.extraCommands = ''
-      iptables -w -A nixos-fw -p tcp -m multiport --dports 22,443 -s 172.16.25.0/24 -j nixos-fw-accept
-      iptables -w -A nixos-fw -p tcp -m multiport --dports 22,443 -s 192.168.1.0/24 -j nixos-fw-accept
-      iptables -w -A nixos-fw -p tcp -m multiport --dports 22,443 -s 10.10.10.0/24 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 22 -s 172.16.25.3/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 22 -s 192.168.1.6/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 22 -s 10.10.10.4/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 443 -s 172.16.25.0/24 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 443 -s 192.168.1.0/24 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 443 -s 10.10.10.0/24 -j nixos-fw-accept
     '';
   };
 }

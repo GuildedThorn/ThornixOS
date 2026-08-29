@@ -42,10 +42,14 @@
     ];
     search = [ "guildedthorn.arpa" ];
 
-    firewall.allowedTCPPorts = [
-      22
-      8006
-    ];
+    # Administration comes from fixed workstations or Scout over WireGuard.
+    # SOC retains read-only access to the Proxmox UI for availability probes.
+    firewall.extraCommands = ''
+      iptables -w -A nixos-fw -p tcp -m multiport --dports 22,8006 -s 192.168.1.6/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp -m multiport --dports 22,8006 -s 192.168.1.74/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp -m multiport --dports 22,8006 -s 10.10.10.4/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp --dport 8006 -s 172.16.25.51/32 -j nixos-fw-accept
+    '';
 
     networkmanager.enable = false;
   };

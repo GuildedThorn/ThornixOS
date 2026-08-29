@@ -2,7 +2,28 @@
   networking = {
     hostName = "deck";
     domain = "guildedthorn.arpa";
-    networkmanager.enable = true;
+    networkmanager = {
+      enable = true;
+      settings.main.no-auto-default = "00:e0:4c:68:15:f3";
+      ensureProfiles.profiles.deck-ethernet = {
+        connection = {
+          id = "Deck Ethernet";
+          type = "ethernet";
+          interface-name = "enp4s0f3u1u1";
+          autoconnect = true;
+        };
+        ethernet.mac-address = "00:e0:4c:68:15:f3";
+        ipv4 = {
+          method = "manual";
+          addresses = "172.16.25.26/24";
+          gateway = "172.16.25.1";
+          dns = "172.16.25.1;";
+          dns-search = "guildedthorn.arpa;";
+          route-metric = 100;
+        };
+        ipv6.method = "disabled";
+      };
+    };
     firewall = {
       enable = true;
       extraCommands = ''
