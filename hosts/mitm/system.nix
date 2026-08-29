@@ -820,7 +820,7 @@ in
     faster-whisper.servers.english = {
       enable = true;
       uri = "tcp://127.0.0.1:10300";
-      model = "small-int8";
+      model = "base-int8";
       language = "en";
       sttLibrary = "faster-whisper";
       device = "cpu";

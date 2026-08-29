@@ -144,6 +144,14 @@
       ${voiceE2EPython}/bin/python3 ${../../packages/deck_voice_e2e_test.py}
       touch "$out"
     '';
+    voiceTtsTests = pkgs.runCommand "deck-voice-tts-tests" { } ''
+      test_dir="$TMPDIR/deck-voice-tts-tests"
+      mkdir "$test_dir"
+      cp ${../../packages/wyoming-kokoro.py} "$test_dir/wyoming-kokoro.py"
+      cp ${../../packages/wyoming_kokoro_test.py} "$test_dir/wyoming_kokoro_test.py"
+      ${kokoroPython}/bin/python3 "$test_dir/wyoming_kokoro_test.py"
+      touch "$out"
+    '';
   in
   {
     nixpkgs.overlays = [
@@ -262,7 +270,10 @@
         ];
     };
 
-    system.checks = [ voiceE2ETests ];
+    system.checks = [
+      voiceE2ETests
+      voiceTtsTests
+    ];
 
     security.sudo.extraRules = [
       {

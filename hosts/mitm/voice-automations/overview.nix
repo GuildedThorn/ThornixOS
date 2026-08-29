@@ -45,6 +45,9 @@
           "give me [the] security status"
           "the security status"
           "are there [any] security alerts"
+          "how are we doing on [the] SOC"
+          "how is [the] SOC doing"
+          "SOC"
           "how is [the] fleet"
           "give me [the] fleet status"
         ];

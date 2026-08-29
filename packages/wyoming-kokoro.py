@@ -80,6 +80,42 @@ def should_use_fast_voice(text: str) -> bool:
     return len(text.split()) <= 16 and bool(_FAST_ACK.search(text))
 
 
+class StreamingVoiceSelector:
+    """Choose one engine per Wyoming stream without delaying normal replies."""
+
+    def __init__(self) -> None:
+        self.mode: str | None = None
+        self._pending: list[str] = []
+
+    def add(self, raw_text: str) -> tuple[str | None, str]:
+        text = normalize_for_speech(raw_text)
+        if not text:
+            return None, ""
+        if self.mode is not None:
+            return self.mode, text
+
+        self._pending.append(text)
+        combined = " ".join(self._pending)
+        if should_use_fast_voice(combined):
+            return None, ""
+
+        self.mode = "natural"
+        self._pending.clear()
+        return self.mode, combined
+
+    def finish(self, raw_text: str = "") -> tuple[str | None, str]:
+        mode, text = self.add(raw_text)
+        if mode is not None:
+            return mode, text
+        if not self._pending:
+            return None, ""
+
+        text = " ".join(self._pending)
+        self._pending.clear()
+        self.mode = "fast" if should_use_fast_voice(text) else "natural"
+        return self.mode, text
+
+
 class HealthState:
     def __init__(self, voice: str) -> None:
         self._lock = threading.Lock()
@@ -191,6 +227,7 @@ class KokoroEventHandler(AsyncEventHandler):
         self._streaming = False
         self._stream_started = False
         self._detector = SentenceBoundaryDetector()
+        self._stream_selector = StreamingVoiceSelector()
 
     async def handle_event(self, event: Event) -> bool:
         if Describe.is_type(event.type):
@@ -202,6 +239,7 @@ class KokoroEventHandler(AsyncEventHandler):
                 self._streaming = True
                 self._stream_started = False
                 self._detector = SentenceBoundaryDetector()
+                self._stream_selector = StreamingVoiceSelector()
                 return True
 
             if SynthesizeChunk.is_type(event.type):
@@ -209,13 +247,15 @@ class KokoroEventHandler(AsyncEventHandler):
                     return True
                 chunk = SynthesizeChunk.from_event(event)
                 for sentence in self._detector.add_chunk(chunk.text):
-                    await self._render(
-                        sentence,
-                        send_start=not self._stream_started,
-                        send_stop=False,
-                        allow_fast=False,
-                    )
-                    self._stream_started = True
+                    mode, text = self._stream_selector.add(sentence)
+                    if mode is not None:
+                        await self._render(
+                            text,
+                            send_start=not self._stream_started,
+                            send_stop=False,
+                            mode=mode,
+                        )
+                        self._stream_started = True
                 return True
 
             if Synthesize.is_type(event.type):
@@ -231,12 +271,13 @@ class KokoroEventHandler(AsyncEventHandler):
                 if not self._streaming:
                     return True
                 final_text = self._detector.finish()
-                if final_text:
+                mode, text = self._stream_selector.finish(final_text)
+                if mode is not None:
                     await self._render(
-                        final_text,
+                        text,
                         send_start=not self._stream_started,
                         send_stop=False,
-                        allow_fast=False,
+                        mode=mode,
                     )
                     self._stream_started = True
                 await self.write_event(SynthesizeStopped().event())
@@ -266,7 +307,7 @@ class KokoroEventHandler(AsyncEventHandler):
         raw_text: str,
         send_start: bool,
         send_stop: bool,
-        allow_fast: bool = True,
+        mode: str | None = None,
     ) -> None:
         text = normalize_for_speech(raw_text)
         if not text:
@@ -275,7 +316,7 @@ class KokoroEventHandler(AsyncEventHandler):
             return
 
         started = time.monotonic()
-        if allow_fast and should_use_fast_voice(text):
+        if mode == "fast" or (mode is None and should_use_fast_voice(text)):
             try:
                 async with asyncio.timeout(3.0):
                     await self._render_with_piper(text, send_start, send_stop)
