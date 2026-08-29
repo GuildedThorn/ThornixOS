@@ -145,6 +145,23 @@
     ];
   }
   {
+    id = "vault";
+    name = "Vault";
+    role = "Vaultwarden password manager";
+    host = "vault";
+    inventoryHost = "vault";
+    probeUrl = "https://vault.guildedthorn.arpa/alive";
+    launchUrl = "https://vault.guildedthorn.arpa/";
+    icon = "mdi:safe-square-outline";
+    aliases = [
+      "vault"
+      "vaultwarden"
+      "bitwarden"
+      "password manager"
+      "passwords"
+    ];
+  }
+  {
     id = "deck-voice";
     name = "Deck Voice";
     role = "Living-room voice satellite";

@@ -59,11 +59,11 @@ in
       # established/related return rule and NAT's internal-to-WAN rule; only
       # these documented new cross-zone connections are admitted.
       extraForwardRules = ''
-        # Ordinary clients: Home Assistant, Authentik, ntfy, Jellyfin, and mail.
-        iifname "lan" ip daddr { 172.16.25.2, 172.16.25.52, 172.16.25.63 } tcp dport 443 accept
+        # Ordinary clients: Home Assistant, Authentik, ntfy, Vaultwarden, Jellyfin, and mail.
+        iifname "lan" ip daddr { 172.16.25.2, 172.16.25.52, 172.16.25.63, 172.16.25.65 } tcp dport 443 accept
         iifname "lan" ip daddr 172.16.25.4 tcp dport 8920 accept
         iifname "lan" ip daddr 172.16.25.64 tcp dport { 465, 587, 993 } accept
-        iifname "wg0" ip daddr { 172.16.25.2, 172.16.25.52, 172.16.25.63 } tcp dport 443 accept
+        iifname "wg0" ip daddr { 172.16.25.2, 172.16.25.52, 172.16.25.63, 172.16.25.65 } tcp dport 443 accept
         iifname "wg0" ip daddr 172.16.25.4 tcp dport 8920 accept
         iifname "wg0" ip daddr 172.16.25.64 tcp dport { 465, 587, 993 } accept
 

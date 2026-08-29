@@ -311,6 +311,16 @@ in
     system = "aarch64-linux";
   };
 
+  vault = mkHost {
+    address = "172.16.25.65";
+    fqdn = "vault.guildedthorn.arpa";
+    role = "password-manager";
+    monitoring = {
+      mode = "scrape";
+      probes = [ "https://vault.guildedthorn.arpa/alive" ];
+    };
+  };
+
   websites = mkHost {
     address = "172.16.25.50";
     fqdn = "websites.guildedthorn.arpa";

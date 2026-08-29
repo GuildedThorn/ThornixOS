@@ -766,6 +766,20 @@ def seed():
                 "Public SMTP ingress remains staged; the VM MAC must be inventoried after provisioning."
             ),
         },
+        "vault": {
+            "role": roles["identity"],
+            "vcpus": 1,
+            "memory": 2048,
+            "disk": 40960,
+            "start_on_boot": "on",
+            "ip": "172.16.25.65/24",
+            "vmid": 117,
+            "description": "Vaultwarden encrypted password manager",
+            "comments": (
+                "Proxmox VMID 117; declared by ThornixOS on 2026-08-29. "
+                "The VM MAC must be inventoried after guarded provisioning."
+            ),
+        },
     }
 
     vms = {}
@@ -832,6 +846,8 @@ def seed():
         (vms["identity"], "SSH", "tcp", [22], "Key-only administration"),
         (vms["identity"], "Authentik HTTPS", "tcp", [443], "Identity provider"),
         (vms["identity"], "Authentik metrics", "tcp", [9300], "SOC-only metrics scrape"),
+        (vms["vault"], "SSH", "tcp", [22], "Key-only administration"),
+        (vms["vault"], "Vaultwarden HTTPS", "tcp", [443], "Encrypted password manager"),
         (vms["pixie"], "SSH", "tcp", [22], "Key-only administration"),
         (vms["pixie"], "iPXE HTTP", "tcp", [80], "Network-boot assets and menu"),
         (vms["pixie"], "TFTP", "udp", [69], "iPXE bootstrap"),

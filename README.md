@@ -593,6 +593,36 @@ atomically enables Alloy journal shipping, the audit canary, node/comin and
 n8n Prometheus scrapes, log-silence rules, and the HTTPS blackbox probe. Run
 `thornix-netbox-seed` on Atlas afterward to add VM 114 and its services.
 
+### Vault passwords
+
+Vault runs Vaultwarden behind nginx and a rotating ThornCloud certificate at
+`https://vault.guildedthorn.arpa/`. The application listens only on loopback;
+the host and routed firewall expose HTTPS only to trusted internal networks.
+Vaultwarden authentication stays independent from Authentik so an identity
+outage cannot lock away its own recovery credentials.
+
+After promotion, provision VM 117 from Mac:
+
+```sh
+ssh -A root@172.16.25.3
+thornix-provision vault
+```
+
+Retrieve the generated installation-specific admin token with
+`ssh root@172.16.25.65 vault-admin-token`, open
+`https://vault.guildedthorn.arpa/admin`, and invite the first account. Use a
+unique master password and enroll two WebAuthn devices before storing recovery
+credentials. Public signup remains disabled, and the admin route accepts only
+fixed administrator endpoints.
+
+Off-host backup enrollment waits for Vault's installed SSH host key. Verify its
+fingerprint, derive the age recipient with `ssh-to-age`, add `&host_vault` and a
+`hosts/vault/backup-secrets.yaml` creation rule to `.sops.yaml`, then create the
+encrypted file with the three standard `thorn_backup_*` values. Presence of
+that file enables nightly quiesced SQLite backups and weekly integrity-tested
+restores. Add the matching `vault-state` entry to `hosts/backup-catalog.nix`
+only after backup credentials exist.
+
 ### Herald notifications
 
 Herald runs the flake-pinned ntfy server behind nginx and a rotating
