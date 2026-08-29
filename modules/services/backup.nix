@@ -323,7 +323,10 @@
           ];
         };
 
-        systemd.services."restic-backups-${backupName}".serviceConfig.TimeoutStartSec = "2h";
+        systemd.services."restic-backups-${backupName}".serviceConfig = {
+          TimeoutStartSec = "2h";
+          TimeoutStopSec = "2h";
+        };
 
         systemd.services.thorn-backup-restore-test = {
           description = "Read backup payloads and test service-state recovery";
