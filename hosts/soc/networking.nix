@@ -16,8 +16,9 @@
 
     defaultGateway = "172.16.25.1";
     nameservers = [
-      "172.16.25.1" # pfSense — resolves .arpa LAN names (truenas S3, scrape targets)
-      "1.1.1.1"
+      "172.16.25.66"
+      "172.16.25.2"
+      "172.16.25.1"
     ];
 
     firewall = {

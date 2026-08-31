@@ -13,11 +13,11 @@
     ];
 
     defaultGateway = "172.16.25.1";
-    # pfSense resolves the internal .arpa names; 172.16.25.2 was the mitm
-    # box, not a DNS server.
+    # Clustered Technitium handles normal resolution; Unbound remains fallback.
     nameservers = [
+      "172.16.25.66"
+      "172.16.25.2"
       "172.16.25.1"
-      "1.1.1.1"
     ];
 
     # Kept as a belt-and-suspenders pin: the SeaweedFS S3 cert is issued

@@ -852,6 +852,7 @@ in
   thorn.acme = {
     enable = true;
     domain = "mitm.guildedthorn.arpa";
+    extraDomainNames = [ "resolver2.guildedthorn.arpa" ];
   };
 
   services.nginx = {
@@ -884,6 +885,31 @@ in
           allow 192.168.1.31;
           deny all;
           proxy_set_header Content-Type application/json;
+        '';
+      };
+    };
+    virtualHosts."resolver2.guildedthorn.arpa" = {
+      serverName = "resolver2.guildedthorn.arpa";
+      forceSSL = true;
+      useACMEHost = "mitm.guildedthorn.arpa";
+      locations."/" = {
+        proxyPass = "http://127.0.0.1:5380";
+        proxyWebsockets = true;
+        extraConfig = ''
+          allow 172.16.25.3;
+          allow 192.168.1.6;
+          allow 10.10.10.4;
+          deny all;
+        '';
+      };
+      locations."= /dns-query" = {
+        proxyPass = "http://127.0.0.1:8053/dns-query";
+        extraConfig = ''
+          proxy_set_header X-Real-IP $remote_addr;
+          allow 172.16.25.0/24;
+          allow 192.168.1.0/24;
+          allow 10.10.10.0/24;
+          deny all;
         '';
       };
     };

@@ -14,8 +14,9 @@
 
     defaultGateway = "172.16.25.1";
     nameservers = [
+      "172.16.25.66"
+      "172.16.25.2"
       "172.16.25.1"
-      "1.1.1.1"
     ];
 
     # The GUI, client frontend, and key-only SSH stay on ThornCloud's trusted

@@ -14,8 +14,9 @@
 
     defaultGateway = "172.16.25.1";
     nameservers = [
+      "172.16.25.66"
+      "172.16.25.2"
       "172.16.25.1"
-      "1.1.1.1"
     ];
 
     # Lure is intentionally reachable on decoy protocols from ThornCloud's

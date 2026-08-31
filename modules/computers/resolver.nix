@@ -13,6 +13,7 @@ in
       config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/resolver/disko.nix"
       "${inputs.self}/hosts/resolver/networking.nix"
+      "${inputs.self}/hosts/shared/technitium-doh.nix"
 
       (
         { lib, ... }:
@@ -52,6 +53,22 @@ in
               locations."/" = {
                 proxyPass = "http://127.0.0.1:5380";
                 proxyWebsockets = true;
+                extraConfig = ''
+                  allow 172.16.25.3;
+                  allow 192.168.1.6;
+                  allow 10.10.10.4;
+                  deny all;
+                '';
+              };
+              locations."= /dns-query" = {
+                proxyPass = "http://127.0.0.1:8053/dns-query";
+                extraConfig = ''
+                  proxy_set_header X-Real-IP $remote_addr;
+                  allow 172.16.25.0/24;
+                  allow 192.168.1.0/24;
+                  allow 10.10.10.0/24;
+                  deny all;
+                '';
               };
             };
           };

@@ -7,7 +7,8 @@
 
   resources = {
     cores = 2;
-    memoryMiB = 2048;
+    memoryMiB = 4096;
+    minimumMemoryMiB = 4096;
     diskGiB = 40;
   };
 

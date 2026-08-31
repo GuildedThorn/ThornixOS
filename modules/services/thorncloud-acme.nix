@@ -24,6 +24,12 @@
           description = "Primary internal DNS name to place on the certificate.";
         };
 
+        extraDomainNames = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          description = "Additional internal DNS names to place on the certificate.";
+        };
+
         email = lib.mkOption {
           type = lib.types.str;
           default = "admin@guildedthorn.com";
@@ -82,6 +88,7 @@
               server = "https://anvil.guildedthorn.arpa/acme/thorncloud/directory";
             };
             certs.${cfg.domain} = {
+              extraDomainNames = cfg.extraDomainNames;
               group = cfg.group;
               reloadServices = cfg.reloadServices;
               webroot = "/var/lib/acme/acme-challenge";

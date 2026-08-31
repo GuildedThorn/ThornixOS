@@ -14,8 +14,9 @@
 
     defaultGateway = "172.16.25.1";
     nameservers = [
+      "172.16.25.66"
+      "172.16.25.2"
       "172.16.25.1"
-      "1.1.1.1"
     ];
 
     # Recovery SSH is limited to the three administrator endpoints. The CA API

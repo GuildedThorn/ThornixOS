@@ -14,8 +14,9 @@
 
     defaultGateway = "172.16.25.1";
     nameservers = [
+      "172.16.25.66"
+      "172.16.25.2"
       "172.16.25.1"
-      "1.1.1.1"
     ];
 
     # SSH is a key-only recovery path. Authentik itself and its unauthenticated

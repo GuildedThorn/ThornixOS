@@ -14,8 +14,9 @@
 
     defaultGateway = "172.16.25.1";
     nameservers = [
+      "172.16.25.66"
+      "172.16.25.2"
       "172.16.25.1"
-      "1.1.1.1"
     ];
 
     # Backends stay on Oracle's private Docker network. Recovery SSH is

@@ -112,12 +112,12 @@ in
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.53 tcp dport 80 accept
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.57 tcp dport 8000 accept
 
-        # Clustered Technitium resolvers. DNS serves every internal zone;
-        # administration remains limited to fixed administrator endpoints.
+        # Clustered Technitium resolvers. Administration uses each node's
+        # ACME-backed nginx endpoint on the already restricted port 443.
         iifname "lan" ip daddr { 172.16.25.2, 172.16.25.66 } meta l4proto { tcp, udp } th dport 53 accept
         iifname "wg0" ip daddr { 172.16.25.2, 172.16.25.66 } meta l4proto { tcp, udp } th dport 53 accept
-        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr { 172.16.25.2, 172.16.25.66 } tcp dport { 5380, 53443 } accept
-        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr { 172.16.25.2, 172.16.25.66 } tcp dport { 5380, 53443 } accept
+        iifname "lan" ip daddr { 172.16.25.2, 172.16.25.66 } tcp dport 443 accept
+        iifname "wg0" ip daddr { 172.16.25.2, 172.16.25.66 } tcp dport 443 accept
 
         # PXE and the Pineapple sensor cross from LAN into OPT1.
         iifname "lan" ip daddr 172.16.25.53 tcp dport 80 accept
@@ -127,6 +127,7 @@ in
 
         # Explicit OPT1 services that initiate connections into LAN.
         iifname "opt1" ip saddr 172.16.25.2 ip daddr 192.168.1.6 tcp dport 11435 accept
+        iifname "opt1" ip saddr 172.16.25.3 ip daddr 192.168.1.6 tcp dport 22 accept
         iifname "opt1" ip saddr 172.16.25.51 ip daddr 192.168.1.6 tcp dport { 4243, 9100 } accept
 
         # Scout is the only WireGuard administrative peer.
@@ -311,7 +312,7 @@ in
           option-data = [
             {
               name = "domain-name-servers";
-              data = "192.168.1.1";
+              data = "172.16.25.66, 172.16.25.2, 192.168.1.1";
             }
             {
               name = "routers";
@@ -346,7 +347,7 @@ in
           option-data = [
             {
               name = "domain-name-servers";
-              data = "172.16.25.1";
+              data = "172.16.25.66, 172.16.25.2, 172.16.25.1";
             }
             {
               name = "routers";
@@ -413,7 +414,12 @@ in
       local-zone = [ ''"guildedthorn.arpa." static'' ];
       local-data = fleetDnsRecords ++ [
         ''"firewall.guildedthorn.arpa. A 172.16.25.1"''
+        ''"mitm.dns-cluster.guildedthorn.arpa. A 172.16.25.2"''
         ''"pfsense.guildedthorn.arpa. A 172.16.25.1"''
+        ''"resolver.dns-cluster.guildedthorn.arpa. A 172.16.25.66"''
+        ''"resolver2.guildedthorn.arpa. A 172.16.25.2"''
+        ''"_dns.resolver.arpa. 3600 IN SVCB 1 resolver.guildedthorn.arpa. alpn=h2 dohpath=/dns-query{?dns}"''
+        ''"_dns.resolver.arpa. 3600 IN SVCB 2 resolver2.guildedthorn.arpa. alpn=h2 dohpath=/dns-query{?dns}"''
         ''"firewall.guildedthorn.arpa. A 192.168.1.1"''
         ''"pfsense.guildedthorn.arpa. A 192.168.1.1"''
         ''"truenas.guildedthorn.arpa. A 172.16.25.4"''

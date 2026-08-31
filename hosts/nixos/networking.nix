@@ -6,7 +6,11 @@
     enableIPv6 = false;
 
     # System-wide DNS
-    nameservers = [ "192.168.1.1" ]; # Unbound resolves internal and public names.
+    nameservers = [
+      "172.16.25.66"
+      "172.16.25.2"
+      "192.168.1.1"
+    ];
 
     firewall.allowedTCPPorts = [
       4455
@@ -22,6 +26,10 @@
       4444
       8000
     ];
+    firewall.extraCommands = ''
+      iptables -w -A nixos-fw -p tcp -s 192.168.1.74/32 -m mac --mac-source 64:bc:58:4f:db:9d --dport 22 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp -s 172.16.25.3/32 --dport 22 -j nixos-fw-accept
+    '';
 
     extraHosts = "
       172.16.25.1 pfsense.guildedthorn.arpa
@@ -47,7 +55,7 @@
         method = "manual";
         addresses = "192.168.1.6/24";
         gateway = "192.168.1.1";
-        dns = "192.168.1.1;";
+        dns = "172.16.25.66;172.16.25.2;192.168.1.1;";
         dns-search = "guildedthorn.arpa;";
         route-metric = 100;
       };

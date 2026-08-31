@@ -37,8 +37,9 @@
 
     # System-wide DNS
     nameservers = [
-      "172.16.25.1" # pfSense — resolves .arpa LAN names
-      "1.1.1.1"
+      "172.16.25.66"
+      "172.16.25.2"
+      "172.16.25.1"
     ];
     search = [ "guildedthorn.arpa" ];
 

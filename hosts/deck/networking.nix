@@ -27,6 +27,9 @@
     firewall = {
       enable = true;
       extraCommands = ''
+        iptables -w -A nixos-fw -p tcp -s 172.16.25.3/32 --dport 22 -j nixos-fw-accept
+        iptables -w -A nixos-fw -p tcp -s 192.168.1.6/32 --dport 22 -j nixos-fw-accept
+        iptables -w -A nixos-fw -p tcp -s 10.10.10.4/32 --dport 22 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 172.16.25.2/32 --dport 6053 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 172.16.25.2/32 --dport 10201 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 172.16.25.2/32 --dport 10202 -j nixos-fw-accept
