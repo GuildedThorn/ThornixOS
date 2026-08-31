@@ -173,6 +173,12 @@
             package = pkgs.openrgb-with-all-plugins;
           };
 
+          services.smartd = {
+            enable = true;
+            autodetect = true;
+            defaults.autodetected = "-a -s (S/../.././02|L/../../7/04)";
+          };
+
           services.flatpak.packages = [
             {
               appId = "org.vinegarhq.Sober";

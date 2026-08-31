@@ -128,6 +128,12 @@
             package = pkgs.openrgb-with-all-plugins;
           };
 
+          services.smartd = {
+            enable = true;
+            autodetect = true;
+            defaults.autodetected = "-a -s (S/../.././02|L/../../7/04)";
+          };
+
           programs.gphoto2.enable = true;
 
           programs.npm.enable = true;

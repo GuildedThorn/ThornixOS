@@ -213,6 +213,25 @@ in
                 summary = "A systemd unit has been in the failed state for 10 minutes.";
               })
               (rule {
+                uid = "fleet-smart-health-critical";
+                title = "SMART/NVMe health failure";
+                datasourceUid = "loki";
+                expr = ''
+                  sum by (host) (count_over_time(
+                    {job="systemd-journal", unit="smartd.service"}
+                      |~ "(?i)(failed|failure|critical warning|media.*error|self-test.*error|temperature.*critical)" [10m]
+                  ))
+                '';
+                evaluator = {
+                  type = "gt";
+                  params = [ 0 ];
+                };
+                for = "0s";
+                severity = "critical";
+                category = "hardware";
+                summary = "smartd reported a disk health failure, NVMe critical warning, media error, failed self-test, or critical temperature.";
+              })
+              (rule {
                 # Keep the warning and critical bands mutually
                 # exclusive so a nearly-full disk produces one
                 # notification, not two differently-coloured copies.
