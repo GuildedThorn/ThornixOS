@@ -13,7 +13,7 @@ in
       config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/resolver/disko.nix"
       "${inputs.self}/hosts/resolver/networking.nix"
-      "${inputs.self}/hosts/shared/technitium-doh.nix"
+      "${inputs.self}/hosts/shared/technitium-config.nix"
 
       (
         { lib, ... }:

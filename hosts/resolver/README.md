@@ -23,9 +23,11 @@ passes from LAN, OPT1, and WireGuard.
    advertises primary address `172.16.25.66`.
 4. After deploying `mitm`, change its one-time default password and join it as
    secondary address `172.16.25.2` using resolver's HTTPS URL.
-5. Create the conditional forwarder zone on both nodes: send
-   `guildedthorn.arpa` to firewall Unbound at `172.16.25.1`. Technitium does
-   not replicate ordinary forwarder zones through cluster configuration sync.
+5. `technitium-config.service` reconciles the conditional forwarder zone on
+   both nodes, sending `guildedthorn.arpa` to firewall Unbound at
+   `172.16.25.1`. It also declares DNSSEC, recursion, DoH, and strict blocklist
+   policy. Technitium does not replicate ordinary forwarder zones through
+   cluster configuration sync, so the service runs independently on each node.
 6. Leave global forwarders empty so both Technitium nodes recurse independently.
 7. Verify public DNS, known internal records, NXDOMAIN for unknown internal
    names, and resolution with either Technitium service stopped.

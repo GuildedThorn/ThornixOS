@@ -13,7 +13,7 @@
       "${inputs.self}/hosts/mitm/networking.nix"
       "${inputs.self}/hosts/mitm/system.nix"
       "${inputs.self}/hosts/mitm/casita-component.nix"
-      "${inputs.self}/hosts/shared/technitium-doh.nix"
+      "${inputs.self}/hosts/shared/technitium-config.nix"
     ];
   };
 }
