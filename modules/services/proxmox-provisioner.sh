@@ -468,8 +468,8 @@ readiness_checks_pass() {
       --connect-timeout 3
       --max-time 8
     )
-    [[ -z $ca_certificate ]] || curl_arguments+=( --cacert "$ca_certificate" )
-    [[ -z $resolve ]] || curl_arguments+=( --resolve "$resolve" )
+    [[ -z $ca_certificate ]] || curl_arguments+=(--cacert "$ca_certificate")
+    [[ -z $resolve ]] || curl_arguments+=(--resolve "$resolve")
 
     if [[ -n $expect_pattern ]]; then
       curl "${curl_arguments[@]}" -- "$url" | grep -E -- "$expect_pattern" >/dev/null || return 1
@@ -563,7 +563,7 @@ if root_run "$qm_command" config "$vmid" >/dev/null 2>&1; then
   "$state_unverified")
     assert_managed_vm "$state_unverified"
     note "Resuming post-install verification without running Disko"
-    root_run "$qm_command" set "$vmid" --boot "order=scsi0;ide2"
+    root_run "$qm_command" set "$vmid" --boot "order=scsi0"
     if [[ $vm_state == "stopped" ]]; then
       root_run "$qm_command" start "$vmid"
     elif [[ $vm_state != "running" ]]; then
@@ -663,10 +663,11 @@ fi
 capture_host_key "$profile_name installer"
 verify_installer
 
-# Select the disk before installation. If nixos-anywhere reboots successfully,
-# the installed system wins; an unbootable disk falls back to the still-attached
-# ISO for console recovery without allowing an automatic second Disko run.
-root_run "$qm_command" set "$vmid" --boot "order=scsi0;ide2"
+# Make the installed disk the sole boot target before installation. Proxmox can
+# assign the attached ISO a lower QEMU boot index even when it appears second in
+# an ordered list, which boots back into the installer after a successful Disko
+# run. The ISO remains attached for explicit console recovery until validation.
+root_run "$qm_command" set "$vmid" --boot "order=scsi0"
 
 note "Installing the prebuilt ThornixOS $profile_name closure"
 anywhere_arguments=(
@@ -681,7 +682,7 @@ anywhere_arguments=(
   --ssh-option KbdInteractiveAuthentication=no
 )
 if [[ -n $identity_file ]]; then
-  anywhere_arguments+=( -i "$identity_file" )
+  anywhere_arguments+=(-i "$identity_file")
 fi
 
 if ! nixos-anywhere "${anywhere_arguments[@]}"; then

@@ -91,6 +91,16 @@ in
     };
   };
 
+  codex = mkHost {
+    address = "172.16.25.67";
+    fqdn = "codex.guildedthorn.arpa";
+    role = "personal-information";
+    monitoring.probes = [
+      "https://search.guildedthorn.arpa/"
+      "https://feeds.guildedthorn.arpa/healthcheck"
+    ];
+  };
+
   deck = mkHost {
     address = "172.16.25.26";
     class = "handheld";

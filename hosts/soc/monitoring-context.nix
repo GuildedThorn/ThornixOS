@@ -144,7 +144,7 @@ let
   # These endpoints intentionally use Anvil's 24-hour leaves. Keep
   # them out of the public 21/7-day expiry bands and instead alert
   # when automatic ACME renewal leaves less than four hours.
-  internalAcmeProbeRegex = "https://(anvil|atlas|sieve|hound|casebook|oracle|forge|loom|herald|courier|mitm|vault)[.]guildedthorn[.]arpa/.*";
+  internalAcmeProbeRegex = "https://(anvil|atlas|sieve|hound|casebook|oracle|forge|loom|herald|courier|mitm|vault|search|feeds)[.]guildedthorn[.]arpa/.*";
 
   # Hosts running services-canary — i.e. those with
   # thorn.audit.execScope = "all", where a systemd-timer process is

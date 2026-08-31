@@ -50,6 +50,38 @@
     ];
   }
   {
+    id = "searxng";
+    name = "SearXNG";
+    role = "Private metasearch";
+    host = "codex";
+    inventoryHost = "codex";
+    probeUrl = "https://search.guildedthorn.arpa/";
+    launchUrl = "https://search.guildedthorn.arpa/";
+    icon = "mdi:magnify";
+    aliases = [
+      "searx"
+      "searxng"
+      "search"
+      "metasearch"
+    ];
+  }
+  {
+    id = "miniflux";
+    name = "Miniflux";
+    role = "Feed reader";
+    host = "codex";
+    inventoryHost = "codex";
+    probeUrl = "https://feeds.guildedthorn.arpa/healthcheck";
+    launchUrl = "https://feeds.guildedthorn.arpa/";
+    icon = "mdi:rss";
+    aliases = [
+      "miniflux"
+      "feeds"
+      "feed reader"
+      "rss"
+    ];
+  }
+  {
     id = "courier";
     name = "Courier";
     role = "Stalwart mail";

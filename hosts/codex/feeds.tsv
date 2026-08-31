@@ -1,0 +1,153 @@
+World News	https://feeds.bbci.co.uk/news/world/rss.xml
+World News	https://feeds.npr.org/1001/rss.xml
+World News	https://www.aljazeera.com/xml/rss/all.xml
+World News	https://rss.dw.com/rdf/rss-en-all
+World News	https://www.france24.com/en/rss
+World News	https://www.theguardian.com/world/rss
+World News	https://www.abc.net.au/news/feed/51120/rss.xml
+World News	https://news.un.org/feed/subscribe/en/news/all/rss.xml
+World News	https://globalvoices.org/feed/
+World News	https://www.pbs.org/newshour/feeds/rss/headlines
+World News	https://www.vox.com/rss/index.xml
+US & Politics	https://www.propublica.org/feeds/propublica/main
+US & Politics	https://rss.politico.com/politics-news.xml
+US & Politics	https://thehill.com/feed/
+US & Politics	https://feeds.npr.org/1014/rss.xml
+US & Politics	https://reason.com/feed/
+US & Politics	https://theintercept.com/feed/?rss
+US & Politics	https://www.justsecurity.org/feed/
+US & Politics	https://www.techdirt.com/feed/
+Chicago	https://www.wbez.org/rss
+Chicago	https://blockclubchicago.org/feed/
+Chicago	https://chicago.suntimes.com/rss/index.xml
+Chicago	https://chicagoreader.com/feed/
+Technology	https://feeds.arstechnica.com/arstechnica/index
+Technology	https://www.theverge.com/rss/index.xml
+Technology	https://techcrunch.com/feed/
+Technology	https://www.wired.com/feed/rss
+Technology	https://www.engadget.com/rss.xml
+Technology	https://www.tomshardware.com/feeds/all
+Technology	https://spectrum.ieee.org/feeds/feed.rss
+Technology	https://www.technologyreview.com/feed/
+Technology	https://www.404media.co/rss/
+Technology	https://hnrss.org/frontpage
+Technology	https://lobste.rs/rss
+Technology	https://rss.slashdot.org/Slashdot/slashdotMain
+Technology	https://www.theregister.com/headlines.atom
+Technology	https://www.zdnet.com/news/rss.xml
+Cybersecurity	https://krebsonsecurity.com/feed/
+Cybersecurity	https://www.schneier.com/feed/atom/
+Cybersecurity	https://www.bleepingcomputer.com/feed/
+Cybersecurity	https://www.darkreading.com/rss.xml
+Cybersecurity	https://feeds.feedburner.com/TheHackersNews
+Cybersecurity	https://www.cisa.gov/cybersecurity-advisories/all.xml
+Cybersecurity	https://www.cisa.gov/news.xml
+Cybersecurity	https://googleprojectzero.blogspot.com/feeds/posts/default
+Cybersecurity	https://www.microsoft.com/en-us/security/blog/feed/
+Cybersecurity	https://blog.talosintelligence.com/rss/
+Cybersecurity	https://isc.sans.edu/rssfeed.xml
+Cybersecurity	https://cloudblog.withgoogle.com/topics/threat-intelligence/rss/
+Cybersecurity	https://unit42.paloaltonetworks.com/feed/
+Cybersecurity	https://blog.trailofbits.com/feed/
+Cybersecurity	https://portswigger.net/research/rss
+Cybersecurity	https://www.malwarebytes.com/blog/feed/index.xml
+Cybersecurity	https://risky.biz/feeds/risky-business/
+Linux & Open Source	https://lwn.net/headlines/rss
+Linux & Open Source	https://www.phoronix.com/rss.php
+Linux & Open Source	https://www.omgubuntu.co.uk/feed
+Linux & Open Source	https://itsfoss.com/rss/
+Linux & Open Source	https://www.linuxfoundation.org/blog/rss.xml
+Linux & Open Source	https://www.kernel.org/feeds/kdist.xml
+Linux & Open Source	https://discourse.nixos.org/latest.rss
+Linux & Open Source	https://weekly.nixos.org/feeds/all.rss.xml
+Linux & Open Source	https://github.com/NixOS/nixpkgs/releases.atom
+Linux & Open Source	https://blog.system76.com/rss.xml
+Linux & Open Source	https://ubuntu.com/blog/feed
+Linux & Open Source	https://www.redhat.com/en/rss/blog
+Linux & Open Source	https://archlinux.org/feeds/news/
+Programming & DevOps	https://github.blog/changelog/feed/
+Programming & DevOps	https://github.blog/engineering/feed/
+Programming & DevOps	https://stackoverflow.blog/feed/
+Programming & DevOps	https://newsletter.pragmaticengineer.com/feed
+Programming & DevOps	https://simonwillison.net/atom/everything/
+Programming & DevOps	https://jvns.ca/atom.xml
+Programming & DevOps	https://github.com/oxidecomputer/omicron/releases.atom
+Programming & DevOps	https://blog.cloudflare.com/rss/
+Programming & DevOps	https://tailscale.com/blog/index.xml
+Programming & DevOps	https://fly.io/blog/feed.xml
+Programming & DevOps	https://netflixtechblog.com/feed
+Programming & DevOps	https://aws.amazon.com/blogs/architecture/feed/
+Programming & DevOps	https://developers.googleblog.com/feeds/posts/default
+Programming & DevOps	https://hacks.mozilla.org/feed/
+Programming & DevOps	https://blog.rust-lang.org/feed.xml
+Programming & DevOps	https://go.dev/blog/feed.atom
+Programming & DevOps	https://blog.python.org/feeds/posts/default
+Programming & DevOps	https://kubernetes.io/feed.xml
+Programming & DevOps	https://blog.jetbrains.com/feed/
+Programming & DevOps	https://www.docker.com/blog/feed/
+AI & Data	https://openai.com/news/rss.xml
+AI & Data	https://blog.google/technology/ai/rss/
+AI & Data	https://deepmind.google/blog/rss.xml
+AI & Data	https://huggingface.co/blog/feed.xml
+AI & Data	https://thegradient.pub/rss/
+AI & Data	https://www.aisnakeoil.com/feed
+AI & Data	https://importai.substack.com/feed
+AI & Data	https://www.interconnects.ai/feed
+AI & Data	https://www.latent.space/feed
+AI & Data	https://www.oneusefulthing.org/feed
+Science & Space	https://www.nature.com/nature.rss
+Science & Space	https://www.sciencedaily.com/rss/all.xml
+Science & Space	https://www.quantamagazine.org/feed/
+Science & Space	https://www.sciencenews.org/feed
+Science & Space	https://www.newscientist.com/feed/home/
+Science & Space	https://phys.org/rss-feed/
+Science & Space	https://www.nasa.gov/news-release/feed/
+Science & Space	https://www.nasa.gov/feeds/iotd-feed/
+Science & Space	https://www.esa.int/rssfeed/Our_Activities
+Science & Space	https://spacenews.com/feed/
+Science & Space	https://feeds.arstechnica.com/arstechnica/science
+Science & Space	https://www.smithsonianmag.com/rss/latest_articles/
+Climate & Environment	https://www.carbonbrief.org/feed/
+Climate & Environment	https://insideclimatenews.org/feed/
+Climate & Environment	https://e360.yale.edu/feed.xml
+Climate & Environment	https://science.nasa.gov/feed/
+Climate & Environment	https://grist.org/feed/
+Business & Economics	https://feeds.npr.org/1006/rss.xml
+Business & Economics	https://fortune.com/feed/
+Business & Economics	https://www.cnbc.com/id/100003114/device/rss/rss.html
+Business & Economics	https://www.sec.gov/news/pressreleases.rss
+Business & Economics	https://www.federalreserve.gov/feeds/press_all.xml
+Business & Economics	https://www.calculatedriskblog.com/feeds/posts/default
+Business & Economics	https://marginalrevolution.com/feed
+Business & Economics	https://www.ft.com/rss/home
+Gaming	https://www.polygon.com/rss/index.xml
+Gaming	https://www.rockpapershotgun.com/feed
+Gaming	https://www.pcgamer.com/rss/
+Gaming	https://www.eurogamer.net/feed
+Gaming	https://www.gamedeveloper.com/rss.xml
+Gaming	https://feeds.feedburner.com/ign/all
+Gaming	https://www.nintendolife.com/feeds/latest
+Gaming	https://www.gamingonlinux.com/article_rss.php
+Privacy & Digital Rights	https://www.eff.org/rss/updates.xml
+Privacy & Digital Rights	https://www.privacyguides.org/articles/feed_rss_created.xml
+Privacy & Digital Rights	https://blog.torproject.org/feed.xml
+Privacy & Digital Rights	https://blog.mozilla.org/en/feed/
+Privacy & Digital Rights	https://www.accessnow.org/feed/
+Privacy & Digital Rights	https://www.platformer.news/feed
+Privacy & Digital Rights	https://edri.org/feed/
+Homelab & Self-Hosting	https://selfh.st/rss/
+Homelab & Self-Hosting	https://www.servethehome.com/feed/
+Homelab & Self-Hosting	https://www.jeffgeerling.com/blog.xml
+Homelab & Self-Hosting	https://www.home-assistant.io/atom.xml
+Homelab & Self-Hosting	https://forum.proxmox.com/forums/announcements.7/index.rss
+Homelab & Self-Hosting	https://nextcloud.com/blog/feed/
+Homelab & Self-Hosting	https://immich.app/blog/feed.xml
+Homelab & Self-Hosting	https://jellyfin.org/posts/rss.xml
+Culture & Ideas	https://xkcd.com/rss.xml
+Culture & Ideas	https://daringfireball.net/feeds/main
+Culture & Ideas	https://feeds.kottke.org/main
+Culture & Ideas	https://www.themarginalian.org/feed/
+Culture & Ideas	https://www.atlasobscura.com/feeds/latest
+Culture & Ideas	https://longreads.com/feed/
+Culture & Ideas	https://aeon.co/feed.rss
+Culture & Ideas	https://nautil.us/feed/
