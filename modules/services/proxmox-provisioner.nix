@@ -94,7 +94,9 @@
           # Build bootstrap media from the exact source that produced the
           # running provisioner. This keeps on-demand ISO creation working
           # even before the corresponding Git deployment branch advances.
-          installerFlake = toString inputs.self;
+          # Force path semantics so newly added profile files remain visible
+          # when provisioning from a dirty worktree source copied to the store.
+          installerFlake = "path:${toString inputs.self}";
           defaultFlake = "github:GuildedThorn/ThornixOS/${fleetHost.deployment.branch}#${name}";
           readiness = {
             displayName = readiness.displayName or name;

@@ -213,6 +213,86 @@ in
                 summary = "A systemd unit has been in the failed state for 10 minutes.";
               })
               (rule {
+                uid = "firewall-conntrack-pressure";
+                title = "Firewall connection tracking pressure";
+                datasourceUid = "prometheus";
+                expr = ''
+                  100 * node_nf_conntrack_entries{instance="firewall.guildedthorn.arpa:9100"}
+                    / node_nf_conntrack_entries_limit{instance="firewall.guildedthorn.arpa:9100"}
+                '';
+                evaluator = {
+                  type = "gt";
+                  params = [ 80 ];
+                };
+                for = "10m";
+                severity = "critical";
+                category = "network";
+                summary = "Firewall conntrack table has remained above 80% capacity for 10 minutes.";
+              })
+              (rule {
+                uid = "firewall-dhcp-pool-pressure";
+                title = "Firewall DHCP pool nearly exhausted";
+                datasourceUid = "prometheus";
+                expr = ''
+                  100 * thorn_firewall_dhcp_active_leases
+                    / thorn_firewall_dhcp_pool_capacity
+                '';
+                evaluator = {
+                  type = "gt";
+                  params = [ 80 ];
+                };
+                for = "15m";
+                category = "network";
+                summary = "A firewall DHCP pool has remained above 80% utilization for 15 minutes.";
+              })
+              (rule {
+                uid = "firewall-exporter-down";
+                title = "Firewall service exporter unreachable";
+                datasourceUid = "prometheus";
+                expr = ''up{job=~"firewall-(unbound|kea)"}'';
+                evaluator = {
+                  type = "lt";
+                  params = [ 1 ];
+                };
+                for = "5m";
+                noDataState = "Alerting";
+                category = "network";
+                summary = "SOC cannot scrape the firewall's Unbound or Kea exporter.";
+              })
+              (rule {
+                uid = "firewall-watchdog-failed";
+                title = "Firewall active health check failed";
+                datasourceUid = "prometheus";
+                expr = "thorn_firewall_watchdog_success";
+                evaluator = {
+                  type = "lt";
+                  params = [ 1 ];
+                };
+                for = "3m";
+                noDataState = "Alerting";
+                severity = "critical";
+                category = "network";
+                summary = "A firewall service, DNS recursion, WAN route, or nftables egress-policy check failed.";
+              })
+              (rule {
+                uid = "firewall-lure-egress-denied";
+                title = "Honeypot attempted denied Internet egress";
+                datasourceUid = "loki";
+                expr = ''
+                  sum(count_over_time(
+                    {job="systemd-journal", host="firewall"} |= "lure-egress-denied:" [10m]
+                  ))
+                '';
+                evaluator = {
+                  type = "gt";
+                  params = [ 0 ];
+                };
+                for = "0s";
+                severity = "critical";
+                category = "security";
+                summary = "Lure attempted an outbound Internet connection outside HTTPS and NTP.";
+              })
+              (rule {
                 uid = "fleet-smart-health-critical";
                 title = "SMART/NVMe health failure";
                 datasourceUid = "loki";

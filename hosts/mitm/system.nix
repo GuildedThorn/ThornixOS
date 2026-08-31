@@ -803,6 +803,11 @@ in
     };
   };
 
+  services.technitium-dns-server = {
+    enable = true;
+    openFirewall = false;
+  };
+
   # Home Assistant deliberately builds its shared aiohttp TLS context
   # from REQUESTS_CA_BUNDLE (falling back to certifi), so point it at
   # NixOS's system bundle where ThornCloud_CA is installed.

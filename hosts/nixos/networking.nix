@@ -6,10 +6,7 @@
     enableIPv6 = false;
 
     # System-wide DNS
-    nameservers = [
-      "172.16.25.1" # pfSense — resolves .arpa LAN names
-      "1.1.1.1"
-    ];
+    nameservers = [ "192.168.1.1" ]; # Unbound resolves internal and public names.
 
     firewall.allowedTCPPorts = [
       4455
@@ -33,8 +30,28 @@
       ";
   };
 
-  # Optional: keep NM for Wi-Fi or VPNs
-  networking.networkmanager.enable = true;
-  #networking.networkmanager.dns = "none";
-  #networking.nameservers = [ "127.0.0.1" ];
+  networking.networkmanager = {
+    enable = true;
+    # DHCP-provided public DNS must not precede the internal resolver.
+    dns = "none";
+    settings.main.no-auto-default = "d8:bb:c1:13:9e:4a";
+    ensureProfiles.profiles.nixos-ethernet = {
+      connection = {
+        id = "NixOS Ethernet";
+        type = "ethernet";
+        interface-name = "enp42s0";
+        autoconnect = true;
+      };
+      ethernet.mac-address = "d8:bb:c1:13:9e:4a";
+      ipv4 = {
+        method = "manual";
+        addresses = "192.168.1.6/24";
+        gateway = "192.168.1.1";
+        dns = "192.168.1.1;";
+        dns-search = "guildedthorn.arpa;";
+        route-metric = 100;
+      };
+      ipv6.method = "disabled";
+    };
+  };
 }

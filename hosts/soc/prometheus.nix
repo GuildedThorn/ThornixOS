@@ -55,6 +55,18 @@ in
           }
         ];
       }
+      {
+        job_name = "firewall-unbound";
+        static_configs = [
+          { targets = [ "172.16.25.1:9167" ]; }
+        ];
+      }
+      {
+        job_name = "firewall-kea";
+        static_configs = [
+          { targets = [ "172.16.25.1:9547" ]; }
+        ];
+      }
       # Scrape only node_exporter's textfile collector at dashboard
       # speed. This reuses the existing SOC-only :9100 firewall path;
       # no topology HTTP service is exposed from the hypervisor.

@@ -253,6 +253,15 @@ in
     role = "proxmox-template";
   };
 
+  resolver = mkHost {
+    address = "172.16.25.66";
+    fqdn = "resolver.guildedthorn.arpa";
+    role = "dns";
+    monitoring = {
+      mode = "scrape";
+    };
+  };
+
   scout = mkHost {
     class = "laptop";
     fqdn = "scout.guildedthorn.arpa";

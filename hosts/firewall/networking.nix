@@ -21,13 +21,33 @@ in
     useDHCP = false;
     useNetworkd = true;
 
-    nftables.enable = true;
+    nftables = {
+      enable = true;
+      tables.thorn-egress = {
+        family = "inet";
+        content = ''
+          chain forward {
+            type filter hook forward priority -10; policy accept;
+
+            # A compromised honeypot may fetch updates over HTTPS and sync
+            # time, but must not initiate arbitrary Internet connections.
+            ip saddr 172.16.25.58 oifname "wan" ct state established,related accept
+            ip saddr 172.16.25.58 oifname "wan" tcp dport 443 accept
+            ip saddr 172.16.25.58 oifname "wan" udp dport 123 accept
+            ip saddr 172.16.25.58 oifname "wan" limit rate 5/second burst 20 packets log prefix "lure-egress-denied: " level warn counter drop
+          }
+        '';
+      };
+    };
     firewall = {
       enable = true;
       backend = "nftables";
       allowPing = true;
       checkReversePath = true;
       filterForward = true;
+      logRefusedConnections = true;
+      logRefusedPackets = true;
+      logReversePathDrops = true;
 
       # thorn-core's observability default targets the fleet's iptables
       # backend. This host repeats that ACL below in native nftables syntax.
@@ -40,6 +60,7 @@ in
           allowedUDPPorts = [
             53
             67
+            123
           ];
         };
         opt1 = {
@@ -47,11 +68,15 @@ in
           allowedUDPPorts = [
             53
             67
+            123
           ];
         };
         wg0 = {
           allowedTCPPorts = [ 53 ];
-          allowedUDPPorts = [ 53 ];
+          allowedUDPPorts = [
+            53
+            123
+          ];
         };
       };
 
@@ -74,7 +99,7 @@ in
         # The fixed workstation and Scout's home Wi-Fi are LAN admin endpoints.
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.0/24 tcp dport { 22, 443 } accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.3 tcp dport 8006 accept
-        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.4 tcp dport { 30304, 8920 } accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.4 tcp dport { 8920, 30008, 30304 } accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.50 tcp dport 8090 accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.53 tcp dport 80 accept
@@ -86,6 +111,13 @@ in
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.53 tcp dport 80 accept
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.57 tcp dport 8000 accept
+
+        # Clustered Technitium resolvers. DNS serves every internal zone;
+        # administration remains limited to fixed administrator endpoints.
+        iifname "lan" ip daddr { 172.16.25.2, 172.16.25.66 } meta l4proto { tcp, udp } th dport 53 accept
+        iifname "wg0" ip daddr { 172.16.25.2, 172.16.25.66 } meta l4proto { tcp, udp } th dport 53 accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr { 172.16.25.2, 172.16.25.66 } tcp dport { 5380, 53443 } accept
+        iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr { 172.16.25.2, 172.16.25.66 } tcp dport { 5380, 53443 } accept
 
         # PXE and the Pineapple sensor cross from LAN into OPT1.
         iifname "lan" ip daddr 172.16.25.53 tcp dport 80 accept
@@ -114,7 +146,7 @@ in
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 tcp dport 22 accept
         iifname "opt1" ip saddr 172.16.25.3 tcp dport 22 accept
         iifname "wg0" ip saddr 10.10.10.4 tcp dport 22 accept
-        iifname "opt1" ip saddr 172.16.25.51 tcp dport { 9100, 4243 } accept
+        iifname "opt1" ip saddr 172.16.25.51 tcp dport { 9100, 4243, 9167, 9547 } accept
       '';
     };
 
@@ -221,6 +253,10 @@ in
   services.kea.dhcp4 = {
     enable = true;
     settings = {
+      control-socket = {
+        socket-type = "unix";
+        socket-name = "/run/kea/kea4-ctrl-socket";
+      };
       interfaces-config.interfaces = [
         "lan"
         "opt1"
@@ -281,6 +317,10 @@ in
               name = "routers";
               data = "192.168.1.1";
             }
+            {
+              name = "ntp-servers";
+              data = "192.168.1.1";
+            }
           ];
           reservations = [
             {
@@ -312,6 +352,10 @@ in
               name = "routers";
               data = "172.16.25.1";
             }
+            {
+              name = "ntp-servers";
+              data = "172.16.25.1";
+            }
           ];
           reservations = [
             {
@@ -335,9 +379,20 @@ in
     };
   };
 
+  services.chrony = {
+    enable = true;
+    extraConfig = ''
+      allow 10.10.10.0/24
+      allow 172.16.25.0/24
+      allow 192.168.1.0/24
+      makestep 1.0 3
+    '';
+  };
+
   services.unbound = {
     enable = true;
     enableRootTrustAnchor = true;
+    localControlSocketPath = "/run/unbound/unbound.ctl";
     resolveLocalQueries = true;
     settings.server = {
       interface = [ "0.0.0.0" ];
@@ -349,10 +404,13 @@ in
       ];
       hide-identity = true;
       hide-version = true;
-      log-queries = true;
-      log-replies = true;
-      log-tag-queryreply = true;
-      local-zone = [ ''"guildedthorn.arpa." transparent'' ];
+      extended-statistics = true;
+      log-queries = false;
+      log-replies = false;
+      log-tag-queryreply = false;
+      # Static prevents unknown internal names from escaping to a future
+      # public forwarder and looping through Technitium's conditional zone.
+      local-zone = [ ''"guildedthorn.arpa." static'' ];
       local-data = fleetDnsRecords ++ [
         ''"firewall.guildedthorn.arpa. A 172.16.25.1"''
         ''"pfsense.guildedthorn.arpa. A 172.16.25.1"''

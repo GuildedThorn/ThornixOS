@@ -64,7 +64,9 @@ in `networking.nix`; validate every target before restoring any DNAT.
 
 LAN, OPT1, and WireGuard are separate routed trust zones. New cross-zone
 connections are denied unless listed in `networking.firewall.extraForwardRules`;
-stateful replies and internal-to-WAN egress remain allowed. WireGuard is not a
+stateful replies and internal-to-WAN egress generally remain allowed. Lure is
+the exception: its dedicated nftables chain permits only HTTPS and NTP toward
+WAN, then logs and drops other new Internet connections. WireGuard is not a
 trusted interface: every peer receives DNS, while only Scout receives the
 documented administrative paths.
 
@@ -83,3 +85,11 @@ by switch ACLs.
 
 Sieve has no permanent forwarding exception into LAN. Add exact targets and
 protocols only for an approved scan window, then remove and redeploy the rule.
+
+## Operations
+
+The firewall runs IRQ balancing and inherits the fleet fstrim timer. Unbound
+and Kea expose Prometheus metrics on `172.16.25.1:9167` and `:9547`; nftables
+admits those listeners only from SOC. A minute timer also checks core services,
+recursive DNS, the WAN route, and the Lure egress-policy table while exporting
+DHCP pool use and WireGuard handshake timestamps through node_exporter.

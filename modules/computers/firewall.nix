@@ -20,6 +20,7 @@ in
       "${inputs.self}/hosts/firewall/networking.nix"
       "${inputs.self}/hosts/firewall/secrets.nix"
       "${inputs.self}/hosts/firewall/telemetry.nix"
+      "${inputs.self}/hosts/firewall/health.nix"
 
       (
         {
@@ -85,12 +86,16 @@ in
             enable = true;
             autodetect = true;
           };
+          services.irqbalance.enable = true;
           services.vnstat.enable = true;
           thorn.audit.execScope = "all";
 
-          # Match pfSense's WAN IDS placement while adding both routed LANs to
-          # HOME_NET. The shared module keeps this alert-only, not inline IPS.
-          thorn.suricata.interfaces = [ "wan" ];
+          # WAN preserves pfSense's IDS placement; OPT1 adds visibility into
+          # routed server traffic. This remains alert-only, not inline IPS.
+          thorn.suricata.interfaces = [
+            "wan"
+            "opt1"
+          ];
           thorn.suricata.bpfFilter = "ip or ip6 or arp";
           services.suricata.settings.vars.address-groups.HOME_NET = lib.mkForce (
             "[192.168.1.0/24,172.16.25.0/24,10.10.10.0/24,127.0.0.0/8]"
