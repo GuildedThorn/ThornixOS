@@ -15,6 +15,8 @@
       searxEnvironment = "${credentialsDirectory}/searx.env";
       minifluxCredentials = "${credentialsDirectory}/miniflux-admin.env";
       feedCatalog = ../../hosts/codex/feeds.tsv;
+      newsApiSource = ./codex_news_api.py;
+      newsApiTestsSource = ./codex_news_api_test.py;
       backupReady = builtins.pathExists "${inputs.self}/hosts/codex/backup-secrets.yaml";
       showInitialPassword = pkgs.writeShellApplication {
         name = "codex-initial-password";
@@ -43,9 +45,26 @@
           exec ${pkgs.bash}/bin/bash ${./codex-seed-feeds.sh} ${feedCatalog} "$@"
         '';
       };
+      newsApi = pkgs.writeShellApplication {
+        name = "codex-news-api";
+        runtimeInputs = [
+          pkgs.python3
+          config.services.postgresql.package
+        ];
+        text = ''
+          exec python3 ${newsApiSource} "$@"
+        '';
+      };
+      newsApiTests = pkgs.runCommand "codex-news-api-tests" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+        export PYTHONPATH=${./.}
+        python3 ${newsApiTestsSource}
+        touch "$out"
+      '';
     in
     {
+      system.checks = [ newsApiTests ];
       environment.systemPackages = [
+        newsApi
         seedFeeds
         showInitialPassword
       ];
@@ -146,9 +165,61 @@
 
       services.postgresql = {
         package = pkgs.postgresql_16;
+        ensureUsers = [ { name = "codex-news"; } ];
         settings = {
           listen_addresses = lib.mkForce "";
           password_encryption = "scram-sha-256";
+        };
+      };
+
+      systemd.services.codex-news-db-access = {
+        description = "Grant Codex news API read-only Miniflux access";
+        after = [ "postgresql.service" ];
+        requires = [ "postgresql.service" ];
+        before = [ "codex-news.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          User = "postgres";
+          Group = "postgres";
+        };
+        path = [ config.services.postgresql.package ];
+        script = ''
+          psql --set=ON_ERROR_STOP=1 --dbname=miniflux <<'SQL'
+          ALTER ROLE "codex-news" NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+          ALTER ROLE "codex-news" SET default_transaction_read_only = on;
+          ALTER ROLE "codex-news" SET statement_timeout = '5s';
+          REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM "codex-news";
+          GRANT CONNECT ON DATABASE miniflux TO "codex-news";
+          GRANT USAGE ON SCHEMA public TO "codex-news";
+          GRANT SELECT ON TABLE entries, feeds, categories TO "codex-news";
+          SQL
+        '';
+      };
+
+      systemd.services.codex-news = {
+        description = "Bounded read-only Miniflux news API for Casita";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "codex-news-db-access.service" ];
+        requires = [ "codex-news-db-access.service" ];
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = "${newsApi}/bin/codex-news-api serve";
+          Restart = "on-failure";
+          RestartSec = "5s";
+          DynamicUser = true;
+          User = "codex-news";
+          Group = "codex-news";
+          NoNewPrivileges = true;
+          PrivateTmp = true;
+          ProtectHome = true;
+          ProtectSystem = "strict";
+          CapabilityBoundingSet = "";
+          RestrictAddressFamilies = [
+            "AF_INET"
+            "AF_UNIX"
+          ];
+          MemoryMax = "128M";
         };
       };
       services.postgresqlBackup = {
@@ -212,6 +283,13 @@
               proxyPass = "http://127.0.0.1:8081";
               proxyWebsockets = true;
             };
+            locations."= /api/news" = {
+              proxyPass = "http://127.0.0.1:8090/v1/news";
+              extraConfig = ''
+                allow 172.16.25.62/32;
+                deny all;
+              '';
+            };
           };
         };
       };
@@ -219,10 +297,12 @@
       systemd.services.nginx = {
         after = [
           "miniflux.service"
+          "codex-news.service"
           "uwsgi.service"
         ];
         wants = [
           "miniflux.service"
+          "codex-news.service"
           "uwsgi.service"
         ];
       };

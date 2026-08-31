@@ -39,6 +39,22 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "GetNews",
+            "description": "Read current headlines from the private Miniflux library.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "category": {"type": "string"},
+                    "hours": {"type": "integer", "minimum": 1, "maximum": 168},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 10},
+                },
+            },
+        },
+    },
 ]
 
 SYSTEM_PROMPT = """You are Casita, Jamie's private local conversational voice assistant.
@@ -71,6 +87,12 @@ CASES = [
         "name": "soc-tool",
         "prompt": "Are there any important SOC alerts right now?",
         "tool": "GetSOCStatus",
+        "tools": True,
+    },
+    {
+        "name": "news-tool",
+        "prompt": "What are the latest technology headlines?",
+        "tool": "GetNews",
         "tools": True,
     },
     {

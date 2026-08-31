@@ -17,6 +17,7 @@
     label = "Codex private search and feed reader";
     timeoutSeconds = 1800;
     units = [
+      "codex-news.service"
       "miniflux.service"
       "nginx.service"
       "postgresql.service"
