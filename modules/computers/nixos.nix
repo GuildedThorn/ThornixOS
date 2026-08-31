@@ -152,9 +152,14 @@
           # -------------------------
           # Bootloader (UEFI systems)
           # -------------------------
-          boot.loader.systemd-boot.enable = true;
+          boot.loader.systemd-boot.enable = false;
           boot.loader.efi.canTouchEfiVariables = true;
           boot.initrd.systemd.enable = true;
+
+          boot.lanzaboote = {
+            enable = true;
+            pkiBundle = "/var/lib/sbctl";
+          };
 
           virtualisation.docker.enable = true;
 
