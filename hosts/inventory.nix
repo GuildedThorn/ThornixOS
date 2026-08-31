@@ -317,6 +317,9 @@ in
     role = "password-manager";
     monitoring = {
       mode = "scrape";
+      journal = true;
+      canary = true;
+      readyFiles = [ "hosts/vault/telemetry.nix" ];
       probes = [ "https://vault.guildedthorn.arpa/alive" ];
     };
   };

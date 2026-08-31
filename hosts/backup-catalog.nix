@@ -100,6 +100,11 @@ in
     services = [ "greenbone" ];
   })
   (managed {
+    id = "vault-state";
+    host = "vault";
+    services = [ "vaultwarden" ];
+  })
+  (managed {
     id = "websites-state";
     host = "websites";
     services = [ "owncast" ];
