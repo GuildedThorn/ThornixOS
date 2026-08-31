@@ -22,7 +22,8 @@
         hash = "sha256-EraUoa7u7j2HR4aC+omhquQ4affDMmTHUV/R+SmSAT4=";
       };
 
-      unpackMmdb = name: archive:
+      unpackMmdb =
+        name: archive:
         pkgs.runCommand name
           {
             nativeBuildInputs = [ pkgs.gzip ];

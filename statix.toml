@@ -1,0 +1,14 @@
+disabled = [
+  # Explicit bindings and staged expressions are preferred when they clarify
+  # module construction better than Statix's shorter equivalent.
+  "manual_inherit",
+  "manual_inherit_from",
+  "collapsible_let_in",
+  "eta_reduction",
+  "useless_parens",
+
+  # NixOS modules commonly accept open argument sets and merge repeated option
+  # prefixes. Both are valid module-system patterns rather than dead code.
+  "empty_pattern",
+  "repeated_keys",
+]
