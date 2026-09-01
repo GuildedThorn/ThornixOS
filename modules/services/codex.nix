@@ -152,6 +152,8 @@
         adminCredentialsFile = minifluxCredentials;
         config = {
           BASE_URL = "https://${feedsHostname}/";
+          # RSS-Bridge resolves to Codex's private address, which Miniflux blocks by default.
+          FETCHER_ALLOW_PRIVATE_NETWORKS = 1;
           LISTEN_ADDR = "127.0.0.1:8081";
           CREATE_ADMIN = 1;
           RUN_MIGRATIONS = 1;
