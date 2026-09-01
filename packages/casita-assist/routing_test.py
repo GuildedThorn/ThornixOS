@@ -74,6 +74,26 @@ class WorkflowRoutingTests(unittest.TestCase):
             with self.subTest(prompt=prompt):
                 self.assertFalse(ROUTING.is_sports_request(prompt))
 
+    def test_current_news_phrasings_use_news_route(self) -> None:
+        prompts = (
+            "What are the latest technology headlines?",
+            "Give me today's news",
+            "What's happening in current events?",
+        )
+        for prompt in prompts:
+            with self.subTest(prompt=prompt):
+                self.assertTrue(ROUTING.is_news_request(prompt))
+
+    def test_unrelated_updates_stay_out_of_news_route(self) -> None:
+        prompts = (
+            "Update the living room lights",
+            "What is the weather outside?",
+            "Tell me about newspaper printing",
+        )
+        for prompt in prompts:
+            with self.subTest(prompt=prompt):
+                self.assertFalse(ROUTING.is_news_request(prompt))
+
     def test_nascar_phrasings_select_nascar(self) -> None:
         prompts = (
             "NASCAR",

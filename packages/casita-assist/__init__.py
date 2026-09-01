@@ -26,7 +26,12 @@ from homeassistant.helpers import config_validation as cv, llm
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util.json import JsonObjectType
 
-from .routing import is_sports_request, is_workflow_request, workflow_catalog_query
+from .routing import (
+    is_news_request,
+    is_sports_request,
+    is_workflow_request,
+    workflow_catalog_query,
+)
 
 DOMAIN = "casita_assist"
 API_ID = "casita"
@@ -43,6 +48,7 @@ EVENT_PROGRESS = "casita_assist_progress"
 LOOM_WORKFLOW_URL = "https://loom.guildedthorn.arpa/model-workflows/v1/call"
 LOOM_SPORTS_URL = "https://loom.guildedthorn.arpa/webhook/espn"
 LOOM_NASCAR_URL = "https://loom.guildedthorn.arpa/webhook/nascar-scores"
+LOOM_NEWS_URL = "https://loom.guildedthorn.arpa/webhook/get-news"
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
@@ -244,8 +250,10 @@ class CasitaRouter(conversation.ConversationEntity):
             if pending_name and pending_name in normalized:
                 return "workflow"
 
-        if is_sports_request(normalized) or any(
-            pattern.search(normalized) for pattern in _CONTROL_PATTERNS
+        if (
+            is_news_request(normalized)
+            or is_sports_request(normalized)
+            or any(pattern.search(normalized) for pattern in _CONTROL_PATTERNS)
         ):
             return "control"
 
@@ -554,6 +562,71 @@ class GetSports(CasitaTool):
                 else not bool(data.get("error"))
             ),
             "message": message[:2_000],
+            "result": _loom_value(data),
+        }
+
+
+class GetNews(CasitaTool):
+    name = "GetNews"
+    description = (
+        "Get current headlines from the private curated Miniflux library. "
+        "Optionally filter by topic or category and request a bounded time window. "
+        "Speak the returned message and retain article metadata for follow-up questions."
+    )
+    activity_detail = "Checking current headlines on Loom…"
+    parameters = vol.Schema(
+        {
+            vol.Optional("query", default=""): vol.All(str, vol.Length(max=120)),
+            vol.Optional("category", default=""): vol.All(str, vol.Length(max=60)),
+            vol.Optional("hours", default=24): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=168)
+            ),
+            vol.Optional("limit", default=5): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=10)
+            ),
+        }
+    )
+
+    @override
+    async def async_call(self, hass, tool_input, llm_context) -> JsonObjectType:
+        self.notify(hass)
+        payload = {
+            "hours": tool_input.tool_args.get("hours", 24),
+            "limit": tool_input.tool_args.get("limit", 5),
+        }
+        for key in ("query", "category"):
+            value = str(tool_input.tool_args.get(key, "")).strip()
+            if value:
+                payload[key] = value
+
+        session = async_get_clientsession(hass)
+        try:
+            async with session.post(
+                LOOM_NEWS_URL,
+                json=payload,
+                timeout=ClientTimeout(total=30),
+            ) as response:
+                data = await response.json(content_type=None)
+                if response.status >= 400:
+                    return {
+                        "ok": False,
+                        "error": f"Loom news returned HTTP {response.status}",
+                    }
+        except (ClientError, TimeoutError, ValueError) as err:
+            _LOGGER.warning("Loom news workflow unavailable: %s", type(err).__name__)
+            return {"ok": False, "error": "Live news data is temporarily unavailable"}
+
+        if not isinstance(data, dict):
+            return {"ok": False, "error": "Loom returned an invalid news response"}
+        message = str(data.get("message") or "News returned without a summary")
+        reported_ok = data.get("ok")
+        return {
+            "ok": (
+                reported_ok
+                if isinstance(reported_ok, bool)
+                else not bool(data.get("error"))
+            ),
+            "message": message[:2_400],
             "result": _loom_value(data),
         }
 
@@ -1381,12 +1454,14 @@ class CasitaAPI(llm.API):
             api=self,
             api_prompt=(
                 "Use these compact local tools for all current home, weather, live-sports, "
-                "media, voice, rack, shopping-list, ThornixOS service, and SOC questions. "
+                "news, media, voice, rack, shopping-list, ThornixOS service, and SOC questions. "
                 "Call a read tool before answering current-state questions; never guess "
                 "live values. For sports, call GetSports immediately, answer faithfully "
                 "from its message field, and do not dump structured arrays unless asked. "
                 "For NASCAR results, set sport to nascar and series to cup, xfinity, "
                 "or truck. NASCAR schedules and standings are not available. "
+                "For current news, call GetNews immediately and answer faithfully from "
+                "its message field. "
                 "Only call a control or refresh tool after an explicit user request. "
                 "Service health includes current reachability plus bounded availability "
                 "and latency SLOs. SOC tools are read-only. Locks, doors, alarms, "
@@ -1398,6 +1473,7 @@ class CasitaAPI(llm.API):
                 GetHomeStatus(),
                 GetWeather(),
                 GetSports(),
+                GetNews(),
                 GetSOCStatus(),
                 GetServiceStatus(),
                 RefreshServiceStatus(),

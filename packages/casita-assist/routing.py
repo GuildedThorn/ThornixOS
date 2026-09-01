@@ -34,6 +34,11 @@ _SPORTS_PATTERNS = tuple(
     )
 )
 
+_NEWS_PATTERN = re.compile(
+    r"\b(?:news|headlines?|current\s+events)\b",
+    re.IGNORECASE,
+)
+
 
 def is_workflow_request(text: str) -> bool:
     """Return whether an utterance belongs to the isolated workflow route."""
@@ -53,6 +58,12 @@ def is_sports_request(text: str) -> bool:
     return is_nascar_request(normalized) or any(
         pattern.search(normalized) for pattern in _SPORTS_PATTERNS
     )
+
+
+def is_news_request(text: str) -> bool:
+    """Return whether an utterance needs current Miniflux headlines."""
+    normalized = " ".join(text.casefold().split())
+    return bool(_NEWS_PATTERN.search(normalized))
 
 
 def workflow_catalog_query(text: str) -> str:

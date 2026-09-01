@@ -14,7 +14,7 @@ in
     casitaAssist = pkgs.buildHomeAssistantComponent {
       owner = "GuildedThorn";
       domain = "casita_assist";
-      version = "1.1.7";
+      version = "1.1.8";
       src = ../../packages/casita-assist;
     };
     storageSource = pkgs.writeText "casita-ha-storage.py" (
