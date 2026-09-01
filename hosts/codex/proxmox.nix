@@ -14,12 +14,13 @@
 
   readiness = {
     displayName = "Codex";
-    label = "Codex private search and feed reader";
+    label = "Codex private search, RSS generator, and feed reader";
     timeoutSeconds = 1800;
     units = [
       "codex-news.service"
       "miniflux.service"
       "nginx.service"
+      "phpfpm-rss-bridge.service"
       "postgresql.service"
       "uwsgi.service"
     ];
@@ -36,10 +37,17 @@
         resolve = "feeds.guildedthorn.arpa:443:172.16.25.67";
         expectPattern = "OK";
       }
+      {
+        url = "https://rss-bridge.guildedthorn.arpa/?action=health";
+        caCertificate = ../../certs/ThornCloud_CA.crt;
+        resolve = "rss-bridge.guildedthorn.arpa:443:172.16.25.67";
+        expectPattern = "all is good";
+      }
     ];
     readyLines = [
       "Search: https://search.guildedthorn.arpa/"
       "Feeds: https://feeds.guildedthorn.arpa/"
+      "RSS Bridge: https://rss-bridge.guildedthorn.arpa/"
       "Run 'codex-initial-password' as root for the initial Miniflux login."
     ];
   };

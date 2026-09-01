@@ -82,6 +82,21 @@
     ];
   }
   {
+    id = "rss-bridge";
+    name = "RSS-Bridge";
+    role = "RSS feed generator";
+    host = "codex";
+    inventoryHost = "codex";
+    probeUrl = "https://rss-bridge.guildedthorn.arpa/?action=health";
+    launchUrl = "https://rss-bridge.guildedthorn.arpa/";
+    icon = "mdi:rss-box";
+    aliases = [
+      "rss bridge"
+      "feed generator"
+      "nixpkgs updates"
+    ];
+  }
+  {
     id = "courier";
     name = "Courier";
     role = "Stalwart mail";

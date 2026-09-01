@@ -61,6 +61,7 @@ Linux & Open Source	https://www.kernel.org/feeds/kdist.xml
 Linux & Open Source	https://discourse.nixos.org/latest.rss
 Linux & Open Source	https://weekly.nixos.org/feeds/all.rss.xml
 Linux & Open Source	https://github.com/NixOS/nixpkgs/releases.atom
+Linux & Open Source	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%228.has%3A%20package%20%28update%29%22%20sort%3Aupdated-desc&format=Atom
 Linux & Open Source	https://blog.system76.com/rss.xml
 Linux & Open Source	https://ubuntu.com/blog/feed
 Linux & Open Source	https://www.redhat.com/en/rss/blog

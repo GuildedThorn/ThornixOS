@@ -420,6 +420,7 @@ in
         ''"resolver2.guildedthorn.arpa. A 172.16.25.2"''
         ''"search.guildedthorn.arpa. A 172.16.25.67"''
         ''"feeds.guildedthorn.arpa. A 172.16.25.67"''
+        ''"rss-bridge.guildedthorn.arpa. A 172.16.25.67"''
         ''"_dns.resolver.arpa. 3600 IN SVCB 1 resolver.guildedthorn.arpa. alpn=h2 dohpath=/dns-query{?dns}"''
         ''"_dns.resolver.arpa. 3600 IN SVCB 2 resolver2.guildedthorn.arpa. alpn=h2 dohpath=/dns-query{?dns}"''
         ''"firewall.guildedthorn.arpa. A 192.168.1.1"''

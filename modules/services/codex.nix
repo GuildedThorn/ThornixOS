@@ -11,6 +11,7 @@
       certificateName = "codex.guildedthorn.arpa";
       searchHostname = "search.guildedthorn.arpa";
       feedsHostname = "feeds.guildedthorn.arpa";
+      rssBridgeHostname = "rss-bridge.guildedthorn.arpa";
       credentialsDirectory = "/var/lib/codex";
       searxEnvironment = "${credentialsDirectory}/searx.env";
       minifluxCredentials = "${credentialsDirectory}/miniflux-admin.env";
@@ -163,6 +164,18 @@
         after = [ "codex-credentials.service" ];
       };
 
+      services.rss-bridge = {
+        enable = true;
+        virtualHost = rssBridgeHostname;
+        config = {
+          system.enabled_bridges = [ "GitHubPullRequestBridge" ];
+          error = {
+            output = "http";
+            report_limit = 1;
+          };
+        };
+      };
+
       services.postgresql = {
         package = pkgs.postgresql_16;
         ensureUsers = [ { name = "codex-news"; } ];
@@ -247,6 +260,7 @@
         extraDomainNames = [
           searchHostname
           feedsHostname
+          rssBridgeHostname
         ];
         group = config.services.nginx.group;
         reloadServices = [ "nginx.service" ];
@@ -291,6 +305,19 @@
               '';
             };
           };
+          ${rssBridgeHostname} = {
+            forceSSL = true;
+            useACMEHost = certificateName;
+            extraConfig = ''
+              add_header X-Content-Type-Options "nosniff" always;
+              add_header Referrer-Policy "same-origin" always;
+              add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+              allow 172.16.25.0/24;
+              allow 192.168.1.0/24;
+              allow 10.10.10.0/24;
+              deny all;
+            '';
+          };
         };
       };
 
@@ -298,11 +325,13 @@
         after = [
           "miniflux.service"
           "codex-news.service"
+          "phpfpm-rss-bridge.service"
           "uwsgi.service"
         ];
         wants = [
           "miniflux.service"
           "codex-news.service"
+          "phpfpm-rss-bridge.service"
           "uwsgi.service"
         ];
       };

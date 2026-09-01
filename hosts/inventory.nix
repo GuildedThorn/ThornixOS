@@ -98,6 +98,7 @@ in
     monitoring.probes = [
       "https://search.guildedthorn.arpa/"
       "https://feeds.guildedthorn.arpa/healthcheck"
+      "https://rss-bridge.guildedthorn.arpa/?action=health"
     ];
   };
 
