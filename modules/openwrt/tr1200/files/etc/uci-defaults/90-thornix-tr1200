@@ -11,7 +11,7 @@ set dhcp.@dnsmasq[0].confdir='/tmp/dnsmasq.d'
 set travelmate.global='travelmate'
 set travelmate.global.trm_enabled='1'
 set travelmate.global.trm_captive='1'
-set travelmate.global.trm_vpn='1'
+set travelmate.global.trm_vpn='0'
 commit system
 commit network
 commit dhcp

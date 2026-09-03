@@ -5,31 +5,55 @@ set -u
 config_dir=/tmp/dnsmasq.d
 active_config="$config_dir/tr1200-wireguard.conf"
 up_config=/usr/share/tr1200/wireguard-up.conf
+up_dns_config=/usr/share/tr1200/wireguard-up-dns.conf
 down_config=/usr/share/tr1200/wireguard-down.conf
+tftp_dir=/tmp/tr1200-tftp
 current_state=
 
+fetch_ipxe_assets() {
+	mkdir -p "$tftp_dir"
+	for asset in undionly.kpxe ipxe.efi; do
+		if [ ! -s "$tftp_dir/$asset" ]; then
+			tmp="$tftp_dir/$asset.tmp"
+			if ! uclient-fetch -q -O "$tmp" "http://172.16.25.53/$asset"; then
+				rm -f "$tmp"
+				return 1
+			fi
+			mv "$tmp" "$tftp_dir/$asset"
+		fi
+	done
+}
+
 set_wireguard_state() {
-	if wg show wg0 latest-handshakes 2>/dev/null |
-		awk -v now="$(date +%s)" '$2 > 0 && now - $2 <= 90 { fresh = 1 } END { exit !fresh }'
+	if ping -c 1 -W 2 10.10.10.1 >/dev/null 2>&1 &&
+		wg show wg0 latest-handshakes 2>/dev/null |
+		awk -v now="$(date +%s)" '$2 > 0 && now - $2 <= 180 { fresh = 1 } END { exit !fresh }'
 	then
-		desired_state=up
-		source_config="$up_config"
+		if fetch_ipxe_assets; then
+			desired_state=up
+			source_config="$up_config"
+		else
+			desired_state=up-dns
+			source_config="$up_dns_config"
+		fi
 	else
 		desired_state=down
 		source_config="$down_config"
+		rm -rf "$tftp_dir"
 	fi
 
 	if [ "$current_state" != "$desired_state" ]; then
 		mkdir -p "$config_dir"
 		cp "$source_config" "$active_config"
-		/etc/init.d/dnsmasq reload
+		/etc/init.d/dnsmasq restart
 		current_state="$desired_state"
 	fi
 }
 
 cleanup() {
 	rm -f "$active_config"
-	/etc/init.d/dnsmasq reload
+	rm -rf "$tftp_dir"
+	/etc/init.d/dnsmasq restart
 }
 
 trap cleanup EXIT

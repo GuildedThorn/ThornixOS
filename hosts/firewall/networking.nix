@@ -126,7 +126,6 @@ in
         iifname "lan" ip daddr 172.16.25.53 tcp dport 80 accept
         iifname "lan" ip daddr 172.16.25.53 udp dport 69 accept
         iifname "wg0" ip saddr 172.20.120.0/24 ip daddr 172.16.25.53 tcp dport 80 accept
-        iifname "wg0" ip saddr 172.20.120.0/24 ip daddr 172.16.25.53 udp dport 69 accept
         iifname "lan" ip saddr 192.168.1.31 ip daddr 172.16.25.2 tcp dport 443 accept
         iifname "lan" ip saddr 192.168.1.31 ip daddr 172.16.25.51 tcp dport 5514 accept
 

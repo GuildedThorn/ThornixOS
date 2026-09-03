@@ -17,15 +17,19 @@ encoding support. On first boot it assigns the LAN `172.20.120.1/24`; clients
 use `172.20.120.0/24`, which keeps them distinct from the router's privileged
 WireGuard address and avoids the home LAN's `192.168.1.0/24`.
 
-The router advertises Pixie network boot only while `wg0` has completed a
-handshake within the last 90 seconds. Legacy BIOS clients receive
+The router advertises Pixie network boot only while `wg0` can reach the home
+WireGuard gateway and has completed a handshake within the last 180 seconds. Legacy BIOS clients receive
 `undionly.kpxe`, x86-64 UEFI clients receive `ipxe.efi`, and existing iPXE
-clients chain directly to `http://172.16.25.53/boot.ipxe`. Ordinary DHCP
+clients chain directly to `http://172.16.25.53/boot.ipxe`. The router fetches
+the two bootstrap binaries from Pixie over HTTP and serves them locally over
+TFTP, avoiding dynamic TFTP data channels across WireGuard. Ordinary DHCP
 continues unchanged when WireGuard is unavailable.
 
 DNS follows the same handshake state. A healthy tunnel uses only the two home
 Technitium resolvers (`172.16.25.66` and `172.16.25.2`); without a fresh
 handshake, dnsmasq uses `1.1.1.1` through a route pinned to the travel uplink.
+Travelmate manages uplink Wi-Fi only; netifd owns `wg0` so Travelmate cannot
+delete the persistent WireGuard interface during an uplink transition.
 
 The current OpenWrt release is selected by the locked
 `nix-openwrt-imagebuilder` input. Update deliberately with:
