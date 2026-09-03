@@ -21,6 +21,7 @@ fetch_ipxe_assets() {
 			fi
 			mv "$tmp" "$tftp_dir/$asset"
 		fi
+		chmod 644 "$tftp_dir/$asset"
 	done
 }
 
