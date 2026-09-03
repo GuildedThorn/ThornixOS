@@ -225,13 +225,15 @@
         NoNewPrivileges = true;
       };
 
-      # PXE is intentionally reachable only from LAN and OPT1. pfSense stays
-      # the sole DHCP authority; Pixie has no DHCP or DNS listener.
+      # PXE is reachable from LAN, OPT1, and routed TR1200 clients. The local
+      # gateway remains the DHCP authority; Pixie has no DHCP or DNS listener.
       networking.firewall.extraCommands = ''
         iptables -w -A nixos-fw -p tcp --dport 80 -s 172.16.25.0/24 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp --dport 80 -s 192.168.1.0/24 -j nixos-fw-accept
+        iptables -w -A nixos-fw -p tcp --dport 80 -s 172.20.120.0/24 -j nixos-fw-accept
         iptables -w -A nixos-fw -p udp --dport 69 -s 172.16.25.0/24 -j nixos-fw-accept
         iptables -w -A nixos-fw -p udp --dport 69 -s 192.168.1.0/24 -j nixos-fw-accept
+        iptables -w -A nixos-fw -p udp --dport 69 -s 172.20.120.0/24 -j nixos-fw-accept
       '';
 
       # Keep both the HTTP tree and TFTP firmware in the system closure, and

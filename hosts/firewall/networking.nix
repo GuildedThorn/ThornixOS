@@ -61,6 +61,7 @@ in
             53
             67
             123
+            4501
           ];
         };
         opt1 = {
@@ -117,11 +118,15 @@ in
         iifname "lan" ip daddr { 172.16.25.2, 172.16.25.66 } meta l4proto { tcp, udp } th dport 53 accept
         iifname "wg0" ip daddr { 172.16.25.2, 172.16.25.66 } meta l4proto { tcp, udp } th dport 53 accept
         iifname "lan" ip daddr { 172.16.25.2, 172.16.25.66 } tcp dport 443 accept
-        iifname "wg0" ip daddr { 172.16.25.2, 172.16.25.66 } tcp dport 443 accept
+        # Keep the resolver administration UI unavailable to routed TR1200
+        # clients while preserving access for individually addressed peers.
+        iifname "wg0" ip saddr 10.10.10.0/24 ip daddr { 172.16.25.2, 172.16.25.66 } tcp dport 443 accept
 
         # PXE and the Pineapple sensor cross from LAN into OPT1.
         iifname "lan" ip daddr 172.16.25.53 tcp dport 80 accept
         iifname "lan" ip daddr 172.16.25.53 udp dport 69 accept
+        iifname "wg0" ip saddr 172.20.120.0/24 ip daddr 172.16.25.53 tcp dport 80 accept
+        iifname "wg0" ip saddr 172.20.120.0/24 ip daddr 172.16.25.53 udp dport 69 accept
         iifname "lan" ip saddr 192.168.1.31 ip daddr 172.16.25.2 tcp dport 443 accept
         iifname "lan" ip saddr 192.168.1.31 ip daddr 172.16.25.51 tcp dport 5514 accept
 
@@ -130,14 +135,14 @@ in
         iifname "opt1" ip saddr 172.16.25.3 ip daddr 192.168.1.6 tcp dport 22 accept
         iifname "opt1" ip saddr 172.16.25.51 ip daddr 192.168.1.6 tcp dport { 4243, 9100 } accept
 
-        # Scout is the only WireGuard administrative peer.
-        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.0/24 tcp dport { 22, 443 } accept
-        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.3 tcp dport 8006 accept
-        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.4 tcp dport { 30304, 8920 } accept
-        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.50 tcp dport 8090 accept
-        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
-        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.53 tcp dport 80 accept
-        iifname "wg0" ip saddr 10.10.10.4 ip daddr 172.16.25.57 tcp dport 8000 accept
+        # Scout and the TR1200 are the WireGuard administrative peers.
+        iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.0/24 tcp dport { 22, 443 } accept
+        iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.3 tcp dport 8006 accept
+        iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.4 tcp dport { 30304, 8920 } accept
+        iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.50 tcp dport 8090 accept
+        iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
+        iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.53 tcp dport 80 accept
+        iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.57 tcp dport 8000 accept
       '';
 
       # Limit firewall administration to fixed administrator endpoints and pin
@@ -146,7 +151,7 @@ in
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 tcp dport 22 accept
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 tcp dport 22 accept
         iifname "opt1" ip saddr 172.16.25.3 tcp dport 22 accept
-        iifname "wg0" ip saddr 10.10.10.4 tcp dport 22 accept
+        iifname "wg0" ip saddr 10.10.10.4/31 tcp dport 22 accept
         iifname "opt1" ip saddr 172.16.25.51 tcp dport { 9100, 4243, 9167, 9547 } accept
       '';
     };

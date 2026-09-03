@@ -5,12 +5,19 @@
 # never copied into the Nix store.
 uci -q batch <<'EOF'
 set system.@system[0].hostname='TR1200'
+set network.lan.ipaddr='172.20.120.1'
+set network.lan.netmask='255.255.255.0'
+set dhcp.@dnsmasq[0].confdir='/tmp/dnsmasq.d'
 set travelmate.global='travelmate'
 set travelmate.global.trm_enabled='1'
 set travelmate.global.trm_captive='1'
 set travelmate.global.trm_vpn='1'
 commit system
+commit network
+commit dhcp
 commit travelmate
+
+/etc/init.d/tr1200-wireguard enable
 EOF
 
 exit 0

@@ -1,0 +1,42 @@
+#!/bin/sh
+
+set -u
+
+config_dir=/tmp/dnsmasq.d
+active_config="$config_dir/tr1200-wireguard.conf"
+up_config=/usr/share/tr1200/wireguard-up.conf
+down_config=/usr/share/tr1200/wireguard-down.conf
+current_state=
+
+set_wireguard_state() {
+	if wg show wg0 latest-handshakes 2>/dev/null |
+		awk -v now="$(date +%s)" '$2 > 0 && now - $2 <= 90 { fresh = 1 } END { exit !fresh }'
+	then
+		desired_state=up
+		source_config="$up_config"
+	else
+		desired_state=down
+		source_config="$down_config"
+	fi
+
+	if [ "$current_state" != "$desired_state" ]; then
+		mkdir -p "$config_dir"
+		cp "$source_config" "$active_config"
+		/etc/init.d/dnsmasq reload
+		current_state="$desired_state"
+	fi
+}
+
+cleanup() {
+	rm -f "$active_config"
+	/etc/init.d/dnsmasq reload
+}
+
+trap cleanup EXIT
+trap 'exit 0' INT TERM
+rm -f "$active_config"
+
+while :; do
+	set_wireguard_state
+	sleep 10
+done

@@ -1306,11 +1306,11 @@
         "systems": "systems_3"
       },
       "locked": {
-        "lastModified": 1787302424,
-        "narHash": "sha256-fg9pKzO6OeQhe/bY2CpHb6QnHq57P/icwQz35GF/R/8=",
+        "lastModified": 1788353241,
+        "narHash": "sha256-GZ0UGJw4ObVgB3tPHGibq5LqPfkWwhfXHTG965XyZxo=",
         "owner": "astro",
         "repo": "nix-openwrt-imagebuilder",
-        "rev": "276c1dd6346f50231392e97b3a9987c9dd57da28",
+        "rev": "79ce305756ba573bb9d1fb5ebb87c37d9e102220",
         "type": "github"
       },
       "original": {

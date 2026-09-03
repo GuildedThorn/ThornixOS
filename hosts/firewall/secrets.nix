@@ -23,6 +23,10 @@
       mode = "0400";
       restartUnits = [ "systemd-networkd.service" ];
     };
+    wireguard_psk_tr1200 = {
+      mode = "0400";
+      restartUnits = [ "systemd-networkd.service" ];
+    };
   };
 
   networking.wireguard.interfaces.wg0 = {
@@ -48,6 +52,17 @@
         publicKey = "QD3Ia5lK8PJEeHCH3Z8JXNfJZkVEJsbd+PvxWxxQUSc=";
         presharedKeyFile = config.sops.secrets.wireguard_psk_mitospha.path;
         allowedIPs = [ "10.10.10.3/32" ];
+      }
+      {
+        # TR1200 travel router
+        publicKey = "FxvnvepUwy94jW3BOet3FKKMqLuYg/UiRBa71OlqsXE=";
+        presharedKeyFile = config.sops.secrets.wireguard_psk_tr1200.path;
+        # Preserve client source addresses so attached devices do not inherit
+        # the router's administrative access as 10.10.10.5.
+        allowedIPs = [
+          "10.10.10.5/32"
+          "172.20.120.0/24"
+        ];
       }
     ];
   };
