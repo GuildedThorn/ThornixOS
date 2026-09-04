@@ -192,6 +192,36 @@
     ];
   }
   {
+    id = "resolver-primary";
+    name = "Resolver Primary";
+    role = "Technitium DNS primary";
+    host = "resolver";
+    inventoryHost = "resolver";
+    probeUrl = "https://resolver.guildedthorn.arpa/";
+    launchUrl = "https://resolver.guildedthorn.arpa/";
+    icon = "mdi:dns";
+    aliases = [
+      "resolver"
+      "primary dns"
+      "technitium"
+    ];
+  }
+  {
+    id = "resolver-secondary";
+    name = "Resolver Secondary";
+    role = "Technitium DNS secondary";
+    host = "mitm";
+    inventoryHost = "mitm";
+    probeUrl = "https://resolver2.guildedthorn.arpa/";
+    launchUrl = "https://resolver2.guildedthorn.arpa/";
+    icon = "mdi:dns-outline";
+    aliases = [
+      "resolver two"
+      "secondary dns"
+      "technitium secondary"
+    ];
+  }
+  {
     id = "vault";
     name = "Vault";
     role = "Vaultwarden password manager";

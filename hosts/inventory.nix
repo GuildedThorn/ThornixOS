@@ -95,11 +95,14 @@ in
     address = "172.16.25.67";
     fqdn = "codex.guildedthorn.arpa";
     role = "personal-information";
-    monitoring.probes = [
-      "https://search.guildedthorn.arpa/"
-      "https://feeds.guildedthorn.arpa/healthcheck"
-      "https://rss-bridge.guildedthorn.arpa/?action=health"
-    ];
+    monitoring = {
+      mode = "scrape";
+      probes = [
+        "https://search.guildedthorn.arpa/"
+        "https://feeds.guildedthorn.arpa/healthcheck"
+        "https://rss-bridge.guildedthorn.arpa/?action=health"
+      ];
+    };
   };
 
   deck = mkHost {
@@ -218,8 +221,7 @@ in
     role = "lab";
     monitoring = {
       mode = "scrape";
-      journal = true;
-      canary = true;
+      probes = [ "https://resolver2.guildedthorn.arpa/" ];
     };
   };
 
@@ -270,6 +272,7 @@ in
     role = "dns";
     monitoring = {
       mode = "scrape";
+      probes = [ "https://resolver.guildedthorn.arpa/" ];
     };
   };
 

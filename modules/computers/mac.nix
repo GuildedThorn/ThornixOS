@@ -69,6 +69,11 @@ in
             RuntimeMaxUse=128M
             MaxRetentionSec=7day
           '';
+          services.smartd = {
+            enable = true;
+            autodetect = true;
+            defaults.autodetected = "-a -s (S/../.././02|L/../../7/04)";
+          };
 
           systemd.tmpfiles.rules = [
             "d /var/backup/proxmox 0700 root root -"

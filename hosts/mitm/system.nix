@@ -897,6 +897,7 @@ in
         proxyWebsockets = true;
         extraConfig = ''
           allow 172.16.25.3;
+          allow 172.16.25.51;
           allow 192.168.1.6;
           allow 10.10.10.4;
           deny all;
@@ -919,6 +920,11 @@ in
     KbdInteractiveAuthentication = false;
     PasswordAuthentication = false;
     PermitRootLogin = "prohibit-password";
+  };
+  services.smartd = {
+    enable = true;
+    autodetect = true;
+    defaults.autodetected = "-a -s (S/../.././02|L/../../7/04)";
   };
   users.users.root = {
     initialHashedPassword = "!";

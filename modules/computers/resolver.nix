@@ -55,6 +55,7 @@ in
                 proxyWebsockets = true;
                 extraConfig = ''
                   allow 172.16.25.3;
+                  allow 172.16.25.51;
                   allow 192.168.1.6;
                   allow 10.10.10.4;
                   deny all;

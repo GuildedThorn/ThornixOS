@@ -55,18 +55,42 @@ let
     in
     inventoryHost == null || builtins.elem inventoryHost monitoredNames
   ) serviceCatalog;
-  blackboxServiceTargets = map (service: {
-    targets = [ service.probeUrl ];
-    labels = {
-      service_host = service.host;
-      service_icon = service.icon;
-      service_id = service.id;
-      service_launchable = if service.launchUrl == "" then "false" else "true";
-      service_name = service.name;
-      service_role = service.role;
-      service_url = service.launchUrl;
-    };
-  }) monitoredServiceCatalog;
+  catalogProbeUrls = map (service: service.probeUrl) serviceCatalog;
+  inventoryProbeTargets = lib.concatMap (
+    name:
+    let
+      host = fleetInventory.${name};
+      uncataloguedProbes = lib.filter (
+        probeUrl: !(builtins.elem probeUrl catalogProbeUrls)
+      ) host.monitoring.probes;
+    in
+    lib.imap0 (index: probeUrl: {
+      targets = [ probeUrl ];
+      labels = {
+        service_host = name;
+        service_icon = "mdi:server-network";
+        service_id = "${name}-inventory-${toString index}";
+        service_launchable = "false";
+        service_name = "${name} infrastructure probe";
+        service_role = host.role;
+        service_url = "";
+      };
+    }) uncataloguedProbes
+  ) monitoredNames;
+  blackboxServiceTargets =
+    map (service: {
+      targets = [ service.probeUrl ];
+      labels = {
+        service_host = service.host;
+        service_icon = service.icon;
+        service_id = service.id;
+        service_launchable = if service.launchUrl == "" then "false" else "true";
+        service_name = service.name;
+        service_role = service.role;
+        service_url = service.launchUrl;
+      };
+    }) monitoredServiceCatalog
+    ++ inventoryProbeTargets;
   houndTelemetryReady = monitoringReady "hound";
   heraldTelemetryReady = monitoringReady "herald";
   lureTelemetryReady = monitoringReady "lure";
@@ -144,7 +168,7 @@ let
   # These endpoints intentionally use Anvil's 24-hour leaves. Keep
   # them out of the public 21/7-day expiry bands and instead alert
   # when automatic ACME renewal leaves less than four hours.
-  internalAcmeProbeRegex = "https://(anvil|atlas|sieve|hound|casebook|oracle|forge|loom|herald|courier|mitm|vault|search|feeds)[.]guildedthorn[.]arpa/.*";
+  internalAcmeProbeRegex = "https://(anvil|atlas|sieve|hound|casebook|oracle|forge|loom|herald|courier|mitm|resolver|resolver2|vault|search|feeds)[.]guildedthorn[.]arpa/.*";
 
   # Hosts running services-canary — i.e. those with
   # thorn.audit.execScope = "all", where a systemd-timer process is
