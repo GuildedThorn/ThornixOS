@@ -18,8 +18,8 @@
 
   # SeaweedFS S3 credentials for the `loki` bucket, exposed to Loki as an
   # EnvironmentFile so the config can use ${...} via --config.expand-env.
-  sops.secrets.loki_s3_access_key_id = { };
-  sops.secrets.loki_s3_secret_access_key = { };
+  sops.secrets.loki_s3_access_key_id.restartUnits = [ "loki.service" ];
+  sops.secrets.loki_s3_secret_access_key.restartUnits = [ "loki.service" ];
   sops.templates."loki-s3.env" = {
     owner = "loki";
     content = ''
@@ -31,10 +31,6 @@
   # restic repository password for the Prometheus TSDB backup. NOT
   # recoverable — if this is lost the repo is unreadable, so it wants to be
   # somewhere outside this fleet as well (password manager), not only here.
-  #
-  # ACTION REQUIRED before soc next deploys: this secret must exist in
-  # secrets.yaml or the restic units fail (the rest of soc still comes up).
-  #   sops hosts/soc/secrets.yaml   → add `restic_password: <long random>`
   sops.secrets.restic_password = { };
 
   # S3 credentials for the restic repo. Deliberately reusing the loki

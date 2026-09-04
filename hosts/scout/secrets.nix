@@ -6,6 +6,12 @@
 
   # WireGuard road-warrior credentials (see ./wireguard.nix). Both are read
   # from files by wg-quick, so they never enter the Nix store.
-  sops.secrets.wg_private_key = { };
-  sops.secrets.wg_preshared_key = { };
+  sops.secrets.wg_private_key.restartUnits = [
+    "wg-quick-wg0.service"
+    "wg-quick-wg1.service"
+  ];
+  sops.secrets.wg_preshared_key.restartUnits = [
+    "wg-quick-wg0.service"
+    "wg-quick-wg1.service"
+  ];
 }

@@ -8,11 +8,11 @@
   # MongoDB__ConnectionString, RabbitMQ__Password, Spotify__ClientSecret, ...).
   # Edit with `sops hosts/websites/secrets.yaml` and paste the contents of the
   # previous /etc/guildedthorn/secrets.env verbatim.
-  sops.secrets.guildedthorn_env = { };
+  sops.secrets.guildedthorn_env.restartUnits = [ "guildedthorn.service" ];
 
   # Cloudflare tunnel token: store the bare token; the template wraps it in
   # the TUNNEL_TOKEN= form cloudflared expects from its EnvironmentFile.
-  sops.secrets.cloudflared_tunnel_token = { };
+  sops.secrets.cloudflared_tunnel_token.restartUnits = [ "cloudflared.service" ];
   sops.templates."cloudflared.env".content = ''
     TUNNEL_TOKEN=${config.sops.placeholder.cloudflared_tunnel_token}
   '';
