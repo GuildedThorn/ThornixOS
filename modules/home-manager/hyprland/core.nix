@@ -44,7 +44,14 @@
       wlogoutIcon = label: "${pkgs.wlogout}/share/wlogout/icons/${label}.png";
     in
     {
-      options.thorn.desktop.hyprland.enable = lib.mkEnableOption "Hyprland Home Manager configuration";
+      options.thorn.desktop.hyprland = {
+        enable = lib.mkEnableOption "Hyprland Home Manager configuration";
+        suspendTimeout = lib.mkOption {
+          type = lib.types.nullOr lib.types.ints.positive;
+          default = null;
+          description = "Idle seconds before suspending; null disables automatic suspend.";
+        };
+      };
 
       config = lib.mkIf cfg.enable {
         home.packages = with pkgs; [
@@ -499,7 +506,11 @@
                 on-timeout = "hyprctl dispatch dpms off";
                 on-resume = "hyprctl dispatch dpms on";
               }
-            ];
+            ]
+            ++ lib.optional (cfg.suspendTimeout != null) {
+              timeout = cfg.suspendTimeout;
+              on-timeout = "systemctl suspend";
+            };
           };
         };
 

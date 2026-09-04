@@ -8,10 +8,12 @@
     {
       home.stateVersion = "26.11";
       thorn.desktop.hyprland.enable = true;
+      thorn.desktop.hyprland.suspendTimeout = 1800;
       thorn.desktop.rice.enable = true;
       thorn.desktop.wallpaper.enable = true;
       thorn.programs.vesktop.enable = true;
       thorn.programs.firefox.enable = true;
+      thorn.programs.firefox.glanceHomepage = true;
       thorn.programs.ghostty.enable = true;
       thorn.programs.zathura.enable = true;
       thorn.programs.obsidian.enable = true;

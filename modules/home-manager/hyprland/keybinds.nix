@@ -143,6 +143,32 @@
         '';
       };
 
+      toggle-wifi = pkgs.writeShellApplication {
+        name = "thornix-toggle-wifi";
+        runtimeInputs = [
+          pkgs.networkmanager
+          pkgs.swayosd
+        ];
+        text = ''
+          case "$(nmcli radio wifi)" in
+            enabled)
+              nmcli radio wifi off
+              state=Off
+              ;;
+            disabled)
+              nmcli radio wifi on
+              state=On
+              ;;
+            *)
+              swayosd-client --custom-message "Wi-Fi state unavailable"
+              exit 1
+              ;;
+          esac
+
+          swayosd-client --custom-message "Wi-Fi $state"
+        '';
+      };
+
       power-menu = pkgs.writeShellApplication {
         name = "thornix-power-menu";
         runtimeInputs = [
@@ -186,6 +212,7 @@
           pkgs.systemd
           power-menu
           toggle-dnd
+          toggle-wifi
         ];
         text = ''
           if ! selection="$(printf '%s\n' \
@@ -357,7 +384,7 @@
           (bind "XF86AudioLowerVolume" (hypr.exec "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%-"))
 
           # Misc
-          (bind "XF86WLAN" (hypr.exec "swayosd-client --custom-message 'WLAN Toggled'"))
+          (bind "XF86WLAN" (hypr.exec (lib.getExe toggle-wifi)))
 
           (bind "XF86Calculator" (hypr.exec "gnome-calculator"))
           (bind "XF86Display" (hypr.exec "nwg-displays"))
