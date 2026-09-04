@@ -10,9 +10,6 @@
     firewall.allowedTCPPorts = [
       22
     ];
-    firewall.allowedUDPPorts = [
-      22
-    ];
   };
 
   # Optional: keep NM for Wi-Fi or VPNs

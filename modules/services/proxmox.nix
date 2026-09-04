@@ -21,6 +21,7 @@
 
       services.proxmox-ve = {
         enable = true;
+        openFirewall = false;
       };
 
       nixpkgs.overlays = [
