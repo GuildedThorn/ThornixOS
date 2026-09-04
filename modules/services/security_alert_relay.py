@@ -240,7 +240,11 @@ def load_backup_catalog(path: Path) -> list[dict[str, Any]]:
             or not all(isinstance(service, str) and service for service in services)
         ):
             raise ValueError(f"invalid services for backup dataset {dataset_id}")
-        if protection not in {"off-host-restic", "external-unverified"}:
+        if protection not in {
+            "off-host-restic",
+            "external-unverified",
+            "unprotected",
+        }:
             raise ValueError(f"invalid protection for backup dataset {dataset_id}")
 
         backup_timer = item.get("backupTimer")
@@ -1433,23 +1437,23 @@ def build_ops_summary(
             restore_age = success_age(
                 restore_observations, metric_hosts, metric_dataset
             )
-            externally_unverified = dataset["protection"] == "external-unverified"
+            managed_protection = dataset["protection"] == "off-host-restic"
             backup_stale = (
-                not externally_unverified
+                managed_protection
                 and (
                     backup_age is None
                     or backup_age > dataset["max_age_hours"]
                 )
             )
             restore_stale = (
-                not externally_unverified
+                managed_protection
                 and (
                     restore_age is None
                     or restore_age > dataset["restore_max_age_hours"]
                 )
             )
             coverage_gap = (
-                externally_unverified
+                not managed_protection
                 or backup_timer is None
                 or restore_timer is None
             )

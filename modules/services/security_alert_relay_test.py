@@ -183,6 +183,17 @@ class RelayPureFunctionTests(unittest.TestCase):
                 "maxAgeHours": 36,
                 "restoreMaxAgeHours": 192,
             },
+            {
+                "id": "vault-state",
+                "host": "vault",
+                "metricHost": "vault",
+                "services": ["vaultwarden"],
+                "protection": "unprotected",
+                "backupTimer": None,
+                "restoreTimer": None,
+                "maxAgeHours": 36,
+                "restoreMaxAgeHours": 192,
+            },
         ]
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "backup-catalog.json"
@@ -224,13 +235,15 @@ class RelayPureFunctionTests(unittest.TestCase):
         self.assertTrue(by_id["atlas-state"]["protected"])
         self.assertTrue(by_id["atlas-state"]["restore_verified"])
         self.assertTrue(by_id["truenas-app-state"]["coverage_gap"])
+        self.assertTrue(by_id["vault-state"]["coverage_gap"])
+        self.assertFalse(by_id["vault-state"]["protected"])
         self.assertEqual(
             summary["maintenance"]["backup_coverage"],
             {
-                "datasets": 2,
+                "datasets": 3,
                 "protected": 1,
                 "restore_verified": 1,
-                "gaps": 1,
+                "gaps": 2,
             },
         )
         self.assertIn("Close backup coverage gaps", json.dumps(summary["actions"]))

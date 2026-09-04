@@ -25,6 +25,22 @@ let
       maxAgeHours = 36;
       restoreMaxAgeHours = 192;
     };
+  unprotected =
+    {
+      id,
+      host ? id,
+      services,
+    }:
+    {
+      inherit id host services;
+      metricHost = host;
+      metricDataset = host;
+      protection = "unprotected";
+      backupTimer = null;
+      restoreTimer = null;
+      maxAgeHours = 36;
+      restoreMaxAgeHours = 192;
+    };
 in
 [
   (managed {
@@ -41,6 +57,14 @@ in
     id = "casebook-state";
     host = "casebook";
     services = [ "thehive" ];
+  })
+  (unprotected {
+    id = "codex-state";
+    host = "codex";
+    services = [
+      "miniflux"
+      "searxng"
+    ];
   })
   (managed {
     id = "courier-state";
@@ -99,10 +123,15 @@ in
     host = "sieve";
     services = [ "greenbone" ];
   })
-  (managed {
+  (unprotected {
     id = "vault-state";
     host = "vault";
     services = [ "vaultwarden" ];
+  })
+  (unprotected {
+    id = "resolver-state";
+    host = "resolver";
+    services = [ "technitium" ];
   })
   (managed {
     id = "websites-state";
