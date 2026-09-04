@@ -61,7 +61,7 @@ Linux & Open Source	https://www.kernel.org/feeds/kdist.xml
 Linux & Open Source	https://discourse.nixos.org/latest.rss
 Linux & Open Source	https://weekly.nixos.org/feeds/all.rss.xml
 Linux & Open Source	https://github.com/NixOS/nixpkgs/releases.atom
-Linux & Open Source	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%228.has%3A%20package%20%28update%29%22%20sort%3Aupdated-desc&format=Atom
+Linux & Open Source	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%228.has%3A%20package%20%28update%29%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: merged package updates
 Linux & Open Source	https://blog.system76.com/rss.xml
 Linux & Open Source	https://ubuntu.com/blog/feed
 Linux & Open Source	https://www.redhat.com/en/rss/blog
@@ -152,3 +152,219 @@ Culture & Ideas	https://www.atlasobscura.com/feeds/latest
 Culture & Ideas	https://longreads.com/feed/
 Culture & Ideas	https://aeon.co/feed.rss
 Culture & Ideas	https://nautil.us/feed/
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Aopen%20base%3Amaster%20label%3A%228.has%3A%20package%20%28update%29%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: open package updates
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%228.has%3A%20package%20%28new%29%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: new packages
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%228.has%3A%20module%20%28update%29%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: module updates
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%228.has%3A%20module%20%28new%29%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: new modules
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%221.severity%3A%20security%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: security changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Aopen%20base%3Amaster%20label%3A%220.kind%3A%20regression%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: open regressions
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Aopen%20base%3Amaster%20label%3A%221.severity%3A%20channel%20blocker%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: channel blockers
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%224.workflow%3A%20package%20set%20update%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: package-set updates
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20nixos%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: NixOS changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20flakes%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: flakes changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20hardware%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: hardware changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20kernel%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: kernel changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20nvidia%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: NVIDIA changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20llms%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: LLM changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20games%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: game changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20steam%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: Steam changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20rust%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: Rust changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20python%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: Python changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20golang%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: Go changes
+Nix & NixOS	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GitHubPullRequestBridge&u=NixOS&p=nixpkgs&q=is%3Apr%20is%3Amerged%20base%3Amaster%20label%3A%226.topic%3A%20darwin%22%20sort%3Aupdated-desc&format=Atom	nixpkgs: Darwin changes
+Nix & NixOS	https://github.com/NixOS/nix/releases.atom	Nix releases
+Nix & NixOS	https://github.com/nix-community/home-manager/releases.atom	Home Manager releases
+Nix & NixOS	https://github.com/nix-community/disko/releases.atom	Disko releases
+Nix & NixOS	https://github.com/Mic92/sops-nix/releases.atom	sops-nix releases
+Nix & NixOS	https://github.com/nix-community/lanzaboote/releases.atom	Lanzaboote releases
+Nix & NixOS	https://github.com/nix-community/nixvim/releases.atom	Nixvim releases
+Nix & NixOS	https://github.com/nix-community/stylix/releases.atom	Stylix releases
+Nix & NixOS	https://github.com/nix-community/nh/releases.atom	nh releases
+Nix & NixOS	https://github.com/cachix/cachix/releases.atom	Cachix releases
+Nix & NixOS	https://github.com/hercules-ci/flake-parts/releases.atom	flake-parts releases
+Nix & NixOS	https://github.com/nlewo/comin/releases.atom	comin releases
+Nix & NixOS	https://github.com/Jovian-Experiments/Jovian-NixOS/releases.atom	Jovian NixOS releases
+Nix & NixOS	https://github.com/astro/nix-openwrt-imagebuilder/releases.atom	nix-openwrt-imagebuilder releases
+Nix & NixOS	https://github.com/SaumonNet/proxmox-nixos/releases.atom	proxmox-nixos releases
+Nix & NixOS	https://github.com/numtide/flake-utils/releases.atom	flake-utils releases
+Nix & NixOS	https://github.com/NixOS/nixos-hardware/releases.atom	nixos-hardware releases
+Nix & NixOS	https://github.com/NixOS/hydra/releases.atom	Hydra releases
+Nix & NixOS	https://github.com/DeterminateSystems/nix-installer/releases.atom	Nix Installer releases
+Nix & NixOS	https://github.com/LnL7/nix-darwin/releases.atom	nix-darwin releases
+Nix & NixOS	https://github.com/serokell/deploy-rs/releases.atom	deploy-rs releases
+Nix & NixOS	https://github.com/zhaofengli/attic/releases.atom	Attic releases
+Nix & NixOS	https://github.com/nix-community/nix-index-database/releases.atom	nix-index-database releases
+Nix & NixOS	https://github.com/nix-community/impermanence/releases.atom	Impermanence releases
+Nix & NixOS	https://github.com/direnv/direnv/releases.atom	direnv releases
+Nix & NixOS	https://github.com/NixOS/flake-compat/releases.atom	flake-compat releases
+Nix & NixOS	https://github.com/vic/import-tree/releases.atom	import-tree releases
+Nix & NixOS	https://github.com/feel-co/hjem/releases.atom	hjem releases
+Nix & NixOS	https://github.com/mightyiam/files/releases.atom	files releases
+Nix & NixOS	https://github.com/Nakildias/sc0710/releases.atom	sc0710 releases
+Nix & NixOS	https://github.com/Diax170/scroll-flake/releases.atom	scroll-flake releases
+Nix & NixOS	https://github.com/gmodena/nix-flatpak/releases.atom	nix-flatpak releases
+Nix & NixOS	https://github.com/Gerg-L/spicetify-nix/releases.atom	spicetify-nix releases
+Fleet Releases	https://github.com/RSS-Bridge/rss-bridge/releases.atom	RSS-Bridge releases
+Fleet Releases	https://github.com/netbox-community/netbox/releases.atom	NetBox releases
+Fleet Releases	https://github.com/TheHive-Project/TheHive/releases.atom	TheHive releases
+Fleet Releases	https://github.com/SearXNG/searxng/releases.atom	SearXNG releases
+Fleet Releases	https://github.com/miniflux/v2/releases.atom	Miniflux releases
+Fleet Releases	https://github.com/binwiederhier/ntfy/releases.atom	ntfy releases
+Fleet Releases	https://github.com/Velocidex/velociraptor/releases.atom	Velociraptor releases
+Fleet Releases	https://github.com/goauthentik/authentik/releases.atom	Authentik releases
+Fleet Releases	https://github.com/home-assistant/core/releases.atom	Home Assistant releases
+Fleet Releases	https://github.com/TechnitiumSoftware/DnsServer/releases.atom	Technitium DNS releases
+Fleet Releases	https://github.com/dani-garcia/vaultwarden/releases.atom	Vaultwarden releases
+Fleet Releases	https://github.com/thinkst/opencanary/releases.atom	OpenCanary releases
+Fleet Releases	https://github.com/jellyfin/jellyfin/releases.atom	Jellyfin releases
+Fleet Releases	https://github.com/owncast/owncast/releases.atom	Owncast releases
+Fleet Releases	https://github.com/n8n-io/n8n/releases.atom	n8n releases
+Fleet Releases	https://github.com/OpenCTI-Platform/opencti/releases.atom	OpenCTI releases
+Fleet Releases	https://github.com/greenbone/gvmd/releases.atom	Greenbone gvmd releases
+Fleet Releases	https://github.com/greenbone/openvas-scanner/releases.atom	OpenVAS Scanner releases
+Fleet Releases	https://github.com/grafana/grafana/releases.atom	Grafana releases
+Fleet Releases	https://github.com/grafana/loki/releases.atom	Loki releases
+Fleet Releases	https://github.com/prometheus/prometheus/releases.atom	Prometheus releases
+Fleet Releases	https://github.com/seaweedfs/seaweedfs/releases.atom	SeaweedFS releases
+Fleet Releases	https://github.com/truenas/middleware/releases.atom	TrueNAS middleware releases
+Fleet Releases	https://github.com/stalwartlabs/mail-server/releases.atom	Stalwart Mail releases
+Fleet Releases	https://github.com/ollama/ollama/releases.atom	Ollama releases
+Fleet Releases	https://github.com/tailscale/tailscale/releases.atom	Tailscale releases
+Fleet Releases	https://github.com/cloudflare/cloudflared/releases.atom	cloudflared releases
+Fleet Releases	https://github.com/restic/restic/releases.atom	restic releases
+Fleet Releases	https://github.com/borgbackup/borg/releases.atom	BorgBackup releases
+Fleet Releases	https://github.com/systemd/systemd/releases.atom	systemd releases
+Fleet Releases	https://github.com/moby/moby/releases.atom	Moby releases
+Fleet Releases	https://github.com/containerd/containerd/releases.atom	containerd releases
+Fleet Releases	https://github.com/kubernetes/kubernetes/releases.atom	Kubernetes releases
+Fleet Releases	https://github.com/openssh/openssh-portable/releases.atom	OpenSSH releases
+Fleet Releases	https://github.com/caddyserver/caddy/releases.atom	Caddy releases
+Fleet Releases	https://github.com/smallstep/certificates/releases.atom	step-ca releases
+Fleet Releases	https://github.com/smallstep/cli/releases.atom	step CLI releases
+Fleet Releases	https://github.com/hashicorp/terraform/releases.atom	Terraform releases
+Fleet Releases	https://github.com/hashicorp/vault/releases.atom	HashiCorp Vault releases
+Fleet Releases	https://github.com/traefik/traefik/releases.atom	Traefik releases
+Fleet Releases	https://github.com/haproxy/haproxy/releases.atom	HAProxy releases
+Fleet Releases	https://github.com/redis/redis/releases.atom	Redis releases
+Fleet Releases	https://github.com/valkey-io/valkey/releases.atom	Valkey releases
+Fleet Releases	https://github.com/etcd-io/etcd/releases.atom	etcd releases
+Fleet Releases	https://github.com/lxc/incus/releases.atom	Incus releases
+Fleet Releases	https://github.com/openzfs/zfs/releases.atom	OpenZFS releases
+Fleet Releases	https://github.com/ceph/ceph/releases.atom	Ceph releases
+Fleet Releases	https://github.com/docker/compose/releases.atom	Docker Compose releases
+Fleet Releases	https://github.com/docker/buildx/releases.atom	Docker Buildx releases
+Fleet Releases	https://github.com/postgres/postgres/releases.atom	PostgreSQL releases
+Fleet Releases	https://github.com/nginx/nginx/releases.atom	nginx releases
+Security Projects	https://github.com/Wazuh/wazuh/releases.atom	Wazuh releases
+Security Projects	https://github.com/rapid7/metasploit-framework/releases.atom	Metasploit releases
+Security Projects	https://github.com/projectdiscovery/nuclei/releases.atom	Nuclei releases
+Security Projects	https://github.com/zaproxy/zaproxy/releases.atom	OWASP ZAP releases
+Security Projects	https://github.com/aquasecurity/trivy/releases.atom	Trivy releases
+Security Projects	https://github.com/anchore/grype/releases.atom	Grype releases
+Security Projects	https://github.com/anchore/syft/releases.atom	Syft releases
+Security Projects	https://github.com/ossf/scorecard/releases.atom	OpenSSF Scorecard releases
+Security Projects	https://github.com/sigstore/cosign/releases.atom	Cosign releases
+Security Projects	https://github.com/falcosecurity/falco/releases.atom	Falco releases
+Security Projects	https://github.com/zeek/zeek/releases.atom	Zeek releases
+Security Projects	https://github.com/OISF/suricata/releases.atom	Suricata releases
+Security Projects	https://github.com/nmap/nmap/releases.atom	Nmap releases
+Security Projects	https://github.com/osquery/osquery/releases.atom	osquery releases
+Security Projects	https://github.com/SigmaHQ/sigma/releases.atom	Sigma releases
+Security Projects	https://github.com/getsops/sops/releases.atom	SOPS releases
+Security Projects	https://github.com/CISOfy/lynis/releases.atom	Lynis releases
+Security Projects	https://github.com/aquasecurity/kube-bench/releases.atom	kube-bench releases
+Security Projects	https://github.com/dependency-check/DependencyCheck/releases.atom	OWASP Dependency-Check releases
+Security Projects	https://github.com/gitleaks/gitleaks/releases.atom	Gitleaks releases
+Security Projects	https://github.com/trufflesecurity/trufflehog/releases.atom	TruffleHog releases
+Security Projects	https://github.com/semgrep/semgrep/releases.atom	Semgrep releases
+Security Projects	https://github.com/google/osv-scanner/releases.atom	OSV-Scanner releases
+Security Projects	https://github.com/AFLplusplus/AFLplusplus/releases.atom	AFL++ releases
+Security Projects	https://github.com/radareorg/radare2/releases.atom	radare2 releases
+Security Projects	https://github.com/mandiant/capa/releases.atom	capa releases
+Security Projects	https://github.com/owasp-amass/amass/releases.atom	OWASP Amass releases
+Security Projects	https://github.com/aquasecurity/kube-hunter/releases.atom	kube-hunter releases
+Security Projects	https://github.com/prowler-cloud/prowler/releases.atom	Prowler releases
+AI & Data	https://github.com/openai/openai-python/releases.atom	OpenAI Python releases
+AI & Data	https://github.com/anthropics/anthropic-sdk-python/releases.atom	Anthropic Python SDK releases
+AI & Data	https://github.com/ggml-org/llama.cpp/releases.atom	llama.cpp releases
+AI & Data	https://github.com/huggingface/transformers/releases.atom	Transformers releases
+AI & Data	https://github.com/vllm-project/vllm/releases.atom	vLLM releases
+AI & Data	https://github.com/pytorch/pytorch/releases.atom	PyTorch releases
+AI & Data	https://github.com/langchain-ai/langchain/releases.atom	LangChain releases
+AI & Data	https://github.com/microsoft/graphrag/releases.atom	GraphRAG releases
+AI & Data	https://github.com/open-webui/open-webui/releases.atom	Open WebUI releases
+AI & Data	https://github.com/huggingface/text-generation-inference/releases.atom	Text Generation Inference releases
+AI & Data	https://github.com/huggingface/peft/releases.atom	PEFT releases
+AI & Data	https://github.com/huggingface/diffusers/releases.atom	Diffusers releases
+AI & Data	https://github.com/huggingface/tokenizers/releases.atom	Tokenizers releases
+AI & Data	https://github.com/ml-explore/mlx/releases.atom	MLX releases
+AI & Data	https://github.com/tensorflow/tensorflow/releases.atom	TensorFlow releases
+AI & Data	https://github.com/jax-ml/jax/releases.atom	JAX releases
+AI & Data	https://github.com/scikit-learn/scikit-learn/releases.atom	scikit-learn releases
+AI & Data	https://github.com/numpy/numpy/releases.atom	NumPy releases
+AI & Data	https://github.com/pandas-dev/pandas/releases.atom	pandas releases
+AI & Data	https://github.com/scipy/scipy/releases.atom	SciPy releases
+AI & Data	https://github.com/duckdb/duckdb/releases.atom	DuckDB releases
+AI & Data	https://github.com/apache/arrow/releases.atom	Apache Arrow releases
+AI & Data	https://github.com/langfuse/langfuse/releases.atom	Langfuse releases
+AI & Data	https://github.com/qdrant/qdrant/releases.atom	Qdrant releases
+AI & Data	https://github.com/chroma-core/chroma/releases.atom	Chroma releases
+AI & Data	https://github.com/milvus-io/milvus/releases.atom	Milvus releases
+AI & Data	https://github.com/run-llama/llama_index/releases.atom	LlamaIndex releases
+AI & Data	https://github.com/microsoft/semantic-kernel/releases.atom	Semantic Kernel releases
+AI & Data	https://github.com/google-gemini/gemini-cli/releases.atom	Gemini CLI releases
+AI & Data	https://github.com/anthropics/claude-code/releases.atom	Claude Code releases
+AI & Data	https://github.com/remsky/Kokoro-FastAPI/releases.atom	Kokoro FastAPI releases
+AI & Data	https://github.com/Mozilla-Ocho/llamafile/releases.atom	llamafile releases
+AI & Data	https://github.com/ggml-org/whisper.cpp/releases.atom	whisper.cpp releases
+Developer Tooling	https://github.com/sxyazi/yazi/releases.atom	Yazi releases
+Developer Tooling	https://github.com/hyprwm/Hyprland/releases.atom	Hyprland releases
+Developer Tooling	https://github.com/hyprwm/hyprland-plugins/releases.atom	Hyprland Plugins releases
+Developer Tooling	https://github.com/yayuuu/hyprland-scroll-overview/releases.atom	Hyprland Scroll Overview releases
+Developer Tooling	https://github.com/jgravelle/jcodemunch-mcp/releases.atom	jCodeMunch releases
+Developer Tooling	https://github.com/oraios/serena/releases.atom	Serena releases
+Developer Tooling	https://github.com/Graphify-Labs/graphify/releases.atom	Graphify releases
+Developer Tooling	https://github.com/neka-nat/freecad-mcp/releases.atom	FreeCAD MCP releases
+Developer Tooling	https://github.com/sst/opencode/releases.atom	OpenCode releases
+Developer Tooling	https://github.com/neovim/neovim/releases.atom	Neovim releases
+Developer Tooling	https://github.com/rust-lang/rust/releases.atom	Rust releases
+Developer Tooling	https://github.com/golang/go/releases.atom	Go releases
+Developer Tooling	https://github.com/python/cpython/releases.atom	CPython releases
+Developer Tooling	https://github.com/nodejs/node/releases.atom	Node.js releases
+Developer Tooling	https://github.com/oven-sh/bun/releases.atom	Bun releases
+Developer Tooling	https://github.com/denoland/deno/releases.atom	Deno releases
+Developer Tooling	https://github.com/BurntSushi/ripgrep/releases.atom	ripgrep releases
+Developer Tooling	https://github.com/sharkdp/bat/releases.atom	bat releases
+Developer Tooling	https://github.com/junegunn/fzf/releases.atom	fzf releases
+Developer Tooling	https://github.com/jqlang/jq/releases.atom	jq releases
+Developer Tooling	https://github.com/cli/cli/releases.atom	GitHub CLI releases
+Developer Tooling	https://github.com/starship/starship/releases.atom	Starship releases
+Developer Tooling	https://github.com/tmux/tmux/releases.atom	tmux releases
+Developer Tooling	https://github.com/zsh-users/zsh/releases.atom	Zsh releases
+Developer Tooling	https://github.com/nushell/nushell/releases.atom	Nushell releases
+Developer Tooling	https://github.com/alacritty/alacritty/releases.atom	Alacritty releases
+Developer Tooling	https://github.com/wezterm/wezterm/releases.atom	WezTerm releases
+Developer Tooling	https://github.com/ghostty-org/ghostty/releases.atom	Ghostty releases
+Developer Tooling	https://github.com/helix-editor/helix/releases.atom	Helix releases
+Developer Tooling	https://github.com/astral-sh/uv/releases.atom	uv releases
+Developer Tooling	https://github.com/astral-sh/ruff/releases.atom	Ruff releases
+Developer Tooling	https://codeberg.org/LGFae/awww/releases.rss	awww releases
+Developer Tooling	https://github.com/sharkdp/fd/releases.atom	fd releases
+Developer Tooling	https://github.com/eza-community/eza/releases.atom	eza releases
+Developer Tooling	https://github.com/dandavison/delta/releases.atom	delta releases
+Developer Tooling	https://github.com/ajeetdsouza/zoxide/releases.atom	zoxide releases
+Developer Tooling	https://github.com/casey/just/releases.atom	just releases
+Developer Tooling	https://github.com/jesseduffield/lazygit/releases.atom	Lazygit releases
+Developer Tooling	https://github.com/FreeCAD/FreeCAD/releases.atom	FreeCAD releases
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: all languages
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=nix&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: Nix
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=python&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: Python
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=rust&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: Rust
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=go&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: Go
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=typescript&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: TypeScript
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=shell&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: Shell
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=c&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: C
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=c%2B%2B&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: C++
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=zig&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: Zig
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=lua&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: Lua
+GitHub Trending	https://rss-bridge.guildedthorn.arpa/?action=display&bridge=GithubTrendingBridge&context=By%20language&language=javascript&date_range=weekly&spokenLanguage=en&format=Atom	GitHub Trending: JavaScript

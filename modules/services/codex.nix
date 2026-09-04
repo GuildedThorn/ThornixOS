@@ -170,7 +170,10 @@
         enable = true;
         virtualHost = rssBridgeHostname;
         config = {
-          system.enabled_bridges = [ "GitHubPullRequestBridge" ];
+          system.enabled_bridges = [
+            "GitHubPullRequestBridge"
+            "GithubTrendingBridge"
+          ];
           error = {
             output = "http";
             report_limit = 1;
