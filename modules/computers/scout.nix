@@ -344,7 +344,6 @@
           boot.tmp.useTmpfs = true;
           boot.tmp.tmpfsSize = "8G";
 
-          security.pam.services.sddm.u2fAuth = true;
           security.pam.services.sudo.u2fAuth = true;
         }
       )
