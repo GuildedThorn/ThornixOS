@@ -82,9 +82,6 @@
         ];
         settings = {
           mgr = {
-            show_hidden = true;
-          };
-          yazi = {
             ratio = [
               1
               4
@@ -116,8 +113,6 @@
           };
 
           tasks = {
-            micro_workers = 5;
-            macro_workers = 10;
             bizarre_retry = 5;
           };
         };

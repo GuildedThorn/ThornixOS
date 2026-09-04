@@ -215,8 +215,6 @@
         lib.mkEnableOption "Thorn's Claude Code Home Manager configuration";
 
       config = lib.mkIf cfg.enable {
-        # claude-code itself is installed as a NixOS system package (see
-        # modules/computers/scout.nix); this only manages its dotfiles.
         programs.claude-code = {
           enable = true;
           package = null;
