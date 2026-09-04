@@ -20,6 +20,7 @@
   };
 
   services.qemuGuest.enable = true;
+  fileSystems."/".autoResize = true;
   services.openssh.settings = {
     PermitRootLogin = "prohibit-password";
     PasswordAuthentication = false;
