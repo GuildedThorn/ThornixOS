@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Thorn's personal NixOS + Home Manager flake, covering ~11 hosts (workstation,
-laptop, a public-facing website VM, lab/test VMs). See `README.md` for the
+Thorn's personal NixOS + Home Manager flake, covering 28 hosts across desktop,
+infrastructure, security, and lab roles. See `README.md` for the
 host list, GitOps deployment model, and the full sops secrets workflow —
 don't duplicate that here, read it when a task touches deployment or secrets.
 
@@ -20,16 +20,15 @@ nixfmt path/to/file.nix                                                    # for
 sops hosts/<host>/secrets.yaml                                             # edit that host's encrypted secrets
 ```
 
-Host names: `firewall`, `identity`, `mac`, `mitm`, `nixos`, `proxmox-guest`, `websites`,
-`scout`, `soc`, `vmware-guest`, `vmware-test` (must match the CI matrix
-in `.github/workflows/ci.yml` and the `flake.nixosConfigurations.<name>` set
-in `modules/computers/`).
+`hosts/inventory.nix` is authoritative fleet membership. CI verifies its keys
+match `flake.nixosConfigurations`, which are defined under `modules/computers/`.
+Do not maintain another static hostname list; query `.#thornixFleet` instead.
 
-There's no local test suite — correctness is "does it evaluate and build."
-`nix flake check` catches eval errors across all outputs; building a specific
-host's toplevel catches package/module-level failures that check alone
-sometimes misses. When editing a module used by multiple hosts, dry-build
-each affected host, not just one.
+Nix correctness is "does it evaluate and build." Service scripts also carry
+focused Python tests. `nix flake check` catches evaluation errors across all
+outputs; building a specific host's toplevel catches package/module-level
+failures that checks alone sometimes miss. When editing a module used by
+multiple hosts, dry-build each affected host, not just one.
 
 ## Architecture
 
@@ -83,11 +82,9 @@ hosts/<host>/               per-host data: disko, networking, secrets.nix + secr
 
 ### Deployment model (GitOps via comin)
 
-Each host runs `comin` tracking its own `deploy-<hostname>` branch, not
-`main` (see `modules/users/thorn.nix`). CI (`.github/workflows/ci.yml`)
-builds every host's toplevel from `main` in a matrix, and only fast-forwards
-`deploy-<hostname>` once that specific host's build passes — so pushing to
-`main` never deploys a config that hasn't been proven to evaluate and build
-for that host. Keep this in mind when editing CI or the comin config: a
-change that breaks one host's build blocks only that host's deploy branch,
-not the others.
+Production hosts run `comin` against the shared immutable `production` branch
+(see `modules/users/thorn.nix`). Hydra builds every production host closure;
+Forge advances `production` only after the complete production job set passes
+and required closures are available in Cachix. Validation hosts set deployment
+off in `hosts/inventory.nix`. Keep this all-or-nothing fleet promotion contract
+in mind when editing CI, Hydra, Forge promotion, inventory, or comin.
