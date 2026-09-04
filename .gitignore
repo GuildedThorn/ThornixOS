@@ -2,9 +2,12 @@
 secrets/*
 certs/*.csr
 certs/*.key
+__pycache__/
+*.py[cod]
 
 /.idea/
 /modules/openwrt/tr1200/result
+/modules/openwrt/tr1200/result-finix
 
 # Claude Code local permission settings
 .claude/settings.local.json

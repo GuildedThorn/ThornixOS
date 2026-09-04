@@ -13,6 +13,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    finix-src = {
+      url = "github:finix-community/finix/9c5be65fb633085244922075df3eae16b053dbd7";
+      flake = false;
+    };
+
     jovian-nixos = {
       url = "github:Jovian-Experiments/Jovian-NixOS";
       inputs.nixpkgs.follows = "nixpkgs";

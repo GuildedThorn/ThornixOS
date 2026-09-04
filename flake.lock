@@ -194,6 +194,23 @@
         "type": "github"
       }
     },
+    "finix-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788307610,
+        "narHash": "sha256-elST3Abv9ePQlkGQfzdDEs+5Tu/Bw4nk50z8MpPZkuM=",
+        "owner": "finix-community",
+        "repo": "finix",
+        "rev": "9c5be65fb633085244922075df3eae16b053dbd7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "finix-community",
+        "repo": "finix",
+        "rev": "9c5be65fb633085244922075df3eae16b053dbd7",
+        "type": "github"
+      }
+    },
     "firefox-gnome-theme": {
       "flake": false,
       "locked": {
@@ -1306,11 +1323,11 @@
         "systems": "systems_3"
       },
       "locked": {
-        "lastModified": 1788353241,
-        "narHash": "sha256-GZ0UGJw4ObVgB3tPHGibq5LqPfkWwhfXHTG965XyZxo=",
+        "lastModified": 1788526329,
+        "narHash": "sha256-KKTAUP5Ibth1IqdYj/qFsPHo9swsb8Z8stfFWBw4PmE=",
         "owner": "astro",
         "repo": "nix-openwrt-imagebuilder",
-        "rev": "79ce305756ba573bb9d1fb5ebb87c37d9e102220",
+        "rev": "5f9e6b5587e8d0a24de201deba1993ef3d00802e",
         "type": "github"
       },
       "original": {
@@ -1391,6 +1408,7 @@
         "comin": "comin",
         "disko": "disko",
         "files": "files",
+        "finix-src": "finix-src",
         "flake-compat": "flake-compat_3",
         "flake-parts": "flake-parts",
         "guildedthorn-com": "guildedthorn-com",

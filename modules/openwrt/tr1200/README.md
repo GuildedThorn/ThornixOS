@@ -147,3 +147,56 @@ From an attached client, confirm Internet and intended non-administrative home
 services work, then confirm SSH and privileged management ports are rejected.
 On the firewall, `wg show wg0` should report `10.10.10.5/32` and
 `172.20.120.0/24` for the TR1200 peer.
+
+## Experimental Finix RAM boot
+
+`TR1200-finix` builds a MIPS32r2 soft-float Finix userspace against musl while
+retaining the exact OpenWrt 24.10.4 kernel and USB/ext4 modules required by the
+TR1200. It produces a USB root filesystem and a U-Boot recovery bundle without
+writing the router's kernel or root filesystem partitions.
+
+The OpenWrt kernel disables external initramfs decompressors. `recovery.bin`
+therefore places an uncompressed `newc` initramfs after the kernel at a fixed
+RAM offset. Its device tree reserves that range before Linux initializes.
+
+```sh
+nix build .#TR1200-finix --out-link modules/openwrt/tr1200/result-finix
+ls -lh modules/openwrt/tr1200/result-finix/
+```
+
+Important artifacts:
+
+- `finix-rootfs.img`: ext4 filesystem labeled `FINIXROOT` for a USB drive or
+  partition.
+- `recovery.bin`: patched OpenWrt kernel followed by the raw Finix initramfs at
+  a fixed 4 MiB offset.
+- `initrd.cpio`: raw initramfs included in `recovery.bin`; the stock kernel
+  cannot unpack gzip, xz, or zstd external initramfs images.
+- `tr1200-finix.dtb` and `layout.txt`: patched boot properties and exact RAM
+  addresses used by the bundle.
+- `boot.txt`: volatile U-Boot commands for loading the bundle at `0x81000000`.
+- `SHA256SUMS`: hashes for the generated boot artifacts.
+
+Writing `finix-rootfs.img` destroys existing data on the selected target. Check
+the target device carefully before running a command such as:
+
+```sh
+sudo dd if=modules/openwrt/tr1200/result-finix/finix-rootfs.img of=/dev/sdX bs=4M conv=fsync status=progress
+```
+
+The RAM-boot path requires Cudy's unlocked intermediary U-Boot and a 3.3 V UART
+console. Installing that intermediary bootloader is a separate, flash-modifying
+operation; recovery testing must happen before relying on it. From menu option
+4, configure TFTP and boot only from RAM:
+
+```text
+setenv autostart no
+setenv ipaddr 192.168.1.1
+setenv serverip 192.168.1.88
+tftpboot 81000000 recovery.bin
+bootm 81000000
+```
+
+Do not run `saveenv` or any flash erase/write command. This bring-up image
+deliberately enables unauthenticated physical UART rescue and login shells; do
+not treat it as a production configuration.
