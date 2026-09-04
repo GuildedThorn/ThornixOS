@@ -4,11 +4,15 @@
     {
       config,
       lib,
+      osConfig,
       pkgs,
       ...
     }:
     let
       cfg = config.thorn.desktop.xfceI3;
+      hasAudio = osConfig.services.pipewire.enable;
+      hasNetworkManager = osConfig.networking.networkmanager.enable;
+      hasObsidian = config.thorn.programs.obsidian.enable;
       screenshotDir = "/home/thorn/Pictures/screenshots";
       wallpaper = "${inputs.self}/pictures/FullLogo.png";
     in
@@ -18,18 +22,19 @@
       config = lib.mkIf cfg.enable {
         xsession.enable = true;
 
-        home.packages = with pkgs; [
-          dunst
-          i3lock
-          networkmanagerapplet
-          picom
-          playerctl
-          brightnessctl
-          rofi-obsidian
-          xfce4-clipman-plugin
-          xfce4-power-manager
-          xfce4-screenshooter
-        ];
+        home.packages =
+          (with pkgs; [
+            brightnessctl
+            dunst
+            gnome-calculator
+            i3lock
+            picom
+            playerctl
+            xfce4-clipman-plugin
+            xfce4-screenshooter
+          ])
+          ++ lib.optional hasNetworkManager pkgs.networkmanagerapplet
+          ++ lib.optional hasObsidian pkgs.rofi-obsidian;
 
         home.file."Pictures/screenshots/.keep".text = "";
 
@@ -38,7 +43,7 @@
           set $terminal ghostty +new-window
           set $menu rofi -show drun
           set $window_picker rofi -show window
-          set $obsidian_picker rofi -modi 'obsidian:rofi-obsidian' -show obsidian
+          ${lib.optionalString hasObsidian "set $obsidian_picker rofi -modi 'obsidian:rofi-obsidian' -show obsidian"}
           set $lock i3lock -c 1f1f28
           set $shots ${screenshotDir}
 
@@ -56,9 +61,7 @@
           smart_gaps off
 
           exec_always --no-startup-id feh --bg-fill ${wallpaper}
-          exec --no-startup-id xfsettingsd --replace
-          exec --no-startup-id xfce4-power-manager
-          exec --no-startup-id nm-applet
+          ${lib.optionalString hasNetworkManager "exec --no-startup-id nm-applet"}
           exec --no-startup-id xfce4-clipman
           exec --no-startup-id dunst
           exec --no-startup-id picom --config ~/.config/picom/picom.conf
@@ -95,7 +98,7 @@
           bindsym $mod+Ctrl+Down resize grow height 20 px or 20 ppt
           bindsym $mod+s exec $window_picker
           bindsym $mod+d exec $menu
-          bindsym $mod+o exec $obsidian_picker
+          ${lib.optionalString hasObsidian "bindsym $mod+o exec $obsidian_picker"}
           bindsym $mod+Shift+F1 layout tabbed
           bindsym $mod+Shift+F2 layout toggle split
           bindsym $mod+Shift+F4 layout stacking
@@ -104,10 +107,12 @@
           bindsym XF86AudioPlay exec playerctl play-pause
           bindsym XF86AudioNext exec playerctl next
           bindsym XF86AudioPrev exec playerctl previous
-          bindsym XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
-          bindsym XF86AudioRaiseVolume exec wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+
-          bindsym XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
-          bindsym XF86AudioMicMute exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+          ${lib.optionalString hasAudio ''
+            bindsym XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+            bindsym XF86AudioRaiseVolume exec wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+
+            bindsym XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+            bindsym XF86AudioMicMute exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+          ''}
           bindsym XF86Calculator exec gnome-calculator
           bindsym Print exec xfce4-screenshooter -f -s ${screenshotDir}
           bindsym $mod+Print exec xfce4-screenshooter -w -s ${screenshotDir}

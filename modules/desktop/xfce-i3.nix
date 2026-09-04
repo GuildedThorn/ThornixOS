@@ -1,7 +1,15 @@
 {
   nixos.modules.desktop-xfce-i3 =
-    { config, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
 
+    let
+      managedSession = config.home-manager.users.thorn.thorn.desktop.xfceI3.enable;
+    in
     {
 
       services.xserver = {
@@ -30,9 +38,12 @@
 
       services.displayManager.defaultSession = "xfce+i3";
 
-      # xfce enables gnome-keyring by default, which defaults gcr-ssh-agent
-      # to enabled too — conflicts with programs.ssh.startAgent (services-ssh module)
+      # XFCE enables gnome-keyring by default, which defaults gcr-ssh-agent
+      # to enabled too. Thorn's user baseline owns SSH_AUTH_SOCK instead.
       services.gnome.gcr-ssh-agent.enable = false;
+
+      # Dunst is the configured notification daemon for this session.
+      environment.xfce.excludePackages = lib.optionals managedSession [ pkgs.xfce4-notifyd ];
 
       programs.dconf.enable = true;
       programs.i3lock.enable = true;
