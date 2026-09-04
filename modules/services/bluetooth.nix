@@ -1,6 +1,6 @@
 {
   nixos.modules.services-bluetooth =
-    { pkgs, ... }:
+    { lib, pkgs, ... }:
     {
 
       # Enable bluetooth with blueman
@@ -20,7 +20,7 @@
         package = pkgs.bluez;
       };
 
-      services.blueman.enable = true;
+      services.blueman.enable = lib.mkDefault true;
 
       # Enable game controller support
       hardware.uinput.enable = true;

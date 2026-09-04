@@ -16,6 +16,10 @@
       "${inputs.self}/hosts/deck/networking.nix"
       "${inputs.self}/hosts/deck/system.nix"
       { home-manager.users.thorn = import "${inputs.self}/hosts/deck/home.nix"; }
+      {
+        services.blueman.enable = false;
+        services.flatpak.enable = true;
+      }
     ];
   };
 }
