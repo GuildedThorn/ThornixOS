@@ -16,8 +16,6 @@
         inputs.nix-flatpak.nixosModules.nix-flatpak
       ];
 
-      users.users.thorn.isNormalUser = true;
-
       # -------------------------
       # Experimental Features
       # -------------------------

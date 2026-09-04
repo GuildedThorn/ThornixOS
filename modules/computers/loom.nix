@@ -8,7 +8,7 @@ in
   flake.nixosConfigurations.loom = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
     modules = [
-      config.nixos.modules.thorn-core
+      config.nixos.modules.thorn-headless
 
       config.nixos.modules.services-n8n-loom
       config.nixos.modules.services-thorncloud-acme

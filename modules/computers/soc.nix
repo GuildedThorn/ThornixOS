@@ -6,7 +6,7 @@ in
   flake.nixosConfigurations.soc = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
     modules = [
-      config.nixos.modules.thorn-core
+      config.nixos.modules.thorn-headless
 
       # The SIEM host is worth defending too — an attacker who reaches soc
       # can rewrite the record of how they got in.

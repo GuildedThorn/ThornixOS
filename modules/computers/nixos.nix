@@ -3,7 +3,7 @@
   flake.nixosConfigurations.nixos = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
     modules = [
-      config.nixos.modules.thorn-core
+      config.nixos.modules.thorn-interactive
       inputs.hjem.nixosModules.default
 
       config.nixos.modules.desktop-hyprland

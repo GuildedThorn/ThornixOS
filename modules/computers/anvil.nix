@@ -9,7 +9,7 @@ in
   flake.nixosConfigurations.anvil = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
     modules = [
-      config.nixos.modules.thorn-core
+      config.nixos.modules.thorn-headless
 
       config.nixos.modules.services-anvil-ca
       config.nixos.modules.services-canary

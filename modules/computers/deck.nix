@@ -3,7 +3,7 @@
   flake.nixosConfigurations.deck = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
     modules = [
-      config.nixos.modules.thorn-core
+      config.nixos.modules.thorn-interactive
       inputs.jovian-nixos.nixosModules.jovian
 
       config.nixos.modules.desktop-kde-wle

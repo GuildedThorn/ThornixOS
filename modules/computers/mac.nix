@@ -6,7 +6,7 @@ in
   flake.nixosConfigurations.mac = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
     modules = [
-      config.nixos.modules.thorn-core
+      config.nixos.modules.thorn-interactive
 
       config.nixos.modules.desktop-xfce-i3
       config.nixos.modules.processor-intel

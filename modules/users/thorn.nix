@@ -5,9 +5,8 @@ let
   rice = import ../../lib/rice.nix;
 in
 {
-  nixos.modules.thorn-user =
+  nixos.modules.thorn-system =
     {
-      pkgs,
       config,
       lib,
       ...
@@ -16,6 +15,88 @@ in
       hostName = config.networking.hostName;
       host = fleet.${hostName} or null;
       deployment = if host == null then { enable = false; } else host.deployment;
+    in
+    {
+      assertions = [
+        {
+          assertion = host != null;
+          message = "${hostName} is missing from hosts/inventory.nix";
+        }
+      ];
+
+      time.timeZone = "America/Chicago";
+
+      i18n.defaultLocale = "en_US.UTF-8";
+      i18n.extraLocaleSettings = {
+        LC_ADDRESS = "en_US.UTF-8";
+        LC_IDENTIFICATION = "en_US.UTF-8";
+        LC_MEASUREMENT = "en_US.UTF-8";
+        LC_MONETARY = "en_US.UTF-8";
+        LC_NAME = "en_US.UTF-8";
+        LC_NUMERIC = "en_US.UTF-8";
+        LC_PAPER = "en_US.UTF-8";
+        LC_TELEPHONE = "en_US.UTF-8";
+        LC_TIME = "en_US.UTF-8";
+      };
+
+      security.pki.certificates = [
+        (builtins.readFile "${inputs.self}/certs/ThornCloud_CA.crt")
+      ];
+
+      services.comin = lib.mkIf deployment.enable {
+        enable = true;
+        desktop.enable = host.class == "workstation" || host.class == "laptop";
+        remotes = [
+          {
+            name = "origin";
+            url = "https://github.com/GuildedThorn/ThornixOS.git";
+            # Hydra proves the complete fleet before advancing this pointer.
+            branches.main.name = deployment.branch;
+          }
+        ];
+      };
+    };
+
+  nixos.modules.thorn-admin =
+    { pkgs, ... }:
+    {
+      users.users.thorn = {
+        isNormalUser = true;
+        shell = pkgs.zsh;
+        extraGroups = [
+          "wheel"
+          "xen"
+          "kvm"
+        ];
+        packages = with pkgs; [
+          tree
+          btop
+          gtop
+        ];
+      };
+
+      programs.zsh.enable = true;
+
+      environment.systemPackages = with pkgs; [
+        tree-sitter
+        wget
+        cifs-utils
+        nfs-utils
+        usbutils
+        p7zip
+        unzip
+        nmap
+        bind
+        coreutils
+        findutils
+        diffutils
+        gnumake
+      ];
+    };
+
+  nixos.modules.thorn-user =
+    { pkgs, ... }:
+    let
       catppuccinPlymouth = pkgs.catppuccin-plymouth.override { variant = "mocha"; };
       thornixPlymouthConfig = pkgs.writeText "thornix.plymouth" ''
         [Plymouth Theme]
@@ -69,87 +150,28 @@ in
           '';
     in
     {
-
-      assertions = [
-        {
-          assertion = host != null;
-          message = "${hostName} is missing from hosts/inventory.nix";
-        }
-      ];
-
       home-manager.users.thorn = homeManagerThorn;
-
-      # Set your time zone.
-      time.timeZone = "America/Chicago";
-
-      # Select internationalisation properties.
-      i18n.defaultLocale = "en_US.UTF-8";
-
-      i18n.extraLocaleSettings = {
-        LC_ADDRESS = "en_US.UTF-8";
-        LC_IDENTIFICATION = "en_US.UTF-8";
-        LC_MEASUREMENT = "en_US.UTF-8";
-        LC_MONETARY = "en_US.UTF-8";
-        LC_NAME = "en_US.UTF-8";
-        LC_NUMERIC = "en_US.UTF-8";
-        LC_PAPER = "en_US.UTF-8";
-        LC_TELEPHONE = "en_US.UTF-8";
-        LC_TIME = "en_US.UTF-8";
-      };
-
-      security.pki.certificates = [
-        (builtins.readFile "${inputs.self}/certs/ThornCloud_CA.crt")
-      ];
 
       security.pam.services.login.enableGnomeKeyring = true;
 
       environment.systemPackages = with pkgs; [
-        tree-sitter
-
-        wget
         gvfs
         samba
         openvpn
-
-        cifs-utils
-        nfs-utils
-        usbutils
-
-        p7zip
-        unzip
-
-        nmap
         fuse
-        bind
-
-        coreutils
         ripdrag
-        findutils
-        diffutils
-        gnumake
         pcsc-tools
         glibc
-
         wev
       ];
 
-      users.users.thorn.shell = pkgs.zsh;
-
       users.users.thorn.extraGroups = [
-        "wheel"
-        "xen"
-        "kvm"
         "networkmanager"
         "corectrl"
         "input"
       ];
 
-      users.users.thorn.packages = with pkgs; [
-        tree
-        btop
-        gtop
-        mpv
-      ];
+      users.users.thorn.packages = with pkgs; [ mpv ];
 
       fonts = {
         enableDefaultPackages = true;
@@ -183,25 +205,6 @@ in
           };
         };
       };
-
-      #services.kmscon.enable = true;
-
-      services.comin = lib.mkIf deployment.enable {
-        enable = true;
-        desktop.enable = host.class == "workstation" || host.class == "laptop";
-        remotes = [
-          {
-            name = "origin";
-            url = "https://github.com/GuildedThorn/ThornixOS.git";
-            # Every production host follows the same immutable promotion
-            # pointer. Hydra proves the complete fleet first, and Cachix has
-            # the exact closure before Forge advances this branch.
-            branches.main.name = deployment.branch;
-          }
-        ];
-      };
-
-      programs.zsh.enable = true;
 
       stylix = {
         enable = true;

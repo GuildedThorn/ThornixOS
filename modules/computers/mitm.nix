@@ -3,7 +3,7 @@
   flake.nixosConfigurations.mitm = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
     modules = [
-      config.nixos.modules.thorn-core
+      config.nixos.modules.thorn-headless
       config.nixos.modules.services-ssh
       config.nixos.modules.services-thorncloud-acme
 
