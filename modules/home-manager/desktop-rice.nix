@@ -19,6 +19,24 @@
         lib.mkEnableOption "Thorn's shared desktop rice for Hyprland and xfce+i3";
 
       config = lib.mkIf cfg.enable {
+        xdg.mimeApps = {
+          enable = true;
+          defaultApplications = {
+            "audio/flac" = [ "mpv.desktop" ];
+            "audio/mpeg" = [ "mpv.desktop" ];
+            "audio/ogg" = [ "mpv.desktop" ];
+            "audio/x-wav" = [ "mpv.desktop" ];
+            "image/gif" = [ "feh.desktop" ];
+            "image/jpeg" = [ "feh.desktop" ];
+            "image/png" = [ "feh.desktop" ];
+            "image/webp" = [ "feh.desktop" ];
+            "inode/directory" = [ "yazi.desktop" ];
+            "video/mp4" = [ "mpv.desktop" ];
+            "video/webm" = [ "mpv.desktop" ];
+            "video/x-matroska" = [ "mpv.desktop" ];
+          };
+        };
+
         programs.rofi = {
           enable = true;
           font = "${fonts.sans} 14";

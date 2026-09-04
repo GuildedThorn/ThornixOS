@@ -10,10 +10,23 @@
       cfg = config.thorn.programs.firefox;
     in
     {
-      options.thorn.programs.firefox.enable =
-        lib.mkEnableOption "Thorn's Firefox Home Manager configuration";
+      options.thorn.programs.firefox = {
+        enable = lib.mkEnableOption "Thorn's Firefox Home Manager configuration";
+        glanceHomepage = lib.mkEnableOption "local Glance as Firefox's homepage";
+        searxngDefault = lib.mkEnableOption "private SearXNG as Firefox's default search engine";
+      };
 
       config = lib.mkIf cfg.enable {
+        xdg.mimeApps = {
+          enable = true;
+          defaultApplications = {
+            "application/xhtml+xml" = [ "firefox.desktop" ];
+            "text/html" = [ "firefox.desktop" ];
+            "x-scheme-handler/http" = [ "firefox.desktop" ];
+            "x-scheme-handler/https" = [ "firefox.desktop" ];
+          };
+        };
+
         programs.firefox = {
           enable = true;
           languagePacks = [
@@ -23,14 +36,29 @@
           profiles = {
             default = {
               settings = {
-                "browser.startup.homepage" = "http://localhost:8080";
+                "browser.startup.homepage" = if cfg.glanceHomepage then "http://localhost:8080" else "about:home";
               };
               search = {
                 force = true;
-                default = "SearXNG";
-                privateDefault = "SearXNG";
+                default = if cfg.searxngDefault then "SearXNG" else "Public Web";
+                privateDefault = if cfg.searxngDefault then "SearXNG" else "Public Web";
 
                 engines = {
+
+                  "Public Web" = {
+                    urls = [
+                      {
+                        template = "https://duckduckgo.com/";
+                        params = [
+                          {
+                            name = "q";
+                            value = "{searchTerms}";
+                          }
+                        ];
+                      }
+                    ];
+                    definedAliases = [ "@ddg" ];
+                  };
 
                   "SearXNG" = {
                     urls = [
