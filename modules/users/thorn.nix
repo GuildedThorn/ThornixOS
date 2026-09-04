@@ -173,6 +173,10 @@ in
 
       users.users.thorn.packages = with pkgs; [ mpv ];
 
+      # Client authentication is independent from whether this host accepts
+      # inbound SSH connections.
+      programs.ssh.startAgent = true;
+
       fonts = {
         enableDefaultPackages = true;
 
