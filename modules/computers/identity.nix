@@ -7,39 +7,19 @@ in
   flake.nixosConfigurations.identity = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
     modules = [
-      config.nixos.modules.thorn-headless
+      config.nixos.modules.profile-qemu-server
 
       config.nixos.modules.services-authentik
-      config.nixos.modules.services-ssh
-
-      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/identity/disko.nix"
       "${inputs.self}/hosts/identity/networking.nix"
       "${inputs.self}/hosts/identity/secrets.nix"
 
       (
-        { config, lib, ... }:
+        { config, ... }:
         {
-          # This headless identity provider needs visibility into service
-          # executions as well as interactive sessions.
-          thorn.audit.execScope = "all";
-
           security.pki.certificates = [
             (builtins.readFile "${inputs.self}/certs/ThornCloud_CA.crt")
           ];
-
-          boot = {
-            growPartition = true;
-            loader.grub = {
-              enable = true;
-              devices = lib.mkForce [ "/dev/sda" ];
-              efiSupport = false;
-            };
-            kernelParams = [ "net.ifnames=0" ];
-          };
-
-          fileSystems."/".autoResize = true;
-          services.qemuGuest.enable = true;
 
           # Nginx is the sole network-facing Authentik listener. Authentik's
           # HTTP backend and generated-certificate HTTPS listener stay on
@@ -73,15 +53,6 @@ in
           systemd.services.nginx = {
             wants = [ "authentik.service" ];
             after = [ "authentik.service" ];
-          };
-
-          services.openssh = {
-            enable = true;
-            settings = {
-              PermitRootLogin = "prohibit-password";
-              PasswordAuthentication = false;
-              KbdInteractiveAuthentication = false;
-            };
           };
 
           # Key-only break-glass access remains independent of Authentik.

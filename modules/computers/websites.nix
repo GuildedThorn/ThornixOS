@@ -7,17 +7,15 @@
   flake.nixosConfigurations.websites = inputs.nixpkgs.lib.nixosSystem {
     system = "x86_64-linux";
     modules = [
-      config.nixos.modules.thorn-headless
+      config.nixos.modules.profile-qemu-server
 
       config.nixos.modules.services-canary
       config.nixos.modules.services-clamav
       config.nixos.modules.services-crowdsec
-      config.nixos.modules.services-ssh
       config.nixos.modules.services-suricata
 
       inputs.guildedthorn-com.nixosModules.default
 
-      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/websites/disko.nix"
       "${inputs.self}/hosts/websites/networking.nix"
       "${inputs.self}/hosts/websites/secrets.nix"
@@ -25,49 +23,16 @@
       (
         {
           config,
-          lib,
           pkgs,
           ...
         }:
         {
-          # Headless and internet-facing: nobody logs in interactively, so
-          # the default "sessions" exec scope would record nothing here —
-          # leaving the host most likely to be reached through a service
-          # exploit as the one with no execution telemetry at all. See
-          # services-audit for the volume trade.
-          thorn.audit.execScope = "all";
-
-          boot = {
-            growPartition = true;
-            # BIOS boot via GRUB on the whole disk. disko already registers
-            # /dev/sda as a GRUB device; force a single entry so the two
-            # definitions don't merge into a duplicate (mirroredBoots assert).
-            loader.grub = {
-              enable = true;
-              devices = lib.mkForce [ "/dev/sda" ];
-              efiSupport = false;
-            };
-            # Keep predictable names disabled so the NIC stays "eth0",
-            # matching the static config in hosts/websites/networking.nix.
-            kernelParams = [ "net.ifnames=0" ];
-          };
-
-          # Complete boot.growPartition by growing the ext4 filesystem to
-          # fill the enlarged partition on boot.
-          fileSystems."/".autoResize = true;
-
-          services.openssh = {
-            enable = true;
-            settings.PermitRootLogin = "prohibit-password";
-            settings.PasswordAuthentication = false;
-          };
           # Workstation key — without at least one authorized key this
           # headless host has no login path at all (no console passwords,
           # password auth off).
           users.users.root.openssh.authorizedKeys.keys = [
             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO+iFLtqnhkscz2qLK45nJVmGZIbQvIeIuW8tenAjX2p thorn@workstation"
           ];
-          services.qemuGuest.enable = true;
 
           services.guildedthorn = {
             enable = true;
