@@ -15,33 +15,78 @@
         programs.zellij = {
           enable = true;
           enableZshIntegration = true;
+          attachExistingSession = true;
 
-          layouts = {
-            default = {
-              layout = {
-                _children = [
-                  {
-                    pane = {
-                      _props = {
-                        size = 1;
-                        borderless = true;
-                      };
+          settings = {
+            simplified_ui = false;
+            pane_frames = true;
+            mouse_mode = false;
+            scroll_buffer_size = 100000;
+            default_mode = "normal";
 
-                      _children = [
-                        {
-                          plugin = {
-                            _props = {
-                              location = "zellij:tab-bar";
-                            };
-                          };
-                        }
-                      ];
-                    };
-                  }
-                ];
+            scrollback_editor = "nvim";
+            copy_command = "wl-copy";
+            copy_clipboard = "system";
+            session_serialization = true;
+
+            plugins = {
+              compact-bar = {
+                location = "zellij:compact-bar";
+                tooltip = "Alt h";
               };
             };
           };
+
+          layouts = {
+            default = ''
+              layout {
+                default_tab_template {
+                  children
+
+                  pane size=1 borderless=true {
+                    plugin location="zellij:compact-bar"
+                  }
+                }
+
+                pane
+              }
+            '';
+
+            dev = ''
+              layout {
+                tab name="Code" focus=true {
+                  pane command="nvim"
+
+                  pane size=1 borderless=true {
+                    plugin location="zellij:compact-bar"
+                  }
+                }
+
+                tab name="Files" {
+                  pane command="yazi"
+
+                  pane size=1 borderless=true {
+                    plugin location="zellij:compact-bar"
+                  }
+                }
+
+                tab name="Shell" {
+                  pane
+
+                  pane size=1 borderless=true {
+                    plugin location="zellij:compact-bar"
+                  }
+                }
+              }
+            '';
+          };
+        };
+
+        home.shellAliases = {
+          zj = "zellij";
+          zls = "zellij list-sessions";
+          za = "zellij attach";
+          zdev = "zellij attach --create dev options --default-layout dev";
         };
       };
     };

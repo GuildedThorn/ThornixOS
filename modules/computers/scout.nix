@@ -13,6 +13,7 @@
       config.nixos.modules.services-audio
       config.nixos.modules.services-bluetooth
       config.nixos.modules.services-clamav
+      config.nixos.modules.services-displaylink
       config.nixos.modules.services-fingerprint
       config.nixos.modules.services-keybase
       config.nixos.modules.services-obs
