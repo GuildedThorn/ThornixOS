@@ -506,11 +506,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1788765507,
-        "narHash": "sha256-jdvAs/J1QytkSREIRFOXRHzJnrYdtBh+Gy6Ejo+R+dA=",
+        "lastModified": 1788807582,
+        "narHash": "sha256-M94pdwocnHv92Hp1r9yuXIoJ3hhHUiuyVMbCtcBP2FE=",
         "owner": "GuildedThorn",
         "repo": "ThornBot",
-        "rev": "4cf93ebd1a88231e3c4766e223cf707b0c918bdb",
+        "rev": "81d1dac4c8d44184981bb18151b9d79898e1bf2d",
         "type": "github"
       },
       "original": {
