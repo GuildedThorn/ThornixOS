@@ -24,16 +24,28 @@
     (lib.mkIf config.thorn.desktop.hyprland.enable {
       wayland.windowManager.hyprland.settings.monitor = [
         {
+          output = "DVI-I-2";
+          mode = "highres";
+          position = "0x0";
+          scale = "1";
+        }
+        {
+          output = "DVI-I-1";
+          mode = "highres";
+          position = "1920x0";
+          scale = "2";
+        }
+        {
           output = "eDP-1";
           mode = "highres";
-          position = "auto-down";
+          position = "3200x0";
           scale = "1";
         }
         {
           output = "HDMI-A-2";
           mode = "highres";
-          position = "auto-up";
-          scale = "auto";
+          position = "3200x-2160";
+          scale = "1";
         }
       ];
 

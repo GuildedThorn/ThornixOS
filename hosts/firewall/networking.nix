@@ -142,6 +142,7 @@ in
         iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
         iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.53 tcp dport 80 accept
         iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.57 tcp dport 8000 accept
+        iifname "wg0" ip saddr 10.10.10.4/31 ip daddr 172.16.25.68 tcp dport 22 accept
       '';
 
       # Limit firewall administration to fixed administrator endpoints and pin
