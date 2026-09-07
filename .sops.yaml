@@ -25,6 +25,10 @@ keys:
   - &host_mitm age1k3pmw077qagpeqwnlsftj365nkdjqcdtcr5ux2rxxku0wx3xgvgs0ynfts
   - &host_firewall age107ct049vtdxkcyqd50dvkkz94juz0gclxmhsvhdehtllz8m5tpwqxj8k57
   - &host_vault age1ef4rcv7hk2rwanhx52mtx7dr2y42ctdt4n7ftehxkk39v2e08yssdwy2m9
+  # TODO: replace with the thornbot VM's actual age key (derived from its
+  # /etc/ssh/ssh_host_ed25519_key.pub via `nixos-generate-config`... ssh-to-age)
+  # after the host is first provisioned: `ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub`
+  - &host_thornbot ageREPLACE_ME_WITH_THORNBOT_AGE_KEY
 
 creation_rules:
   # Shared Alloy writer identity. Every telemetry-enrolled host must be able
@@ -81,6 +85,9 @@ creation_rules:
   - path_regex: hosts/websites/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_websites
+  - path_regex: hosts/thornbot/secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_thornbot
   - path_regex: hosts/forge/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_forge

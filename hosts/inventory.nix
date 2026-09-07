@@ -358,4 +358,15 @@ in
       probes = [ "https://guildedthorn.com/" ];
     };
   };
+
+  thornbot = mkHost {
+    address = "172.16.25.68";
+    fqdn = "thornbot.guildedthorn.arpa";
+    role = "discord-bot";
+    monitoring = {
+      mode = "scrape";
+      journal = true;
+      readyFiles = [ "hosts/thornbot/secrets.nix" ];
+    };
+  };
 }

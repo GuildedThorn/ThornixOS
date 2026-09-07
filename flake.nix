@@ -121,6 +121,7 @@
     awww.url = "git+https://codeberg.org/LGFae/awww";
 
     guildedthorn-com.url = "github:GuildedThorn/GuildedThorn.com";
+    guildedthorn-bot.url = "github:GuildedThorn/ThornBot";
 
     nix-flatpak.url = "github:gmodena/nix-flatpak/";
 
