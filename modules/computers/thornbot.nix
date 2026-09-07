@@ -10,6 +10,7 @@ in
     modules = [
       config.nixos.modules.profile-qemu-server
 
+      config.nixos.modules.services-ssh
       config.nixos.modules.services-thornbot
       "${inputs.self}/hosts/thornbot/disko.nix"
       "${inputs.self}/hosts/thornbot/networking.nix"
