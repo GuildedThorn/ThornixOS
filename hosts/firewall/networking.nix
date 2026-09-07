@@ -100,7 +100,7 @@ in
         # The fixed workstation and Scout's home Wi-Fi are LAN admin endpoints.
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.0/24 tcp dport { 22, 443 } accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.3 tcp dport 8006 accept
-        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.4 tcp dport { 8920, 30008, 30304 } accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.4 tcp dport { 8920, 30008, 30041, 30304 } accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.50 tcp dport 8090 accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.53 tcp dport 80 accept
