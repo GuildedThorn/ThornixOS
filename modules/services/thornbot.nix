@@ -29,10 +29,15 @@
         # loopback-only so no AMQP port is ever exposed to the LAN.
         services.rabbitmq = {
           enable = true;
+          listenAddress = "127.0.0.1";
+          port = 5672;
           configItems = {
             # Keep AMQP and the management API on loopback — the firewall
             # never opens these ports, so nothing ever leaves 127.0.0.1.
-            "listeners.tcp.default" = "127.0.0.1:5672";
+            # Note: do NOT also set "listeners.tcp.default" here. The nixpkgs
+            # module already injects "listeners.tcp.1" from listenAddress/port
+            # (lib.mkDefault); adding a second entry for the same socket makes
+            # RabbitMQ die at boot with {could_not_start_listener,{already_started,...}}.
             "management.tcp.port" = "-1";
           };
         };
