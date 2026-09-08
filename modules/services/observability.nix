@@ -99,12 +99,15 @@
           };
 
           services.alloy.enable = true;
-          systemd.services.alloy.serviceConfig = {
-            SupplementaryGroups = [ "systemd-journal" ];
-            LoadCredential = [
-              "telemetry-writer.crt:${telemetryWriterCertificate}"
-              "telemetry-writer.key:${config.sops.secrets.telemetry_writer_key.path}"
-            ];
+          systemd.services.alloy = {
+            after = [ "sops-nix.service" ];
+            serviceConfig = {
+              SupplementaryGroups = [ "systemd-journal" ];
+              LoadCredential = [
+                "telemetry-writer.crt:${telemetryWriterCertificate}"
+                "telemetry-writer.key:${config.sops.secrets.telemetry_writer_key.path}"
+              ];
+            };
           };
 
           environment.etc."alloy/config.alloy".text = ''

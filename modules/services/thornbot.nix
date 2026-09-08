@@ -55,7 +55,10 @@
         systemd.services.thornbot-rabbitmq-user = {
           description = "Provision the ThornBot RabbitMQ user";
           wantedBy = [ "multi-user.target" ];
-          after = [ "rabbitmq.service" ];
+          after = [
+            "rabbitmq.service"
+            "sops-nix.service"
+          ];
           wants = [ "rabbitmq.service" ];
           before = [ "thornbot.service" ];
           requiredBy = [ "thornbot.service" ];
