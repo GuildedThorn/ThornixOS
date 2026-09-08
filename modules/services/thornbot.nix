@@ -55,6 +55,7 @@
         systemd.services.thornbot-rabbitmq-user = {
           description = "Provision the ThornBot RabbitMQ user";
           wantedBy = [ "multi-user.target" ];
+          path = [ pkgs.rabbitmq-server ];
           after = [
             "rabbitmq.service"
             "sops-nix.service"
