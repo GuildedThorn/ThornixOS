@@ -65,6 +65,10 @@
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
+            # rabbitmqctl must find the broker's erlang cookie
+            # (/var/lib/rabbitmq/.erlang.cookie); as root it looks in
+            # $HOME/.erlang.cookie, which does not exist → node unreachable.
+            Environment = "HOME=/var/lib/rabbitmq";
           };
           script = ''
             set -euo pipefail
