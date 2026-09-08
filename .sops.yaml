@@ -51,7 +51,8 @@ creation_rules:
       age1znu04a67p362wzxgguu83d89n4mvh5tf2fc4kywm5x6xf4pzyp7sgf9yrp,
       age1az503gz828gjmk5zrmx2z9nxe86v44karethcfz8afyum3fvdv9q5u0ntv,
       age107ct049vtdxkcyqd50dvkkz94juz0gclxmhsvhdehtllz8m5tpwqxj8k57,
-      age1ef4rcv7hk2rwanhx52mtx7dr2y42ctdt4n7ftehxkk39v2e08yssdwy2m9
+      age1ef4rcv7hk2rwanhx52mtx7dr2y42ctdt4n7ftehxkk39v2e08yssdwy2m9,
+      age12zk234mflajpl384jm5jg5xennqvl8l72sht3rh6aw9xj7aupa6sxyl4nr
   - path_regex: hosts/firewall/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_firewall
