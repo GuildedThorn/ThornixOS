@@ -83,12 +83,17 @@
 
         # Ensure the bot waits for its broker + user and restarts if the
         # provisioning oneshot is ever re-run after a credential change.
+        # MemoryDenyWriteExecute is forced off: the bot is a .NET CoreCLR app,
+        # whose JIT needs W+X page transitions; systemd's default hardened
+        # unit (from the upstream guildedthorn-bot flake) sets MDWX and the
+        # process SEGVs ~150ms into startup.
         systemd.services.thornbot = {
           after = [
             "thornbot-rabbitmq-user.service"
             "rabbitmq.service"
           ];
           wants = [ "thornbot-rabbitmq-user.service" ];
+          serviceConfig.MemoryDenyWriteExecute = lib.mkForce false;
         };
 
         # Headless service VM: hardening handled by profile-qemu-server +
