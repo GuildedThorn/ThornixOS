@@ -16,7 +16,9 @@ in
 
       config.nixos.modules.services-audio
       config.nixos.modules.services-bluetooth
+      config.nixos.modules.services-clamav
       config.nixos.modules.services-obs
+      config.nixos.modules.services-spicetify
       config.nixos.modules.services-ssh
 
       config.nixos.modules.hardware-viewfinder
@@ -48,11 +50,19 @@ in
             nvidia_x11
           ];
 
+          nixpkgs.overlays = [
+            (final: prev: {
+              obs-studio = prev.obs-studio.override {
+                ffmpeg = prev.ffmpeg-full;
+                cudaSupport = true;
+              };
+            })
+          ];
+
           environment.systemPackages = with pkgs; [
             v4l-utils
             ffmpeg
-            obs-studio
-
+            nwg-displays
             ghostty
           ];
 
