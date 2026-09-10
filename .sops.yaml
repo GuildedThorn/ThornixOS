@@ -26,6 +26,9 @@ keys:
   - &host_firewall age107ct049vtdxkcyqd50dvkkz94juz0gclxmhsvhdehtllz8m5tpwqxj8k57
   - &host_vault age1ef4rcv7hk2rwanhx52mtx7dr2y42ctdt4n7ftehxkk39v2e08yssdwy2m9
   - &host_thornbot age12zk234mflajpl384jm5jg5xennqvl8l72sht3rh6aw9xj7aupa6sxyl4nr
+  # TODO: replace with viewfinder's actual age key after first boot:
+  # ssh-to-age -i /etc/ssh/ssh_host_ed25519_key.pub
+  - &host_viewfinder PLACEHOLDER
 
 creation_rules:
   # Shared Alloy writer identity. Every telemetry-enrolled host must be able
@@ -131,6 +134,9 @@ creation_rules:
   - path_regex: hosts/websites/backup-secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_websites
+  - path_regex: hosts/viewfinder/secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_viewfinder
   - path_regex: hosts/vault/backup-secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_vault

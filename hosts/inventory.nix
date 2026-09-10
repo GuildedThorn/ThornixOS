@@ -347,6 +347,18 @@ in
     };
   };
 
+  viewfinder = mkHost {
+    address = "172.16.25.103";
+    class = "workstation";
+    deploy = false;
+    fqdn = "viewfinder.guildedthorn.arpa";
+    production = false;
+    role = "capture-card";
+    monitoring = {
+      mode = "disabled";
+    };
+  };
+
   websites = mkHost {
     address = "172.16.25.50";
     fqdn = "websites.guildedthorn.arpa";
