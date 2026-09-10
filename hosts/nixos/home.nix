@@ -139,7 +139,13 @@ in
         {
           output = "desc:HP Inc. HP X24ih 1CR1211S3F";
           mode = "1920x1080@143.98";
-          position = "2409x3250";
+          position = "2409x3235";
+          scale = "1.0";
+        }
+        {
+          output = "desc:Elgato Systems LLC Elgato1080HDR 0x00107BB0";
+          mode = "1920x1080@143.88";
+          position = "4329x3235";
           scale = "1.0";
         }
       ];

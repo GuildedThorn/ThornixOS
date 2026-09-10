@@ -20,10 +20,10 @@
       '';
     in
     {
-      # Declare alongside the upstream sc0710 module so this module evaluates
-      # on hosts that don't import it (import-tree pulls it in everywhere).
-      options.hardware.sc0710.enable = lib.mkEnableOption "sc0710 kernel module";
-      config = lib.mkIf config.hardware.sc0710.enable {
+      # Gated on the upstream sc0710 module's enable flag (declared by
+      # inputs.sc0710), so this module also evaluates cleanly on hosts that
+      # import-tree pulls in but that never enable sc0710.
+      config = lib.mkIf (lib.attrByPath [ "sc0710" "enable" ] false config.hardware) {
         hardware.firmware = [ firmware ];
       };
     };
