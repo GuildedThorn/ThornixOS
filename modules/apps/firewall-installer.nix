@@ -4,7 +4,7 @@ let
 
   # Upstream's BIOS ISO and serial menu entry are fixed to COM1. This
   # appliance routes its physical USB serial console through COM2/ttyS1.
-  serialIsoModule = builtins.toFile "firewall-iso-image.nix" (
+  serialIsoModuleText =
     builtins.replaceStrings
       [
         "SERIAL 0 115200"
@@ -24,8 +24,7 @@ let
         "${inputs.nixpkgs}/nixos/modules/image/file-options.nix"
         "${inputs.nixpkgs}/nixos/lib/make-iso9660-image.nix"
       ]
-      upstreamIsoModule
-  );
+      upstreamIsoModule;
 
   adminSshKeys = import ../../hosts/firewall/admin-ssh-keys.nix;
 in
@@ -33,6 +32,7 @@ in
   perSystem =
     { pkgs, system, ... }:
     let
+      serialIsoModule = pkgs.writeText "firewall-iso-image.nix" serialIsoModuleText;
       installer = inputs.nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [
@@ -45,7 +45,7 @@ in
             }:
             {
               disabledModules = [ "${modulesPath}/installer/cd-dvd/iso-image.nix" ];
-              imports = [ serialIsoModule ];
+              imports = [ "${serialIsoModule}" ];
 
               image.baseName = lib.mkForce "thornix-firewall-installer";
               isoImage = {

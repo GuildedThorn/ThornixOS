@@ -23,11 +23,11 @@ in
           max_log_file = 25;
           num_logs = 8;
         };
-        services.journald.extraConfig = ''
-          SystemMaxUse=256M
-          RuntimeMaxUse=64M
-          MaxRetentionSec=3day
-        '';
+        services.journald.settings.Journal = {
+          SystemMaxUse = "256M";
+          RuntimeMaxUse = "64M";
+          MaxRetentionSec = "3day";
+        };
 
         users.users.root.openssh.authorizedKeys.keys = adminSshKeys;
       }

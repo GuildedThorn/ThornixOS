@@ -274,11 +274,11 @@
             max_log_file = 50;
             num_logs = 6;
           };
-          services.journald.extraConfig = ''
-            SystemMaxUse=1G
-            RuntimeMaxUse=128M
-            MaxRetentionSec=7day
-          '';
+          services.journald.settings.Journal = {
+            SystemMaxUse = "1G";
+            RuntimeMaxUse = "128M";
+            MaxRetentionSec = "7day";
+          };
 
           services.postgresqlBackup = {
             enable = true;

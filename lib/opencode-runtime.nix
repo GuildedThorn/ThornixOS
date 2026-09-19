@@ -330,20 +330,17 @@ let
 
   renderedManagedSettings = jsonFormat.generate "opencode-nix-managed-unchecked.json" managedSettings;
 
-  modelsDevSchema = pkgs.fetchurl {
-    url = "https://models.dev/model-schema.json";
-    hash = "sha256-/95TguwPwcmZOxgI7gu14PhBA0RviNuEJhZuApP9dGQ=";
-  };
-
-  # OpenCode deliberately references models.dev from its bundled schema.
-  # Rewrite only that reference to a content-addressed local copy so model
-  # validation is strict without requiring network access in the sandbox.
-  opencodeConfigSchema = pkgs.runCommand "opencode-config-schema-offline.json" { } ''
-    substitute ${cfg.package}/share/opencode/config.json "$out" \
-      --replace-fail \
-        'https://models.dev/model-schema.json#/$defs/Model' \
-        'file://${modelsDevSchema}#/$defs/Model'
+  # OpenCode 1.18.30+ bundles its own model schema and references it
+  # relatively from config.json (model-schema.json#/$defs/Model). Keep both
+  # files in one output directory so check-jsonschema can resolve the
+  # sibling reference without needing network access in the sandbox.
+  opencodeConfigSchemaDir = pkgs.runCommand "opencode-config-schema-offline" { } ''
+    mkdir "$out"
+    cp ${cfg.package}/share/config.json "$out/config.json"
+    cp ${cfg.package}/share/model-schema.json "$out/model-schema.json"
   '';
+
+  opencodeConfigSchema = "${opencodeConfigSchemaDir}/config.json";
 
   # Make schema drift a build failure instead of a surprise on next launch.
   validatedManagedSettings =
@@ -427,7 +424,7 @@ let
       model_cache="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode/models.json"
       jcodemunch_config="$HOME/.code-index/config.jsonc"
       config_schema="${opencodeConfigSchema}"
-      tui_schema="${cfg.package}/share/opencode/tui.json"
+      tui_schema="${cfg.package}/share/tui.json"
       failures=0
 
       pass() { printf '  [ok]   %s\n' "$1"; }

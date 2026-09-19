@@ -9,6 +9,7 @@
       rice = import ../../lib/rice.nix;
       inherit (rice) colors geometry;
       thornixMark = rice.branding.svg pkgs;
+      hyprlandPkg = (import ../../lib/hyprland-pkg.nix) { inherit inputs pkgs; };
 
       # Same image as in ~/Pictures/walls-catppuccin-mocha, but fetched into
       # the store so the greeter user can read it before anyone logs in.
@@ -26,7 +27,7 @@
       programs.hyprland = {
         enable = true;
         # set the flake package
-        package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+        package = hyprlandPkg;
         # make sure to also set the portal package, so that they are in sync
         portalPackage =
           inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
@@ -65,7 +66,7 @@
 
       # GTK theme + fonts come from stylix's regreet target (Catppuccin Mocha,
       # Geist); this adds the background, cursor, clock, and the login card CSS.
-      programs.regreet = {
+      services.displayManager.regreet = {
         enable = true;
 
         settings = {

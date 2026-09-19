@@ -212,7 +212,7 @@ in
 
       stylix = {
         enable = true;
-        base16Scheme = "${pkgs.base16-schemes}/share/themes/catppuccin-mocha.yaml";
+        base16Scheme = "${inputs.self}/assets/catppuccin-mocha.yaml";
         cursor = {
           inherit (rice.cursor) name size;
           package = pkgs.catppuccin-cursors.mochaMauve;

@@ -16,7 +16,6 @@
       config.nixos.modules.services-crowdsec
       config.nixos.modules.services-displaylink
       config.nixos.modules.services-fingerprint
-      config.nixos.modules.services-keybase
       config.nixos.modules.services-ollama
       config.nixos.modules.services-retroarch
       config.nixos.modules.services-spicetify
@@ -49,6 +48,20 @@
                   (final.lib.cmakeBool "USE_EXTERNAL_EXPAT" true)
                 ];
               });
+
+              # Backport nixpkgs boost-1.91-optional.patch; the pinned
+              # nixos-unstable tarball predates it. boost 1.91 made
+              # boost::optional's converting constructor explicit, breaking
+              # ifcopenshell 0.8.0's profile_point brace-init.
+              python3Packages = prev.python3Packages.overrideScope (
+                pythonFinal: pythonPrev: {
+                  ifcopenshell = pythonPrev.ifcopenshell.overridePythonAttrs (oldAttrs: {
+                    patches = (oldAttrs.patches or [ ]) ++ [
+                      ../../vendor/ifcopenshell-boost-1.91-optional.patch
+                    ];
+                  });
+                }
+              );
             })
           ];
 
@@ -241,6 +254,8 @@
           hardware.gpgSmartcards.enable = true;
 
           services.ananicy.enable = true;
+          services.ananicy.package = pkgs.ananicy-cpp;
+          services.ananicy.rulesProvider = pkgs.ananicy-cpp;
 
           services.earlyoom.enable = true;
 
@@ -301,11 +316,11 @@
             max_log_file = 100;
             num_logs = 10;
           };
-          services.journald.extraConfig = ''
-            SystemMaxUse=2G
-            RuntimeMaxUse=256M
-            MaxRetentionSec=14day
-          '';
+          services.journald.settings.Journal = {
+            SystemMaxUse = "2G";
+            RuntimeMaxUse = "256M";
+            MaxRetentionSec = "14day";
+          };
 
           security.pam.services.sudo.u2fAuth = true;
         }

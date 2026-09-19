@@ -15,7 +15,6 @@
       config.nixos.modules.services-clamav
       config.nixos.modules.services-displaylink
       config.nixos.modules.services-fingerprint
-      config.nixos.modules.services-keybase
       config.nixos.modules.services-obs
       config.nixos.modules.services-observability-roaming
       config.nixos.modules.services-spicetify
@@ -47,6 +46,20 @@
                   (final.lib.cmakeBool "USE_EXTERNAL_EXPAT" true)
                 ];
               });
+
+              # Backport nixpkgs boost-1.91-optional.patch; the pinned
+              # nixos-unstable tarball predates it. boost 1.91 made
+              # boost::optional's converting constructor explicit, breaking
+              # ifcopenshell 0.8.0's profile_point brace-init.
+              python3Packages = prev.python3Packages.overrideScope (
+                pythonFinal: pythonPrev: {
+                  ifcopenshell = pythonPrev.ifcopenshell.overridePythonAttrs (oldAttrs: {
+                    patches = (oldAttrs.patches or [ ]) ++ [
+                      ../../vendor/ifcopenshell-boost-1.91-optional.patch
+                    ];
+                  });
+                }
+              );
             })
           ];
 
@@ -199,6 +212,8 @@
           hardware.firmware = [ pkgs.sof-firmware ];
 
           services.ananicy.enable = true;
+          services.ananicy.package = pkgs.ananicy-cpp;
+          services.ananicy.rulesProvider = pkgs.ananicy-cpp;
 
           services.earlyoom.enable = true;
 

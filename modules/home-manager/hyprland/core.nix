@@ -18,6 +18,11 @@
       rice = import ../../../lib/rice.nix;
       inherit (rice) colors fonts geometry;
       thornixMarkPng = rice.branding.png pkgs 192;
+      hyprlandPkg = (import ../../../lib/hyprland-pkg.nix) { inherit inputs pkgs; };
+      scrollOverviewPkg = inputs.hyprland-scroll-overview.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+        hyprland = hyprlandPkg;
+        buildInputs = [ hyprlandPkg ] ++ lib.filter (input: (input.pname or "") != "hyprland") old.buildInputs;
+      });
 
       lockStatus = pkgs.writeShellApplication {
         name = "hyprlock-status";
@@ -622,9 +627,7 @@
             }
             {
               label = "logout";
-              action = "${
-                inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland
-              }/bin/hyprctl dispatch exit";
+              action = "${hyprlandPkg}/bin/hyprctl dispatch exit";
               text = "LOGOUT  ·  E";
               keybind = "e";
             }
@@ -659,7 +662,7 @@
           enable = true;
           configType = "lua";
 
-          package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+          package = hyprlandPkg;
 
           plugins = [
             # inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system}.hyprbars
@@ -668,7 +671,7 @@
             # derives the .so name from the package's `pname` ("hyprland-scroll-overview"),
             # but this plugin's build output is actually named libscrolloverview.so.
             "${
-              inputs.hyprland-scroll-overview.packages.${pkgs.stdenv.hostPlatform.system}.default
+              scrollOverviewPkg
             }/lib/libscrolloverview.so"
           ];
 

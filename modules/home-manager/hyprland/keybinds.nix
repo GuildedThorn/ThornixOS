@@ -268,7 +268,7 @@
           name:
           lua ''function() hl.exec_cmd("hyprctl eval 'hl.config({ general = { layout = \"${name}\" } })'") end'';
 
-        scrollOverview = lua ''hl.plugin.scrolloverview.overview("toggle")'';
+        scrollOverview = lua ''hl.dsp.exec_cmd("hyprctl dispatch scrolloverview:overview toggle")'';
         scratchpad = lua ''hl.dsp.workspace.toggle_special("scratchpad")'';
       };
 

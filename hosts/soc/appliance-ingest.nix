@@ -32,11 +32,11 @@
     '';
   };
 
-  services.journald.extraConfig = ''
-    SystemMaxUse=2G
-    SystemKeepFree=5G
-    MaxRetentionSec=7day
-  '';
+  services.journald.settings.Journal = {
+    SystemMaxUse = "2G";
+    SystemKeepFree = "5G";
+    MaxRetentionSec = "7day";
+  };
 
   # DNS query/reply logging is intentionally detailed and can be
   # substantially busier than the earlier IDS-only feed. Loki is the

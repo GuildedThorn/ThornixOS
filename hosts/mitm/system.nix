@@ -69,7 +69,6 @@ in
 
   services.home-assistant = {
     enable = true;
-    openFirewall = false;
     openFirewallForComponents = true;
     extraComponents = [
       "analytics"

@@ -7,7 +7,7 @@
 }:
 let
   cfg = config.thorn.desktop.crt;
-  hyprlandPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+  hyprlandPackage = (import ./hyprland-pkg.nix) { inherit inputs pkgs; };
 
   # nginx exposes only the read APIs to this ThornCloud_CA client
   # identity. The key is workstation-scoped in sops; it cannot push or

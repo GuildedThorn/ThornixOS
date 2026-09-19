@@ -28,10 +28,12 @@
       services.netbox = {
         enable = true;
         # The fleet keeps stateVersion at its original 25.05 value, which
-        # makes the upstream module default to the now-EOL NetBox 4.4 line.
-        # Select the supported package explicitly instead of permitting an
-        # insecure package or changing state compatibility globally.
-        package = pkgs.netbox_4_5;
+        # makes the upstream module default to an EOL series. Select the
+        # supported package explicitly instead of permitting an insecure
+        # package or changing state compatibility globally.
+        package = inputs.nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system}.netbox;
+        # NetBox flake inputs would drift; keep /nix/store evaluation offline
+        # and self-contained by resolving through the flake's own nixpkgs.
         nginx = {
           enable = true;
           inherit hostname;

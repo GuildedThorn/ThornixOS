@@ -50,15 +50,6 @@
         flake = "/etc/nixos"; # sets NH_OS_FLAKE variable for you
       };
 
-      # Alloy forwards the fleet journal to the SOC, so local logs are only a
-      # recovery window. Keep a conservative default on every host; machines
-      # with heavier or more sensitive workloads override this explicitly.
-      services.journald.extraConfig = lib.mkDefault ''
-        SystemMaxUse=1G
-        RuntimeMaxUse=128M
-        MaxRetentionSec=7day
-      '';
-
       # List packages installed in system profile. To search, run:
       # $ nix search <package>
       environment.systemPackages = with pkgs; [
