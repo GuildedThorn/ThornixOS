@@ -26,9 +26,15 @@
               packageOverrides = lib.composeExtensions (arguments.packageOverrides or (_: _: { })) (
                 _final: previous: {
                   django-postgres-extra = previous.django-postgres-extra.overridePythonAttrs (old: {
-                    postPatch = (old.postPatch or "") + ''
-                      substituteInPlace psqlextra/_version.py \
-                        --replace-fail '__version__ = "2.0.9rc4"' '__version__ = "${old.version}"'
+                    # nixpkgs' patch used to match 2.0.9rc4, but the current
+                    # source already carries a different version literal.
+                    # Replace the declaration generically while retaining a
+                    # guard so this workaround fails loudly if the module
+                    # moves or the upstream file changes shape again.
+                    postPatch = ''
+                      version_file=psqlextra/_version.py
+                      grep -Eq '^__version__[[:space:]]*=' "$version_file"
+                      sed -i -E 's|^__version__[[:space:]]*=.*$|__version__ = "${old.version}"|' "$version_file"
                     '';
                   });
                   django-tenants = previous.django-tenants.overridePythonAttrs (old: {
