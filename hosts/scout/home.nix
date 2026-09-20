@@ -16,6 +16,7 @@
       thorn.programs.firefox.glanceHomepage = true;
       thorn.programs.ghostty.enable = true;
       thorn.programs.zathura.enable = true;
+      thorn.programs.zellij.enable = true;
       thorn.programs.obsidian.enable = true;
       thorn.programs.claude-code.enable = true;
       thorn.programs.opencode.enable = true;
