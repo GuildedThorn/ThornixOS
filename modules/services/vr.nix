@@ -36,6 +36,10 @@
           # Fix VRChat timezone bug
           unset TZ
 
+          # Steam's CEF hover menus render incorrectly when forced onto
+          # Wayland by the global NIXOS_OZONE_WL setting.
+          unset NIXOS_OZONE_WL
+
           # Allow custom OpenXR runtimes (WiVRn / Monado)
           export PRESSURE_VESSEL_IMPORT_OPENXR_1_RUNTIMES=1
         '';
