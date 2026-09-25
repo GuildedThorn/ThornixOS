@@ -130,6 +130,11 @@ ps.buildPythonApplication rec {
   # runtime library are still supplied by ps.mpv above.
   pythonRemoveDeps = [ "python-mpv" ];
 
+  # The project pins aioesphomeapi to 45.3.1, but current nixpkgs provides
+  # 46.x. The API used by this application remains compatible; relax only
+  # this stale exact-version requirement so the package can build.
+  pythonRelaxDeps = [ "aioesphomeapi" ];
+
   postInstall = ''
     resource_dir="$out/${ps.python.sitePackages}"
     cp -R wakewords sounds "$resource_dir/"

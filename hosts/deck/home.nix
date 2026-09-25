@@ -20,7 +20,12 @@ let
 in
 {
   home = {
-    packages = [ voiceVisual ];
+    packages = [
+      voiceVisual
+      pkgs.kdePackages.plasma-bigscreen
+      # Plasma Bigscreen imports org.kde.kdeconnect in its homescreen.
+      pkgs.kdePackages.kdeconnect-kde
+    ];
     stateVersion = "26.11";
   };
 
@@ -67,5 +72,20 @@ in
     Terminal=false
     Categories=Utility;AudioVideo;
     StartupNotify=false
+  '';
+
+  # SteamOS-style couch interface toggle. Plasma Bigscreen provides the
+  # swap-session helper, which replaces only the Plasma shell and preserves
+  # the normal desktop environment for the next toggle.
+  xdg.dataFile."applications/deck-tv-mode.desktop".text = ''
+    [Desktop Entry]
+    Type=Application
+    Name=Toggle TV Mode
+    Comment=Switch between normal KDE and Plasma Bigscreen
+    Exec=plasma-bigscreen-swap-session
+    Icon=video-display
+    Terminal=false
+    Categories=Settings;AudioVideo;
+    StartupNotify=true
   '';
 }
