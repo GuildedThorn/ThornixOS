@@ -24,6 +24,7 @@ keys:
   - &host_loom age1az503gz828gjmk5zrmx2z9nxe86v44karethcfz8afyum3fvdv9q5u0ntv
   - &host_mitm age1k3pmw077qagpeqwnlsftj365nkdjqcdtcr5ux2rxxku0wx3xgvgs0ynfts
   - &host_firewall age107ct049vtdxkcyqd50dvkkz94juz0gclxmhsvhdehtllz8m5tpwqxj8k57
+  - &host_granite age14vzju8wvvvscezx52wf9dvakh0jka6ad9h6h9tkve5t7j98xsujqcpuusx
   - &host_vault age1ef4rcv7hk2rwanhx52mtx7dr2y42ctdt4n7ftehxkk39v2e08yssdwy2m9
   - &host_thornbot age12zk234mflajpl384jm5jg5xennqvl8l72sht3rh6aw9xj7aupa6sxyl4nr
   # TODO: replace with viewfinder's actual age key after first boot:
@@ -54,6 +55,7 @@ creation_rules:
       age1znu04a67p362wzxgguu83d89n4mvh5tf2fc4kywm5x6xf4pzyp7sgf9yrp,
       age1az503gz828gjmk5zrmx2z9nxe86v44karethcfz8afyum3fvdv9q5u0ntv,
       age107ct049vtdxkcyqd50dvkkz94juz0gclxmhsvhdehtllz8m5tpwqxj8k57,
+      age14vzju8wvvvscezx52wf9dvakh0jka6ad9h6h9tkve5t7j98xsujqcpuusx,
       age1ef4rcv7hk2rwanhx52mtx7dr2y42ctdt4n7ftehxkk39v2e08yssdwy2m9,
       age12zk234mflajpl384jm5jg5xennqvl8l72sht3rh6aw9xj7aupa6sxyl4nr
   - path_regex: hosts/firewall/secrets\.ya?ml$

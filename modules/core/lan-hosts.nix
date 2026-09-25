@@ -32,7 +32,12 @@ in
     {
       networking.hosts = {
         "172.16.25.1" = [ "pfsense.guildedthorn.arpa" ];
-        "172.16.25.4" = [ "truenas.guildedthorn.arpa" ];
+        "172.16.25.4" = [
+          "truenas.guildedthorn.arpa"
+          "forgejo.guildedthorn.arpa"
+          "jellyfin.guildedthorn.arpa"
+          "immich.guildedthorn.arpa"
+        ];
       }
       // managedHosts;
     };

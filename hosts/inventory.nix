@@ -142,6 +142,19 @@ in
     };
   };
 
+  granite = mkHost {
+    address = "172.16.25.4";
+    deploy = false;
+    fqdn = "granite.guildedthorn.arpa";
+    production = false;
+    role = "storage";
+    monitoring = {
+      mode = "scrape";
+      journal = true;
+      readyFiles = [ "hosts/granite/telemetry.nix" ];
+    };
+  };
+
   herald = mkHost {
     address = "172.16.25.63";
     fqdn = "herald.guildedthorn.arpa";
