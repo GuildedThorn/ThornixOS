@@ -12,6 +12,7 @@ in
       config.nixos.modules.services-jellyfin
       config.nixos.modules.services-seaweedfs
       config.nixos.modules.services-mongodb
+      config.nixos.modules.services-immich
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.hardware-nixos
 
@@ -19,6 +20,8 @@ in
       "${inputs.self}/hosts/granite/networking.nix"
       "${inputs.self}/hosts/granite/nfs.nix"
       "${inputs.self}/hosts/granite/storage.nix"
+      "${inputs.self}/hosts/granite/monitoring.nix"
+      "${inputs.self}/hosts/granite/telemetry.nix"
 
       {
         # Keep the break-glass path available during the OS replacement.

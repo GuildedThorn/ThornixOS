@@ -41,6 +41,51 @@ performed only after a generated-script review and a disposable VM rehearsal.
 
 The new hostname is `granite`; the address remains `172.16.25.4`.
 
+## Immich
+
+Immich is declared in `modules/services/immich.nix` and served at
+`https://immich.guildedthorn.arpa`. The migration preserves the existing
+TrueNAS datasets instead of creating new storage:
+
+- uploads: `platter/ix-apps/app_mounts/immich/data`
+- PostgreSQL 18 cluster: `platter/ix-apps/app_mounts/immich/postgres_data/18/docker`
+- database role/database: `immich` / `immich`
+
+Those datasets were created with `canmount=noauto`; `immich-datasets.service`
+mounts them explicitly before the four Immich containers start. The service
+uses host networking so the containers can reach the preserved PostgreSQL and
+Redis services without relying on mutable container-network DNS.
+
+The database password is intentionally not in Git. It is stored mode `0600` in
+`/etc/immich.env` on `granite`. If the host is rebuilt, recreate that file
+before starting `podman-immich-postgres.service` and
+`podman-immich-server.service`.
+
+## Monitoring and alerts
+
+Granite is enrolled in the existing SOC monitoring stack. The host runs:
+
+- Prometheus Node Exporter on TCP `9100`, restricted to the SOC host;
+- Alloy, forwarding the systemd journal to the SOC Loki instance;
+- `smartd` for drive health and SMART failures; and
+- `zfs-zed` for pool, vdev, checksum, and other ZFS events.
+
+The SOC Prometheus and Grafana configuration already applies the fleet-wide
+alerts to Granite: host-down and scrape failures, failed systemd services,
+disk pressure, SMART failures, and ZFS/journal health events. Granite's
+monitoring enrollment is gated by `hosts/granite/telemetry.nix` and the
+`readyFiles` entry in `hosts/inventory.nix`, so it will not become a monitored
+target accidentally before its telemetry configuration exists.
+
+Verify enrollment from the SOC host:
+
+```sh
+curl -sS http://127.0.0.1:9091/api/v1/query \
+  --data-urlencode 'query=up{instance="granite.guildedthorn.arpa:9100"}'
+```
+
+The result should contain a sample with value `"1"`.
+
 ## Deployment commands
 
 The commands below assume the repository is checked out locally and the
@@ -120,6 +165,16 @@ ssh -i /home/thorn/.ssh/id_ed25519 root@172.16.25.4 \
 ```
 
 The expected hostname is `granite`, the existing pool must be named `platter`,
-and `zpool status` must report the existing vdevs healthy. This scaffold does
-not yet recreate SMB, NFS, Incus, or Docker workloads; those must be restored
-in later reviewed configuration changes.
+and `zpool status` must report the existing vdevs healthy. After the service
+configuration is applied, verify Immich without touching the pool layout:
+
+```sh
+ssh -i /home/thorn/.ssh/id_ed25519 root@172.16.25.4 \
+  'systemctl is-active immich-datasets podman-immich-postgres podman-immich-redis podman-immich-server podman-immich-machine-learning'
+
+curl -I https://immich.guildedthorn.arpa/
+```
+
+The scaffold recreates the migrated Immich workload, SMB, NFS, Incus, and
+other services as separate reviewed configuration changes. It does not
+recreate or format the `platter` pool.

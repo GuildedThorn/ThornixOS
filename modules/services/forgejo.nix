@@ -33,6 +33,16 @@
 
           # Enable registration for the first account; disable it after setup.
           service.DISABLE_REGISTRATION = true;
+
+          mailer = {
+            ENABLED = true;
+            PROTOCOL = "smtp+starttls";
+            SMTP_ADDR = "courier.guildedthorn.arpa";
+            SMTP_PORT = 587;
+            FROM = "forgejo@guildedthorn.arpa";
+            USER = "forgejo@guildedthorn.arpa";
+            PASSWD_URI = "file:/platter/services/forgejo/mailer_passwd";
+          };
         };
 
         dump = {
@@ -46,6 +56,7 @@
         domain = hostname;
         extraDomainNames = [
           "jellyfin.guildedthorn.arpa"
+          "immich.guildedthorn.arpa"
           "truenas.guildedthorn.arpa"
         ];
         group = config.services.nginx.group;
