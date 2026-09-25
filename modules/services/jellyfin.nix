@@ -23,6 +23,9 @@
         openFirewall = false;
       };
 
+      users.users.jellyfin.extraGroups = [ "media" ];
+      systemd.services.jellyfin.serviceConfig.SupplementaryGroups = [ "media" ];
+
       # Keep the imported Jellyfin database usable after the TrueNAS-to-NixOS
       # move. Its existing libraries use these old container paths; the links
       # point at the same files on the preserved platter dataset.
