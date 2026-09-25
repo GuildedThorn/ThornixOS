@@ -13,6 +13,7 @@ in
       config.nixos.modules.services-seaweedfs
       config.nixos.modules.services-mongodb
       config.nixos.modules.services-immich
+      config.nixos.modules.services-media-arr
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.hardware-nixos
 

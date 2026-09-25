@@ -37,6 +37,11 @@ in
           "forgejo.guildedthorn.arpa"
           "jellyfin.guildedthorn.arpa"
           "immich.guildedthorn.arpa"
+          "qbittorrent.guildedthorn.arpa"
+          "prowlarr.guildedthorn.arpa"
+          "seerr.guildedthorn.arpa"
+          "sonarr.guildedthorn.arpa"
+          "radarr.guildedthorn.arpa"
         ];
       }
       // managedHosts;

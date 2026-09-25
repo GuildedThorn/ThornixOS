@@ -57,6 +57,11 @@
         extraDomainNames = [
           "jellyfin.guildedthorn.arpa"
           "immich.guildedthorn.arpa"
+          "qbittorrent.guildedthorn.arpa"
+          "prowlarr.guildedthorn.arpa"
+          "seerr.guildedthorn.arpa"
+          "sonarr.guildedthorn.arpa"
+          "radarr.guildedthorn.arpa"
           "truenas.guildedthorn.arpa"
         ];
         group = config.services.nginx.group;

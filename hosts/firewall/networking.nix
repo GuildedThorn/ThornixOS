@@ -87,10 +87,10 @@ in
       extraForwardRules = ''
         # Ordinary clients: Home Assistant, Authentik, ntfy, Vaultwarden, Jellyfin, and mail.
         iifname "lan" ip daddr { 172.16.25.2, 172.16.25.52, 172.16.25.63, 172.16.25.65 } tcp dport 443 accept
-        iifname "lan" ip daddr 172.16.25.4 tcp dport 8920 accept
+        iifname "lan" ip daddr 172.16.25.4 tcp dport { 443, 8920 } accept
         iifname "lan" ip daddr 172.16.25.64 tcp dport { 465, 587, 993 } accept
         iifname "wg0" ip daddr { 172.16.25.2, 172.16.25.52, 172.16.25.63, 172.16.25.65 } tcp dport 443 accept
-        iifname "wg0" ip daddr 172.16.25.4 tcp dport 8920 accept
+        iifname "wg0" ip daddr 172.16.25.4 tcp dport { 443, 8920 } accept
         iifname "wg0" ip daddr 172.16.25.64 tcp dport { 465, 587, 993 } accept
 
         # Lure intentionally exposes only its declared decoy protocol set.
@@ -435,6 +435,11 @@ in
         ''"forgejo.guildedthorn.arpa. A 172.16.25.4"''
         ''"jellyfin.guildedthorn.arpa. A 172.16.25.4"''
         ''"immich.guildedthorn.arpa. A 172.16.25.4"''
+        ''"qbittorrent.guildedthorn.arpa. A 172.16.25.4"''
+        ''"prowlarr.guildedthorn.arpa. A 172.16.25.4"''
+        ''"seerr.guildedthorn.arpa. A 172.16.25.4"''
+        ''"sonarr.guildedthorn.arpa. A 172.16.25.4"''
+        ''"radarr.guildedthorn.arpa. A 172.16.25.4"''
         ''"courier.guildedthorn.arpa. A 172.16.25.64"''
       ];
     };
