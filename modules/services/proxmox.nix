@@ -14,6 +14,11 @@
       # not include cdrkit in PATH when generating cloud-init images.
       environment.systemPackages = [ pkgs.cdrkit ];
 
+      # pve-manager ships notification templates below /usr/share, but the
+      # NixOS profile does not link that subtree by default.  Without these
+      # templates Proxmox's notification test fails before SMTP is attempted.
+      environment.pathsToLink = [ "/usr/share/pve-manager" ];
+
       services.openssh.settings.AcceptEnv = lib.mkForce [
         "LANG"
         "LC_*"
