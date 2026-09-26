@@ -50,6 +50,7 @@ readonly LAUNCH_ATTEMPTS=${FLARE_AGENT_LAUNCH_ATTEMPTS:-3}
 readonly -a FLARE_AGENT_GUEST_TOOLS=(
 	ImDisk.exe
 	ramdisk.exe
+	aim_ll.exe
 	Procmon.exe
 	Procmon64.exe
 	pe-sieve.exe
@@ -569,14 +570,17 @@ cmd_doctor() {
 
 	# A RAM disk is the mechanism that keeps a sample off the guest's
 	# persistent storage, so its absence is the difference between a lab that
-	# can detonate and one that only appears to.
+	# can detonate and one that only appears to. Arsenal Image Mounter is
+	# checked alongside ImDisk because its driver package is the one that still
+	# imports cleanly on a current Windows 10 host; either CLI can back a
+	# volatile disk, so either satisfies the requirement.
 	local backend=""
-	backend=$(jq -r '.found["imdisk.exe"] // .found["ramdisk.exe"] // empty' <<<"$probe")
+	backend=$(jq -r '.found["imdisk.exe"] // .found["ramdisk.exe"] // .found["aim_ll.exe"] // empty' <<<"$probe")
 	printf '\n-- verdict --\n'
 	if [[ -n $backend ]]; then
 		printf '  RAM disk:     available (%s)\n' "$backend"
 	else
-		printf '  RAM disk:     UNAVAILABLE - no ImDisk or ramdisk in the guest\n'
+		printf '  RAM disk:     UNAVAILABLE - no ImDisk, ramdisk or Arsenal in the guest\n'
 		printf '                detonating now would write the sample to the qcow2.\n'
 	fi
 
