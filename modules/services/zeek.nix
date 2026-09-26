@@ -13,12 +13,22 @@
     let
       cfg = config.thorn.zeek;
 
+      # The "soc" profile protects the production LAN and keeps the notice
+      # layer. The "lab" profile watches an isolated detonation segment, where
+      # hostile TLS/SSH is the expected input rather than an incident.
+      socOnly = cfg.profile == "soc";
+
       localNetworks = lib.concatMapStringsSep "\n" (network: "  ${network},") cfg.localNetworks;
 
       # Zeek's X.509 verifier uses a subject -> DER table rather than an
       # OpenSSL CA bundle path. Convert the configured private trust anchor
       # into a native policy fragment at build time; the certificate is
       # public material and is already committed under certs/.
+      #
+      # This fragment only extends SSL::root_certs, so it must be concatenated
+      # after rawPolicy has loaded base/protocols/ssl, which is what defines
+      # that table. Loading the SSL analyzer here instead would make a lab
+      # sensor with no trust anchor silently produce no ssl.log at all.
       trustedCaPolicy =
         pkgs.runCommand "thorn-zeek-trusted-ca.zeek"
           {
@@ -34,17 +44,62 @@
             )"
 
             {
-              printf '@load base/protocols/ssl\n\n'
               printf 'redef SSL::root_certs += {\n'
               printf '  ["%s"] = "%s",\n' "$subject" "$certificate"
               printf '};\n'
             } > "$out"
           '';
 
+      # Notice policies and their tuning, kept as a separate flat string so that
+      # neither this nor rawPolicy nests '' inside ''. Nesting defeats nixfmt's
+      # indentation and leaves the generated Zeek script visually inconsistent.
+      #
+      # Every redefinition here depends on a variable declared by one of the
+      # policies loaded below rather than by a base analyzer, so the tuning has
+      # to be gated together with the policies. Gating only the @load lines
+      # leaves a policy parse error, which checkedPolicy reports at build time
+      # instead of letting systemd fail to start Zeek on the live hypervisor.
+      socPolicy = lib.optionalString socOnly ''
+        @load policy/protocols/ssh/detect-bruteforcing
+        @load policy/protocols/ssl/expiring-certs
+        @load policy/protocols/ssl/heartbleed
+        @load policy/protocols/ssl/known-certs
+        @load policy/protocols/ssl/validate-certs
+
+        # Thirty failures across thirty minutes is Zeek's conservative upstream
+        # default and avoids paging on ordinary SSH mistakes. Both variables
+        # are declared by policy/protocols/ssh/detect-bruteforcing.
+        redef SSH::password_guesses_limit = 30;
+        redef SSH::guessing_timeout = 30mins;
+
+        # Certificate expiry notices are useful for services inside OPT1. TLS
+        # 1.3 encrypts certificates on the wire, so these apply only when Zeek
+        # can actually observe a certificate; blackbox probes remain the
+        # authoritative direct check for known HTTPS endpoints.
+        redef SSL::notify_certs_expiration = LOCAL_HOSTS;
+        redef SSL::notify_when_cert_expiring_in = 30days;
+
+        # A broken remote TLS server should not repeat the same invalid-chain
+        # notice hourly forever. This changes deduplication only; the first
+        # observation is still logged and available to Grafana.
+        # SSL::Invalid_Server_Cert is declared by the primary validator that
+        # validate-certs loads, so this cannot be kept without it.
+        redef Notice::type_suppression_intervals += {
+          [SSL::Invalid_Server_Cert] = 1day,
+        };
+      '';
+
       rawPolicy = pkgs.writeText "thorn-zeek-local.zeek" ''
         # JSON keeps the original typed fields available to LogQL instead of
         # flattening everything into the legacy tab-separated representation.
         @load policy/tuning/json-logs
+
+        # The SSL analyzer is loaded unconditionally, independent of whether a
+        # private trust anchor is configured. SNI, negotiated version, and
+        # JA3/JA4 are the main reason to run a sensor on the isolated lab
+        # segment, where no private CA is deployed. Tying this load to
+        # tlsTrustAnchor meant a sensor with no anchor lost ssl.log silently.
+        @load base/protocols/ssl
 
         # A five-minute heartbeat plus packet/drop/process counters. This is
         # what the SOC uses to distinguish a quiet network from a dead sensor.
@@ -52,12 +107,11 @@
         @load policy/misc/capture-loss
 
         # High-signal protocol policies. They emit notice.log records only;
-        # Grafana decides which site-relevant notice types page Discord.
-        @load policy/protocols/ssh/detect-bruteforcing
-        @load policy/protocols/ssl/expiring-certs
-        @load policy/protocols/ssl/heartbleed
-        @load policy/protocols/ssl/known-certs
-        @load policy/protocols/ssl/validate-certs
+        # Grafana decides which site-relevant notice types page Discord. A
+        # detonation lab emits hostile TLS and SSH on purpose, so these notice
+        # sources mean nothing there and fire continuously. The lab keeps the
+        # analyzers and their logs but drops the notice layer.
+        ${socPolicy}
 
         # Match Suricata's Community ID so the same flow can be correlated
         # between signature alerts and Zeek's protocol/connection metadata,
@@ -86,28 +140,11 @@
         # stats.log is the explicit liveness source, so a traffic-free period
         # should not create a CaptureLoss::Too_Little_Traffic notice.
         redef CaptureLoss::minimum_acks = 0;
-
-        # Thirty failures across thirty minutes is Zeek's conservative
-        # upstream default and avoids paging on ordinary SSH mistakes.
-        redef SSH::password_guesses_limit = 30;
-        redef SSH::guessing_timeout = 30mins;
-
-        # Certificate expiry notices are useful for services inside OPT1.
-        # TLS 1.3 encrypts certificates on the wire, so these policies apply
-        # only when Zeek can actually observe a certificate; blackbox probes
-        # remain the authoritative direct check for known HTTPS endpoints.
-        redef SSL::notify_certs_expiration = LOCAL_HOSTS;
-        redef SSL::notify_when_cert_expiring_in = 30days;
-
-        # A broken remote TLS server should not repeat the same invalid-chain
-        # notice hourly forever. This changes deduplication only; the first
-        # observation is still logged and available to Grafana.
-        redef Notice::type_suppression_intervals += {
-          [SSL::Invalid_Server_Cert] = 1day,
-        };
       '';
 
-      policyFragments = lib.optionals (cfg.tlsTrustAnchor != null) [ trustedCaPolicy ] ++ [ rawPolicy ];
+      # rawPolicy must come first: it loads base/protocols/ssl, which defines
+      # the SSL::root_certs table that trustedCaPolicy extends.
+      policyFragments = [ rawPolicy ] ++ lib.optionals (cfg.tlsTrustAnchor != null) [ trustedCaPolicy ];
 
       # Make policy syntax a build-time failure rather than discovering it on
       # the live hypervisor when systemd tries to start Zeek.
@@ -182,6 +219,23 @@
     {
       options.thorn.zeek = {
         enable = lib.mkEnableOption "a passive Zeek network sensor";
+
+        profile = lib.mkOption {
+          type = lib.types.enum [
+            "soc"
+            "lab"
+          ];
+          default = "soc";
+          example = "lab";
+          description = ''
+            Which notice layer to load. "soc" protects a production network and
+            keeps the SSH bruteforce and TLS validation notice sources.
+            "lab" watches an isolated detonation segment, where hostile TLS and
+            SSH are expected input, so only the protocol analyzers and their
+            logs are kept. DNS, conn, HTTP, file, and TLS/SNI extraction are
+            identical under both profiles.
+          '';
+        };
 
         interface = lib.mkOption {
           type = lib.types.str;
@@ -294,6 +348,12 @@
           {
             assertion = cfg.localNetworks != [ ];
             message = "thorn.zeek.localNetworks must contain at least one subnet";
+          }
+          {
+            # Copying mac's Zeek stanza into a lab host is the likely way to end
+            # up validating lab traffic against the production private CA.
+            assertion = cfg.profile != "lab" || cfg.tlsTrustAnchor == null;
+            message = "thorn.zeek.tlsTrustAnchor must be null when profile = \"lab\"; the lab segment deploys no private CA";
           }
         ]
         ++ lib.optionals cfg.topology.enable [
