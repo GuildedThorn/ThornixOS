@@ -19,6 +19,7 @@ in
       config.nixos.modules.services-capture-card
       config.nixos.modules.services-clamav
       config.nixos.modules.services-flare-agent
+      config.nixos.modules.services-flare-lab
       config.nixos.modules.services-obs
       config.nixos.modules.services-proxmox
       config.nixos.modules.services-spicetify
@@ -27,6 +28,7 @@ in
 
       config.nixos.modules.hardware-viewfinder
       "${inputs.self}/hosts/viewfinder/disko.nix"
+      "${inputs.self}/hosts/viewfinder/flare-lab.nix"
       "${inputs.self}/hosts/viewfinder/networking.nix"
       "${inputs.self}/hosts/viewfinder/secrets.nix"
 
