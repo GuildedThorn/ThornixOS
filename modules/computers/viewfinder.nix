@@ -16,6 +16,7 @@ in
 
       config.nixos.modules.services-audio
       config.nixos.modules.services-bluetooth
+      config.nixos.modules.services-capture-card
       config.nixos.modules.services-clamav
       config.nixos.modules.services-obs
       config.nixos.modules.services-proxmox
@@ -78,6 +79,14 @@ in
             localNetworks = [ "10.77.0.0/24" ];
             topology.enable = false;
           };
+
+          # The Elgato 4K Capture Pro is a PCIe card, and Discord on Linux
+          # (Vesktop) has no equivalent of Windows' "Capture Devices" source,
+          # while the Hyprland share picker only offers outputs, windows and
+          # regions. So the card is surfaced as an mpv window and that window is
+          # what gets shared. It is drawn on a headless output, so it is never
+          # visible on either display.
+          thorn.captureCard.enable = true;
 
           boot.extraModulePackages = with config.boot.kernelPackages; [
             nvidia_x11

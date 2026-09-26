@@ -87,6 +87,22 @@
               match.class = "^(?i)(.*keepassxc.*)$";
             }
 
+            # The capture card preview is deliberately shareable, so it must
+            # not inherit noscreenshare. It arrives while a game is running, so
+            # it must not pull focus either, and it is drawn on a headless
+            # output so it is never visible on a display. mpv 0.41 cannot set
+            # the Wayland app id, so the window title set by the service is what
+            # identifies it. The monitor must match
+            # thorn.captureCard.headlessOutput, and CAPTURE-OUT is declared in
+            # hosts/viewfinder/home.nix.
+            {
+              name = "capture-card-preview";
+              monitor = "CAPTURE-OUT";
+              fullscreen = true;
+              no_focus = true;
+              match.title = "^Elgato Capture Preview.*";
+            }
+
             {
               name = "scratchpad-terminal";
               float = true;

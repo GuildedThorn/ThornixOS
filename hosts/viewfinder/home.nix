@@ -30,5 +30,15 @@
       position = "8321x6935";
       scale = "2.0";
     }
+    # Headless output for the capture card preview (thorn.captureCard). No
+    # display is attached, so the preview window is shareable but invisible; it
+    # is created at session start by elgato-capture-preview.service and
+    # positioned clear of the physical outputs.
+    {
+      output = "CAPTURE-OUT";
+      mode = "1920x1080@60.0";
+      position = "14337x0";
+      scale = "1.0";
+    }
   ];
 }
