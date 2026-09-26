@@ -238,9 +238,40 @@ Get-ChildItem -LiteralPath $(ps_quote "$(win_dirname "$remote_path")") -Force |
 EOF
 }
 
+# PowerShell to count the staged part files for a push, so that a cleanup can
+# be confirmed rather than assumed. Remove-Item is silenced in the script
+# above, which means a part still held open by an abandoned attempt makes the
+# removal a silent no-op.
+count_parts_script() {
+	local remote_path=$1 part_prefix=$2
+	cat <<EOF
+\$ErrorActionPreference = 'SilentlyContinue'
+@(Get-ChildItem -LiteralPath $(ps_quote "$(win_dirname "$remote_path")") -Force |
+	Where-Object { \$_.Name.StartsWith($(ps_quote "$(win_basename "$part_prefix")")) }).Count
+EOF
+}
+
+# Clear staged parts, returning non-zero only if parts positively survive. A
+# part left over from an interrupted push is normally removable, but while the
+# guest still holds one open the removal does nothing, and the retry then dies
+# on "in use by another process" several chunks in -- which reads like a
+# transfer fault rather than the stale state it actually is. A count that comes
+# back empty means the parts could not be enumerated at all, which is the
+# ordinary case for a first push into a directory that does not exist yet, and
+# is not treated as a failure.
+cleanup_parts() {
+	local vmid=$1 remote_path=$2 part_prefix=$3
+	exec_powershell "$vmid" "$(remove_parts_script "$remote_path" "$part_prefix")" >/dev/null 2>&1 ||
+		true
+	local remaining
+	remaining=$(exec_powershell "$vmid" "$(count_parts_script "$remote_path" "$part_prefix")" |
+		tr -d '\r\n[:space:]') || remaining=""
+	[[ -z $remaining || $remaining == 0 ]]
+}
+
 # PowerShell to concatenate the numbered part files into the destination in
 # lexicographic order, then clear them. FileStream.CopyTo keeps this binary
-# safe, which byte-wise string concatenation would not be.
+# safe, which byte-wise string concatenation would not.
 join_parts_script() {
 	local remote_path=$1 part_prefix=$2
 	cat <<EOF
@@ -590,15 +621,22 @@ cmd_push() {
 	((chunks > 0)) || chunks=1
 
 	# Drop leftovers from an earlier failed attempt first, or they would be
-	# concatenated into this push and silently corrupt it.
-	exec_powershell "$vmid" "$(remove_parts_script "$remote_path" "$part_prefix")" >/dev/null || true
+	# concatenated into this push and silently corrupt it. Confirm the removal
+	# actually took effect rather than trusting it, because a part the guest
+	# still holds open survives a silenced Remove-Item without complaint.
+	cleanup_parts "$vmid" "$remote_path" "$part_prefix" ||
+		die "cannot clear staged chunks for $remote_path in VM $vmid; the guest agent still holds them open, so restart its QEMU-GA service and retry"
 
 	while ((index < chunks)); do
 		chunk=$(dd if="$local_path" bs="$PUSH_CHUNK_BYTES" skip="$index" count=1 2>/dev/null | base64 -w0)
-		pvesh create "$(api_path "$vmid")/file-write" \
+		if ! pvesh create "$(api_path "$vmid")/file-write" \
 			--file "$(printf '%s%06d' "$part_prefix" "$index")" \
-			--content "$chunk" --encode 0 >/dev/null ||
+			--content "$chunk" --encode 0 >/dev/null; then
+			# Clear the parts written so far. Leaving them behind is what makes
+			# the next attempt fail for reasons that have nothing to do with it.
+			cleanup_parts "$vmid" "$remote_path" "$part_prefix" || true
 			die "write chunk $index failed for $remote_path in VM $vmid"
+		fi
 		index=$((index + 1))
 		if ((chunks > 1)); then
 			printf '\r    chunk %d/%d' "$index" "$chunks" >&2
