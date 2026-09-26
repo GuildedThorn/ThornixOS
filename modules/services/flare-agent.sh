@@ -32,6 +32,17 @@ readonly PUSH_CHUNK_BYTES=32768
 # round trip small enough to stay responsive.
 readonly PULL_CHUNK_BYTES=1048576
 
+# The guest agent stops draining requests after a burst of file writes, and a
+# chunk stranded by a cut off write cannot be removed even as SYSTEM until the
+# agent is restarted. Recovering that by hand means reading a failed transfer
+# and working out that the fix is a service restart, so the transport layer
+# does it instead and retries the one operation that failed. Recovery is only
+# ever wired into idempotent work: a re-sent chunk and a re-read file cannot
+# change the outcome, whereas re-running a sample that merely timed out would
+# detonate it twice. Never call this from a detonation path.
+readonly QGA_RECOVERY_POLLS=${FLARE_AGENT_QGA_RECOVERY_POLLS:-20}
+readonly QGA_RECOVERY_INTERVAL=${FLARE_AGENT_QGA_RECOVERY_INTERVAL:-3}
+
 # guest-exec has no server-side timeout on this API version, so the wait for
 # a pid to exit is bounded here instead. A detonation sample can legitimately
 # run for a long time, hence the generous default. Override per invocation
@@ -267,7 +278,59 @@ cleanup_parts() {
 	local remaining
 	remaining=$(exec_powershell "$vmid" "$(count_parts_script "$remote_path" "$part_prefix")" |
 		tr -d '\r\n[:space:]') || remaining=""
+	# Parts surviving a removal mean the guest still holds a handle, and
+	# restarting the agent is what releases it. Removal is idempotent, so it is
+	# safe to recover here rather than handing the operator the diagnosis.
+	if [[ -n $remaining && $remaining != 0 ]]; then
+		qga_recover "$vmid" || true
+		exec_powershell "$vmid" "$(remove_parts_script "$remote_path" "$part_prefix")" >/dev/null 2>&1 ||
+			true
+		remaining=$(exec_powershell "$vmid" "$(count_parts_script "$remote_path" "$part_prefix")" |
+			tr -d '\r\n[:space:]') || remaining=""
+	fi
 	[[ -z $remaining || $remaining == 0 ]]
+}
+
+# Restart the guest's QEMU-GA and wait until it answers again. Returns non-zero
+# if the agent never comes back, leaving the caller to report the original
+# failure rather than a recovery failure.
+#
+# The restart is issued but deliberately never awaited: it tears down the very
+# channel the request is travelling over, so its reply is normally lost. Only
+# the follow-up ping decides whether the recovery worked.
+qga_recover() {
+	local vmid=$1
+	note "guest agent in VM $vmid has stopped draining requests, restarting it"
+	launch_exec_retry "$vmid" "$POWERSHELL_PATH" -NoProfile -NonInteractive \
+		-OutputFormat Text -Command 'Restart-Service QEMU-GA -Force' >/dev/null 2>&1 || true
+	local i
+	for ((i = 0; i < QGA_RECOVERY_POLLS; i++)); do
+		sleep "$QGA_RECOVERY_INTERVAL"
+		if pvesh create "$(api_path "$vmid")/ping" --output-format json >/dev/null 2>&1; then
+			note "guest agent in VM $vmid is responding again"
+			return 0
+		fi
+	done
+	return 1
+}
+
+# Write one chunk, recovering the agent and trying once more if it stalls.
+#
+# The retry is unconditional rather than matched against the error text: a
+# wedged agent, a full disk and a rejected path all surface as a bare non-zero
+# exit, and distinguishing them here would mean pattern matching prose that
+# varies by API version. A restart cannot fix the latter two, so the cost of
+# guessing wrong is one wasted service restart before the original error is
+# reported unchanged.
+write_chunk() {
+	local vmid=$1 part_prefix=$2 index=$3 chunk=$4
+	local part
+	part=$(printf '%s%06d' "$part_prefix" "$index")
+	pvesh create "$(api_path "$vmid")/file-write" \
+		--file "$part" --content "$chunk" --encode 0 >/dev/null && return 0
+	qga_recover "$vmid" || return 1
+	pvesh create "$(api_path "$vmid")/file-write" \
+		--file "$part" --content "$chunk" --encode 0 >/dev/null
 }
 
 # PowerShell to concatenate the numbered part files into the destination in
@@ -633,9 +696,7 @@ cmd_push() {
 
 	while ((index < chunks)); do
 		chunk=$(dd if="$local_path" bs="$PUSH_CHUNK_BYTES" skip="$index" count=1 2>/dev/null | base64 -w0)
-		if ! pvesh create "$(api_path "$vmid")/file-write" \
-			--file "$(printf '%s%06d' "$part_prefix" "$index")" \
-			--content "$chunk" --encode 0 >/dev/null; then
+		if ! write_chunk "$vmid" "$part_prefix" "$index" "$chunk"; then
 			# Clear the parts written so far. Leaving them behind is what makes
 			# the next attempt fail for reasons that have nothing to do with it.
 			cleanup_parts "$vmid" "$remote_path" "$part_prefix" || true
