@@ -64,6 +64,22 @@
     hyprland-guiutils = {
       url = "github:hyprwm/hyprland-guiutils/4c30cf3097ea963c0e250749ee0c59f8b08816d6";
       inputs.nixpkgs.follows = "nixpkgs";
+      # hyprtoolkit 0.6 requires hyprutils >= 0.14.2. Keep both nested
+      # consumers on the compatible utility revision instead of allowing the
+      # guiutils lockfile to reintroduce 0.13.x during flake updates.
+      inputs.hyprutils.follows = "hyprutils-guiutils";
+      inputs.hyprtoolkit.follows = "hyprtoolkit-guiutils";
+    };
+
+    hyprutils-guiutils = {
+      url = "github:hyprwm/hyprutils/a21e87b878e72ee5dfd375899e8b2ad0d0c4c0e1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    hyprtoolkit-guiutils = {
+      url = "github:hyprwm/hyprtoolkit/b3f2d0e725e4eaf804af7e529cb69bbed43d1a04";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.hyprutils.follows = "hyprutils-guiutils";
     };
 
     hyprland-plugins = {

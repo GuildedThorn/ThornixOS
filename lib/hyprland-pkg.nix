@@ -1,6 +1,8 @@
 { inputs, pkgs }:
 let
   system = pkgs.stdenv.hostPlatform.system;
+  guiutils = inputs.hyprland-guiutils.packages.${system}.default;
+  lib = pkgs.lib;
 
   # Hyprland's pinned rev (e0d9283) requires glaze 7.x, while current
   # nixpkgs provides glaze 8.x. Without the matching package, start/ falls
@@ -14,7 +16,24 @@ let
       hash = "sha256-vNhxBdGaM70YABfwczvJcAFIYdEGIUGE8Sp2sgkTcaQ=";
     };
   });
+  replaceGuiutils =
+    list: map (pkg: if (pkg.pname or null) == "hyprland-guiutils" then guiutils else pkg) list;
 in
 inputs.hyprland.packages.${system}.hyprland.overrideAttrs (old: {
-  buildInputs = (old.buildInputs or [ ]) ++ [ glaze ];
+  nativeBuildInputs = replaceGuiutils (old.nativeBuildInputs or [ ]);
+  buildInputs = replaceGuiutils ((old.buildInputs or [ ]) ++ [ glaze ]);
+  # GUI Utils is embedded in Hyprland's wrapper PATH rather than in
+  # buildInputs, so define that wrapper without the stale nixpkgs package.
+  postInstall = ''
+    wrapProgram $out/bin/Hyprland \
+      --suffix PATH : ${
+        lib.makeBinPath [
+          pkgs.binutils
+          guiutils
+          pkgs.pciutils
+          pkgs.pkg-config
+        ]
+      }
+  '';
+  passthru = old.passthru or { };
 })
