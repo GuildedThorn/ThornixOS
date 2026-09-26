@@ -50,6 +50,8 @@
       iptables -w -A nixos-fw -p tcp -m multiport --dports 22,8006 -s 192.168.1.74/32 -j nixos-fw-accept
       iptables -w -A nixos-fw -p tcp -m multiport --dports 22,8006 -s 10.10.10.4/32 -j nixos-fw-accept
       iptables -w -A nixos-fw -p tcp --dport 8006 -s 172.16.25.51/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p tcp -m multiport --dports 22,8006 -s 172.16.25.103/32 -j nixos-fw-accept
+      iptables -w -A nixos-fw -p udp --dport 5405:5412 -s 172.16.25.103/32 -j nixos-fw-accept
     '';
 
     networkmanager.enable = false;

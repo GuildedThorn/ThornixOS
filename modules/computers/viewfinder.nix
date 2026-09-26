@@ -18,6 +18,7 @@ in
       config.nixos.modules.services-bluetooth
       config.nixos.modules.services-clamav
       config.nixos.modules.services-obs
+      config.nixos.modules.services-proxmox
       config.nixos.modules.services-spicetify
       config.nixos.modules.services-ssh
 
@@ -46,12 +47,32 @@ in
           boot.loader.efi.canTouchEfiVariables = true;
           boot.initrd.systemd.enable = true;
 
+          # Keep the workstation desktop native while exposing this machine
+          # as a small Proxmox node alongside it.
+          boot.kernelModules = [ "kvm-amd" ];
+
+          services.proxmox-ve = {
+            ipAddress = "172.16.25.103";
+            bridges = [
+              "vmbr0"
+              "vmbr1"
+            ];
+          };
+
           boot.extraModulePackages = with config.boot.kernelPackages; [
             nvidia_x11
           ];
 
           nixpkgs.overlays = [
             (final: prev: {
+              # Hyprland's pinned guiutils build is evaluated against the
+              # nixpkgs package set, so follow the compatible utility input
+              # here as well as in the flake input graph.
+              hyprutils = inputs.hyprutils-guiutils.packages.${final.system}.default;
+              # The NixOS Hyprland module adds this package from nixpkgs to
+              # the system path; select the flake build whose toolkit and
+              # utility inputs are already compatible.
+              hyprland-guiutils = inputs.hyprland-guiutils.packages.${final.system}.default;
               obs-studio = prev.obs-studio.override {
                 ffmpeg = prev.ffmpeg-full;
                 cudaSupport = true;
