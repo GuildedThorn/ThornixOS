@@ -268,7 +268,11 @@
           name:
           lua ''function() hl.exec_cmd("hyprctl eval 'hl.config({ general = { layout = \"${name}\" } })'") end'';
 
-        scrollOverview = lua ''hl.dsp.exec_cmd("hyprctl dispatch scrolloverview:overview toggle")'';
+        # The plugin registers a hyprutils dispatcher (addDispatcherV2), not a
+        # compositor one, so hyprctl dispatch cannot reach it. It exposes a Lua
+        # bridge instead, and accepts select / toggle / on / open / enable /
+        # off / close / disable, optionally with a monitor or "all" target.
+        scrollOverview = lua ''hl.plugin.scrolloverview._dispatch("toggle")'';
         scratchpad = lua ''hl.dsp.workspace.toggle_special("scratchpad")'';
       };
 
