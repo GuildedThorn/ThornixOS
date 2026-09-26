@@ -726,10 +726,21 @@ in
                 # the protected network is quiet. Its absence tests
                 # Zeek -> file -> Alloy -> Loki, rather than merely
                 # whether the systemd process claims to be active.
+                #
+                # Grouped by host so each sensor is tested
+                # independently. An ungrouped sum would let a
+                # healthy sensor mask a silent one. This now covers
+                # both the OPT1 sensor (mac/vmbr0) and the
+                # detonation lab sensor (viewfinder/vmbr1).
+                #
+                # A sensor that has never shipped anything still
+                # produces no series and so cannot be caught here;
+                # that gap is a fleet-inventory comparison, not a
+                # LogQL one.
                 uid = "siem-zeek-silent";
                 title = "Zeek network sensor is silent";
                 datasourceUid = "loki";
-                expr = "sum(count_over_time({job=\"zeek\", host=\"mac\", zeek_log=\"stats\"} [20m]))";
+                expr = "sum by (host) (count_over_time({job=\"zeek\", zeek_log=\"stats\"} [20m]))";
                 evaluator = {
                   type = "lt";
                   params = [ 1 ];
@@ -739,14 +750,14 @@ in
                 noDataState = "Alerting";
                 severity = "critical";
                 category = "pipeline";
-                summary = "No Zeek stats heartbeat has reached Loki in 20 minutes — OPT1 network visibility is unavailable.";
+                summary = "No Zeek stats heartbeat has reached Loki in 20 minutes from one of the network sensors — visibility is unavailable for that segment.";
               })
               (rule {
                 uid = "siem-zeek-capture-loss";
                 title = "Zeek estimates packet capture loss";
                 datasourceUid = "loki";
                 expr = ''
-                  max_over_time({job="zeek", host="mac", zeek_log="capture_loss"}
+                  max_over_time({job="zeek", zeek_log="capture_loss"}
                     | json | unwrap percent_lost | __error__="" [20m])
                 '';
                 evaluator = {
@@ -765,7 +776,7 @@ in
                 title = "Zeek capture socket dropped packets";
                 datasourceUid = "loki";
                 expr = ''
-                  sum_over_time({job="zeek", host="mac", zeek_log="stats"}
+                  sum_over_time({job="zeek", zeek_log="stats"}
                     | json | unwrap pkts_dropped | __error__="" [15m])
                 '';
                 evaluator = {
@@ -778,6 +789,18 @@ in
                 summary = "The kernel dropped packets before Zeek could inspect them; sensor CPU or capture buffering may need tuning.";
               })
               (rule {
+                # The three notice rules below are pinned to sensor="vmbr0", the OPT1-facing
+                # sensor, and are deliberately not fleet-wide:
+                #
+                #   * the lab sensor (viewfinder/vmbr1) runs thorn.zeek.profile = "lab",
+                #     which does not load the SSH-bruteforce, Heartbleed, or TLS-validation
+                #     notice sources at all, so it cannot generate these records; and
+                #   * where a rule is scoped by destination (172.16.25.0/24) it could not
+                #     match lab traffic on 10.77.0.0/24 anyway.
+                #
+                # Pinning by sensor rather than hostname keeps the intent explicit and
+                # survives a host rename.
+
                 # Page only when the guessed service is inside the
                 # protected OPT1 network. A local client mistyping a
                 # password against an Internet host is not a SOC
@@ -787,12 +810,12 @@ in
                 datasourceUid = "loki";
                 expr = ''
                   topk(20, sum by (src, dst) (count_over_time(
-                    {job="zeek", host="mac", zeek_log="notice"}
-                      | json
-                      | note = "SSH::Password_Guessing"
-                      | src != ""
-                      | dst =~ `172\.16\.25\..*` [10m]
-                  )))
+                  {job="zeek", sensor="vmbr0", zeek_log="notice"}
+                                        | json
+                                        | note = "SSH::Password_Guessing"
+                                        | src != ""
+                                        | dst =~ `172\.16\.25\..*` [10m]
+                                    )))
                 '';
                 evaluator = {
                   type = "gt";
@@ -808,12 +831,12 @@ in
                 title = "Zeek detected TLS Heartbleed activity";
                 datasourceUid = "loki";
                 expr = ''
-                  topk(20, sum by (src, dst) (count_over_time(
-                    {job="zeek", host="mac", zeek_log="notice"}
-                      | json
-                      | note =~ "Heartbleed::SSL_Heartbeat_(Attack(_Success)?|Odd_Length|Many_Requests)"
-                      | src != "" [10m]
-                  )))
+                                    topk(20, sum by (src, dst) (count_over_time(
+                  {job="zeek", sensor="vmbr0", zeek_log="notice"}
+                  | json
+                  | note =~ "Heartbleed::SSL_Heartbeat_(Attack(_Success)?|Odd_Length|Many_Requests)"
+                                        | src != "" [10m]
+                                    )))
                 '';
                 evaluator = {
                   type = "gt";
@@ -833,7 +856,7 @@ in
                 title = "Zeek found a local TLS certificate problem";
                 datasourceUid = "loki";
                 expr = ''
-                  sum(count_over_time({job="zeek", host="mac", zeek_log="notice"}
+                  sum(count_over_time({job="zeek", sensor="vmbr0", zeek_log="notice"}
                     | json
                     | note =~ "SSL::(Invalid_Server_Cert|Certificate_Expired|Certificate_Expires_Soon|Certificate_Not_Valid_Yet)"
                     | dst =~ `172\.16\.25\..*` [1h]))

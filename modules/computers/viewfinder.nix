@@ -21,6 +21,7 @@ in
       config.nixos.modules.services-proxmox
       config.nixos.modules.services-spicetify
       config.nixos.modules.services-ssh
+      config.nixos.modules.services-zeek
 
       config.nixos.modules.hardware-viewfinder
       "${inputs.self}/hosts/viewfinder/disko.nix"
@@ -57,6 +58,25 @@ in
               "vmbr0"
               "vmbr1"
             ];
+          };
+
+          # Passive sensor for the isolated detonation segment. vmbr1 has no
+          # physical uplink and no gateway, so this captures everything the
+          # analysis VMs do on 10.77.0.0/24 and nothing else. No capture
+          # filter is needed because this host's Alloy shipping to the SOC
+          # leaves over vmbr0 and is never seen on this interface.
+          #
+          # The lab profile keeps conn/DNS/HTTP/file/TLS-SNI logs and drops the
+          # SSH-bruteforce and TLS-validation notice sources, which would
+          # otherwise fire continuously against deliberately hostile traffic.
+          # The live topology graph is left off: its purpose is modelling
+          # production assets, and a detonation VM has no stable identity.
+          thorn.zeek = {
+            enable = true;
+            profile = "lab";
+            interface = "vmbr1";
+            localNetworks = [ "10.77.0.0/24" ];
+            topology.enable = false;
           };
 
           boot.extraModulePackages = with config.boot.kernelPackages; [
