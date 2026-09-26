@@ -38,33 +38,6 @@
       (
         { pkgs, ... }:
         {
-          # Backport nixpkgs #548045; Coin3D's vendored Expat crashes FreeCAD
-          # when Python 3.14 parses XML.
-          nixpkgs.overlays = [
-            (final: prev: {
-              coin3d = prev.coin3d.overrideAttrs (oldAttrs: {
-                buildInputs = (oldAttrs.buildInputs or [ ]) ++ [ final.expat ];
-                cmakeFlags = (oldAttrs.cmakeFlags or [ ]) ++ [
-                  (final.lib.cmakeBool "USE_EXTERNAL_EXPAT" true)
-                ];
-              });
-
-              # Backport nixpkgs boost-1.91-optional.patch; the pinned
-              # nixos-unstable tarball predates it. boost 1.91 made
-              # boost::optional's converting constructor explicit, breaking
-              # ifcopenshell 0.8.0's profile_point brace-init.
-              python3Packages = prev.python3Packages.overrideScope (
-                pythonFinal: pythonPrev: {
-                  ifcopenshell = pythonPrev.ifcopenshell.overridePythonAttrs (oldAttrs: {
-                    patches = (oldAttrs.patches or [ ]) ++ [
-                      ../../vendor/ifcopenshell-boost-1.91-optional.patch
-                    ];
-                  });
-                }
-              );
-            })
-          ];
-
           hjem.users.thorn.packages = [ pkgs.freecad ];
           hjem.users.thorn.files = {
             ".local/share/FreeCAD/v1-1/Mod/FreeCADMCP".source =
