@@ -16,12 +16,13 @@ let
       hash = "sha256-vNhxBdGaM70YABfwczvJcAFIYdEGIUGE8Sp2sgkTcaQ=";
     };
   });
-  replaceGuiutils =
-    list: map (pkg: if (pkg.pname or null) == "hyprland-guiutils" then guiutils else pkg) list;
+  # Hyprland already lists a glaze of its own, so drop that entry and add
+  # ours instead of appending. Appending leaves two glaze::glaze targets in
+  # buildInputs, and which one CMake resolves depends on link order.
+  substituteGlaze = list: [ glaze ] ++ builtins.filter (pkg: (pkg.pname or null) != "glaze") list;
 in
 inputs.hyprland.packages.${system}.hyprland.overrideAttrs (old: {
-  nativeBuildInputs = replaceGuiutils (old.nativeBuildInputs or [ ]);
-  buildInputs = replaceGuiutils ((old.buildInputs or [ ]) ++ [ glaze ]);
+  buildInputs = substituteGlaze (old.buildInputs or [ ]);
   # GUI Utils is embedded in Hyprland's wrapper PATH rather than in
   # buildInputs, so define that wrapper without the stale nixpkgs package.
   postInstall = ''
