@@ -173,6 +173,32 @@ for vmid in "${vmids[@]}"; do
 done
 
 printf '\n'
+printf 'node firewall\n'
+claiming=0
+for vmid in "${vmids[@]}"; do
+	if grep -q 'firewall=1' "$CONF_DIR/$vmid.conf" 2>/dev/null; then
+		claiming=$((claiming + 1))
+	fi
+done
+
+# pve-firewall is a plain iptables/nftables frontend here and has no systemd
+# unit of its own, so the CLI is the only authoritative probe. Asking systemd
+# answers "not-found", which says nothing about whether rules are loaded.
+fw_raw=$(pve-firewall status 2>/dev/null | head -n1 || true)
+if [[ $fw_raw == *running* ]]; then
+	printf '  pve-firewall: %s; %d VM(s) have firewall=1 on their NIC\n' \
+		"$fw_raw" "$claiming"
+else
+	printf '  pve-firewall: %s\n' "${fw_raw:-unavailable}"
+	if ((claiming > 0)); then
+		printf '  WARNING: %d VM(s) have firewall=1 on their NIC, but the firewall is not\n' "$claiming"
+		printf '           running, so nothing is actually being filtered. The flag records\n'
+		printf '           intent, not enforcement. vmbr1 has no uplink, which is what is\n'
+		printf '           currently containing the lab.\n'
+	fi
+fi
+
+printf '\n'
 if ((drift == 0)); then
 	printf 'no drift: %d field(s) across %d VM(s) match the declared inventory\n' \
 		"$checked" "${#vmids[@]}"

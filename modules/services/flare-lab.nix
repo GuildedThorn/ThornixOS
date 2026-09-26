@@ -34,6 +34,12 @@
           # field parsing of the Proxmox config format
           pkgs.gawk
           pkgs.jq
+          # pve-firewall is the authoritative probe for whether the node's
+          # firewall is actually enforcing anything. It carries no systemd unit
+          # of its own, so it cannot be asked about via systemctl. It is only
+          # in scope because the proxmox-nixos overlay provides it; hosts
+          # without that overlay must not enable this module.
+          pkgs.pve-firewall
         ];
         text = builtins.readFile ./flare-lab-check.sh;
       };
