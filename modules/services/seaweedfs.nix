@@ -102,8 +102,14 @@
         seaweedfs-s3 = {
           description = "SeaweedFS S3 gateway";
           wantedBy = [ "multi-user.target" ];
-          after = [ "seaweedfs-filer.service" "seaweedfs-volume.service" ];
-          requires = [ "seaweedfs-filer.service" "seaweedfs-volume.service" ];
+          after = [
+            "seaweedfs-filer.service"
+            "seaweedfs-volume.service"
+          ];
+          requires = [
+            "seaweedfs-filer.service"
+            "seaweedfs-volume.service"
+          ];
           serviceConfig = common // {
             ExecStart = lib.concatStringsSep " " [
               weed
@@ -121,8 +127,16 @@
         seaweedfs-admin = {
           description = "SeaweedFS admin";
           wantedBy = [ "multi-user.target" ];
-          after = [ "seaweedfs-master.service" "seaweedfs-filer.service" "seaweedfs-volume.service" ];
-          requires = [ "seaweedfs-master.service" "seaweedfs-filer.service" "seaweedfs-volume.service" ];
+          after = [
+            "seaweedfs-master.service"
+            "seaweedfs-filer.service"
+            "seaweedfs-volume.service"
+          ];
+          requires = [
+            "seaweedfs-master.service"
+            "seaweedfs-filer.service"
+            "seaweedfs-volume.service"
+          ];
           serviceConfig = common // {
             ExecStart = lib.concatStringsSep " " [
               weed

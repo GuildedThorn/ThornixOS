@@ -22,7 +22,10 @@
           content = {
             type = "swap";
             resumeDevice = true;
-            extraArgs = [ "-L" "swap" ];
+            extraArgs = [
+              "-L"
+              "swap"
+            ];
           };
         };
         root = {
@@ -31,7 +34,12 @@
             type = "filesystem";
             format = "ext4";
             mountpoint = "/";
-            extraArgs = [ "-L" "granite-root" "-m" "1" ];
+            extraArgs = [
+              "-L"
+              "granite-root"
+              "-m"
+              "1"
+            ];
           };
         };
       };

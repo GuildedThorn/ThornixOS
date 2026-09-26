@@ -23,7 +23,10 @@
           "/.ix-apps/app_mounts/mongodb/data:/data/db"
         ];
         environmentFiles = [ "/etc/mongodb.env" ];
-        cmd = [ "--bind_ip_all" "--auth" ];
+        cmd = [
+          "--bind_ip_all"
+          "--auth"
+        ];
       };
 
       networking.firewall.allowedTCPPorts = [ 27017 ];

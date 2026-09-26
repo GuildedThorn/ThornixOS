@@ -35,34 +35,46 @@
       # becoming an empty directory on the boot disk.
       systemd.services = {
         immich-datasets = {
-        description = "Mount preserved Immich ZFS datasets";
-        wantedBy = [ "multi-user.target" ];
-        after = [ "zfs-import-platter.service" "zfs-mount.service" ];
-        before = [
-          "podman-immich-postgres.service"
-          "podman-immich-redis.service"
-          "podman-immich-server.service"
-          "podman-immich-machine-learning.service"
-        ];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = let
-            mountCommands = lib.concatStringsSep " && " (
-              map (dataset: "${zfs} mount ${lib.escapeShellArg dataset} 2>/dev/null || test \"$(${zfs} get -H -o value mounted ${lib.escapeShellArg dataset})\" = yes") datasets
-            );
-          in "${pkgs.bash}/bin/bash -c ${lib.escapeShellArg mountCommands}";
+          description = "Mount preserved Immich ZFS datasets";
+          wantedBy = [ "multi-user.target" ];
+          after = [
+            "zfs-import-platter.service"
+            "zfs-mount.service"
+          ];
+          before = [
+            "podman-immich-postgres.service"
+            "podman-immich-redis.service"
+            "podman-immich-server.service"
+            "podman-immich-machine-learning.service"
+          ];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart =
+              let
+                mountCommands = lib.concatStringsSep " && " (
+                  map (
+                    dataset:
+                    "${zfs} mount ${lib.escapeShellArg dataset} 2>/dev/null || test \"$(${zfs} get -H -o value mounted ${lib.escapeShellArg dataset})\" = yes"
+                  ) datasets
+                );
+              in
+              "${pkgs.bash}/bin/bash -c ${lib.escapeShellArg mountCommands}";
+          };
         };
-        };
-      } // lib.genAttrs [
-        "podman-immich-postgres"
-        "podman-immich-redis"
-        "podman-immich-server"
-        "podman-immich-machine-learning"
-      ] (_: {
-        after = [ "immich-datasets.service" ];
-        requires = [ "immich-datasets.service" ];
-      });
+      }
+      //
+        lib.genAttrs
+          [
+            "podman-immich-postgres"
+            "podman-immich-redis"
+            "podman-immich-server"
+            "podman-immich-machine-learning"
+          ]
+          (_: {
+            after = [ "immich-datasets.service" ];
+            requires = [ "immich-datasets.service" ];
+          });
 
       systemd.tmpfiles.rules = [
         "d /var/lib/immich 0750 root root -"
@@ -79,7 +91,10 @@
             PGDATA = "/var/lib/postgresql/data";
           };
           volumes = [ "${databaseRoot}:/var/lib/postgresql/data" ];
-          extraOptions = [ "--shm-size=128m" "--network=host" ];
+          extraOptions = [
+            "--shm-size=128m"
+            "--network=host"
+          ];
         };
 
         immich-redis = {
@@ -104,7 +119,10 @@
             "/etc/localtime:/etc/localtime:ro"
           ];
           extraOptions = [ "--network=host" ];
-          dependsOn = [ "immich-postgres" "immich-redis" ];
+          dependsOn = [
+            "immich-postgres"
+            "immich-redis"
+          ];
         };
 
         immich-machine-learning = {
@@ -139,6 +157,9 @@
         };
       };
 
-      networking.firewall.allowedTCPPorts = [ 80 443 ];
+      networking.firewall.allowedTCPPorts = [
+        80
+        443
+      ];
     };
 }
