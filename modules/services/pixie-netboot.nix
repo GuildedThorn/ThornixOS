@@ -9,6 +9,7 @@
     }:
     let
       address = "172.16.25.53";
+      winpeRoot = "/var/lib/pixie/winpe";
       adminSshKeys = import ../../hosts/pixie/admin-ssh-keys.nix;
 
       # A locked, key-only NixOS rescue environment. nixos-anywhere can use
@@ -223,8 +224,26 @@
             limit_except GET HEAD { deny all; }
             add_header Cache-Control "no-store" always;
           '';
+          locations."/WinPE/" = {
+            alias = "${winpeRoot}/";
+            extraConfig = ''
+              limit_except GET HEAD { deny all; }
+              add_header Cache-Control "no-store" always;
+            '';
+          };
         };
       };
+
+      # Windows PE is user-supplied media. Keep it outside the immutable
+      # system closure so it can be populated from Microsoft's ADK/ISO after
+      # deployment without rebuilding Pixie.
+      systemd.tmpfiles.rules = [
+        "d /var/lib/pixie 0755 root ${config.services.nginx.group} - -"
+        "d ${winpeRoot} 0755 root ${config.services.nginx.group} - -"
+        "d ${winpeRoot}/x64 0755 root ${config.services.nginx.group} - -"
+        "d ${winpeRoot}/x86 0755 root ${config.services.nginx.group} - -"
+        "d ${winpeRoot}/configs 0755 root ${config.services.nginx.group} - -"
+      ];
 
       systemd.services.atftpd.serviceConfig = {
         ProtectHome = true;
