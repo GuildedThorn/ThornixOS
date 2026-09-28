@@ -58,6 +58,8 @@
           };
 
           environment.systemPackages = with pkgs; [
+            asciinema
+
             corectrl
             openrgb
 

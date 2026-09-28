@@ -44,6 +44,7 @@ in
       thorn.desktop.rice.enable = true;
       thorn.desktop.wallpaper.enable = true;
       thorn.desktop.crt.enable = true;
+      thorn.programs.asciinema.enable = true;
       thorn.programs.vesktop.enable = true;
       thorn.programs.firefox.enable = true;
       thorn.programs.firefox.glanceHomepage = true;
