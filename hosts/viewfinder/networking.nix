@@ -54,6 +54,11 @@
         iptables -w -A nixos-fw -p udp -s 172.16.25.3/32 --dport 5405:5412 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 192.168.1.6/32 --dport 22 -j nixos-fw-accept
         iptables -w -A nixos-fw -p tcp -s 192.168.1.6/32 --dport 8006 -j nixos-fw-accept
+        # Standalone SPICE/VNC clients bypass pveproxy on 8006 and connect
+        # straight to the console ports spiceproxy publishes (VNC_LISTEN_PORT
+        # defaults to 5900, one port per guest console).  Without this range a
+        # remote-viewer client gets a connection refused instead of a console.
+        iptables -w -A nixos-fw -p tcp -s 192.168.1.6/32 --dport 5900:5999 -j nixos-fw-accept
       '';
     };
 

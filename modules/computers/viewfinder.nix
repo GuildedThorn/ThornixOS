@@ -117,6 +117,12 @@ in
             ffmpeg
             nwg-displays
             ghostty
+
+            # GPU hash-cracking host: this box's RTX 2070 is one of the two GPUs
+            # driven by the Hashtopolis agents. Hashtopolis ships its own
+            # hashcat for agent work; these are for manual CLI use.
+            hashcat
+            john
           ];
 
           users = {

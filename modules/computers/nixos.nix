@@ -60,6 +60,12 @@
           environment.systemPackages = with pkgs; [
             asciinema
 
+            # GPU hash-cracking host: this workstation's RX 6700 XT is one of
+            # the two GPUs driven by the Hashtopolis agents. Hashtopolis ships
+            # its own hashcat for agent work; these are for manual CLI use.
+            hashcat
+            john
+
             corectrl
             openrgb
 
