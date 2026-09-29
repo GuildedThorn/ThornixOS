@@ -222,6 +222,22 @@
     ];
   }
   {
+    id = "hashtopolis";
+    name = "Hashtopolis";
+    role = "Distributed password recovery";
+    host = "mitm";
+    inventoryHost = "mitm";
+    probeUrl = "https://hashtopolis.guildedthorn.arpa/";
+    launchUrl = "https://hashtopolis.guildedthorn.arpa/";
+    icon = "mdi:hash";
+    aliases = [
+      "hashtopolis"
+      "password recovery"
+      "cracking rig"
+      "hashcat"
+    ];
+  }
+  {
     id = "vault";
     name = "Vault";
     role = "Vaultwarden password manager";

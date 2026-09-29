@@ -65,6 +65,9 @@ creation_rules:
   - path_regex: hosts/mac/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_mac
+  - path_regex: hosts/mitm/secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_mitm
   - path_regex: hosts/identity/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_identity
@@ -84,6 +87,9 @@ creation_rules:
     pgp: *admin_jamie
     age: *host_nixos
   - path_regex: hosts/nixos/velociraptor-client\.sops$
+    pgp: *admin_jamie
+    age: *host_nixos
+  - path_regex: hosts/nixos/hashtopolis-agent\.sops$
     pgp: *admin_jamie
     age: *host_nixos
   - path_regex: hosts/websites/secrets\.ya?ml$
@@ -138,6 +144,9 @@ creation_rules:
     pgp: *admin_jamie
     age: *host_websites
   - path_regex: hosts/viewfinder/secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_viewfinder
+  - path_regex: hosts/viewfinder/hashtopolis-agent\.sops$
     pgp: *admin_jamie
     age: *host_viewfinder
   - path_regex: hosts/vault/backup-secrets\.ya?ml$

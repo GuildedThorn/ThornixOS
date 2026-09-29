@@ -851,7 +851,24 @@ in
   thorn.acme = {
     enable = true;
     domain = "mitm.guildedthorn.arpa";
-    extraDomainNames = [ "resolver2.guildedthorn.arpa" ];
+    # resolver2 serves Technitium; hashtopolis carries the cracking server and
+    # shares this certificate so nginx can terminate TLS for both.
+    extraDomainNames = [
+      "resolver2.guildedthorn.arpa"
+      "hashtopolis.guildedthorn.arpa"
+    ];
+  };
+
+  # Password recovery server. Shares this host with Home Assistant and
+  # Technitium rather than getting its own guest: it is low-traffic, and its
+  # published ports are bound to loopback and reached only through the nginx
+  # vhost the module creates.
+  thorn.hashtopolisServer = {
+    enable = true;
+    # mitm's own address. The database runs with host networking because
+    # podman's bridge has no embedded DNS here, and the backend is the only
+    # other container that needs to reach it.
+    dbHost = "172.16.25.2";
   };
 
   services.nginx = {

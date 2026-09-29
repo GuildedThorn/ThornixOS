@@ -424,6 +424,7 @@ in
         ''"pfsense.guildedthorn.arpa. A 172.16.25.1"''
         ''"resolver.dns-cluster.guildedthorn.arpa. A 172.16.25.66"''
         ''"resolver2.guildedthorn.arpa. A 172.16.25.2"''
+        ''"hashtopolis.guildedthorn.arpa. A 172.16.25.2"''
         ''"search.guildedthorn.arpa. A 172.16.25.67"''
         ''"feeds.guildedthorn.arpa. A 172.16.25.67"''
         ''"rss-bridge.guildedthorn.arpa. A 172.16.25.67"''

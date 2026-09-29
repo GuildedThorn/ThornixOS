@@ -11,3 +11,10 @@ __pycache__/
 
 # Claude Code local permission settings
 .claude/settings.local.json
+
+# Hashtopolis agent artifacts from a manual run in the repo root. The agent
+# resolves config.json relative to its working directory and writes its log
+# and lock file next to it.
+/client.log
+/config.json
+/lock.pid

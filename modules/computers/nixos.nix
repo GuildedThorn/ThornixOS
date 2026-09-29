@@ -16,6 +16,7 @@
       config.nixos.modules.services-crowdsec
       config.nixos.modules.services-displaylink
       config.nixos.modules.services-fingerprint
+      config.nixos.modules.services-hashtopolis-agent
       config.nixos.modules.services-ollama
       config.nixos.modules.services-retroarch
       config.nixos.modules.services-spicetify
@@ -144,6 +145,14 @@
             binwalk
             mkuimage
           ];
+
+          # Hashtopolis agent: single-use voucher encrypted in sops so the
+          # plaintext never touches the nix store.
+          thorn.hashtopolisAgent = {
+            enable = true;
+            url = "https://hashtopolis.guildedthorn.arpa/api/server.php";
+            sopsFile = "${inputs.self}/hosts/nixos/hashtopolis-agent.sops";
+          };
 
           # -------------------------
           # Bootloader (UEFI systems)
@@ -304,6 +313,10 @@
           };
 
           security.pam.services.sudo.u2fAuth = true;
+
+          # ThornCloud CA chain (leaf + intermediate) for hashtopolis.guildedthorn.arpa
+          environment.etc."ssl/certs/thorncloud-ca-chain.crt".source =
+            "${inputs.self}/hosts/nixos/hashtopolis-ca-bundle.crt";
         }
       )
     ];

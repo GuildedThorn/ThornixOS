@@ -6,12 +6,14 @@
       config.nixos.modules.thorn-headless
       config.nixos.modules.services-ssh
       config.nixos.modules.services-thorncloud-acme
+      config.nixos.modules.services-hashtopolis-server
 
       config.nixos.modules.hardware-mitm
       { _module.args.inputs = inputs; }
       "${inputs.self}/hosts/mitm/disko.nix"
       "${inputs.self}/hosts/mitm/networking.nix"
       "${inputs.self}/hosts/mitm/system.nix"
+      "${inputs.self}/hosts/mitm/secrets.nix"
       "${inputs.self}/hosts/mitm/casita-component.nix"
       "${inputs.self}/hosts/shared/technitium-config.nix"
     ];

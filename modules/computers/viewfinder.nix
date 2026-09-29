@@ -20,6 +20,7 @@ in
       config.nixos.modules.services-clamav
       config.nixos.modules.services-flare-agent
       config.nixos.modules.services-flare-lab
+      config.nixos.modules.services-hashtopolis-agent
       config.nixos.modules.services-obs
       config.nixos.modules.services-proxmox
       config.nixos.modules.services-spicetify
@@ -124,6 +125,14 @@ in
             hashcat
             john
           ];
+
+          # Hashtopolis agent: single-use voucher encrypted in sops so the
+          # plaintext never touches the nix store.
+          thorn.hashtopolisAgent = {
+            enable = true;
+            url = "https://hashtopolis.guildedthorn.arpa/api/server.php";
+            sopsFile = "${inputs.self}/hosts/viewfinder/hashtopolis-agent.sops";
+          };
 
           users = {
             users = {
