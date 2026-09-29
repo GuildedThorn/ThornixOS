@@ -24,8 +24,20 @@
           pkgs.inetutils
           # JSON handling for every agent response
           pkgs.jq
+          # YARA pattern matching
+          pkgs.yara
+          # capa capability analysis
+          pkgs.capa
+          # tcpdump for PCAP capture
+          pkgs.tcpdump
         ];
         text = builtins.readFile ./flare-agent.sh;
+        excludeShellChecks = [
+          # Single-quoted trap bodies and PowerShell heredocs: shellcheck cannot
+          # see the assignments, and the $ are meant to reach PowerShell.
+          "SC2154"
+          "SC2016"
+        ];
       };
     in
     {

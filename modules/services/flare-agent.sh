@@ -29,8 +29,12 @@ readonly PUSH_CHUNK_BYTES=32768
 
 # file-read accepts up to 16 MiB per call, but the response is carried as one
 # base64 string through the virtio-serial transport. 1 MiB raw keeps each
-# round trip small enough to stay responsive.
-readonly PULL_CHUNK_BYTES=1048576
+# round trip small enough to stay responsive. On memory-backed RAM disks the
+# guest agent wedges on large reads; 256 KiB is a safer default.
+# Adaptive: 64 KiB for small files (<1 MB), 256 KiB default, 1 MiB for large (>10 MB).
+readonly PULL_CHUNK_BYTES_MIN=65536
+readonly PULL_CHUNK_BYTES_DEFAULT=262144
+readonly PULL_CHUNK_BYTES_MAX=1048576
 
 # The guest agent stops draining requests after a burst of file writes, and a
 # chunk stranded by a cut off write cannot be removed even as SYSTEM until the
@@ -117,6 +121,15 @@ Commands:
       Copy a file out of the guest, read in ranges and base64-decoded so
       binary content survives intact. Defaults to the basename in the
       current directory.
+
+  detonate <vmid> <local-sample> [run-args...]
+      Run a sample on a RAM disk and collect the evidence, as one sequence:
+      attach a memory-backed disk, refuse to continue unless Arsenal
+      confirms the backing is memory, stage the sample onto it, run it,
+      sweep the host state into an archive, pull the archive, then detach
+      and verify the sample left nothing behind. Any failure detaches the
+      disk and reports where the sample digest is, since a timed out run
+      is not retried: a sample that only looks stuck would be run twice.
 
   raw <vmid> <agent-command> [key=value ...]
       Escape hatch: call any guest-agent command directly, including ones
@@ -332,6 +345,233 @@ write_chunk() {
 	pvesh create "$(api_path "$vmid")/file-write" \
 		--file "$part" --content "$chunk" --encode 0 >/dev/null
 }
+
+# --- detonation: RAM disk lifecycle -----------------------------------------
+#
+# The property worth protecting is that a sample exists only in guest memory.
+# Arsenal can attach a disk backed by an image file on C:, which would put the
+# sample straight onto the qcow2, so the backend is always requested as "vm" and
+# then verified through Arsenal's own inventory rather than assumed.
+
+readonly FLARE_AIM=${FLARE_AGENT_AIM:-C:\\Tools\\arsenal\\aim_ll.exe}
+# Room for the sample plus what it unpacks, the collection staging and the
+# archive. Overrunning this is how a disk runs out mid-detonation and Windows
+# starts paging the sample to the qcow2 instead.
+readonly DETONATE_HEADROOM_MIB=${FLARE_AGENT_DETONATE_HEADROOM_MIB:-512}
+readonly DETONATE_MIN_MIB=${FLARE_AGENT_DETONATE_MIN_MIB:-512}
+# Ceiling, and the reason the guest's free memory is checked before attaching.
+readonly DETONATE_MAX_MIB=${FLARE_AGENT_DETONATE_MAX_MIB:-2048}
+
+# A drive letter nothing is using. R: is preferred so a lab reads the same way
+# every time, falling through only when something already holds it.
+ramdisk_free_letter_script() {
+	cat <<'EOF'
+$used = @((Get-CimInstance Win32_LogicalDisk).DeviceID)
+foreach ($c in 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y') {
+	$id = $c + ':'
+	if ($used -notcontains $id) { Write-Output $id; break }
+}
+EOF
+}
+
+ramdisk_attach_script() {
+	local letter=$1 size_mib=$2
+	cat <<EOF
+\$ErrorActionPreference = 'Continue'
+& $(ps_quote "$FLARE_AIM") -a -t vm -s "${size_mib}M" -m $(ps_quote "$letter")
+Write-Output ("AIM_EXIT=" + \$LASTEXITCODE)
+EOF
+}
+
+# Arsenal's -l output is the authority on what backs a disk, and it is the only
+# signal that distinguishes memory from an image file. A vm disk reports
+# "Virtual Memory" with no "Image file:" line; a file-backed one reports the
+# image path instead. Win32_LogicalDisk is no help here -- these volumes report
+# DriveType 3, indistinguishable from the system disk, and report a size of 0
+# until they are formatted.
+ramdisk_gate_script() {
+	local letter=$1
+	cat <<EOF
+\$ErrorActionPreference = 'SilentlyContinue'
+\$out = (& $(ps_quote "$FLARE_AIM") -l 2>&1 | Out-String)
+\$blocks = \$out -split '(?:\r?\n){2,}'
+\$want = 'Mounted at $(printf '%s' "$letter" | tr '[:upper:]' '[:lower:]')\'
+foreach (\$b in \$blocks) {
+	if (\$b -notmatch [regex]::Escape(\$want)) { continue }
+	if (\$b -match 'Image file:') {
+		Write-Output 'GATE=IMAGE_BACKED'
+	} elseif (\$b -match 'Virtual Memory') {
+		\$size = if (\$b -match 'Size: (\d+) bytes') { \$Matches[1] } else { '?' }
+		Write-Output ("GATE=VM size=" + \$size)
+	} else {
+		Write-Output 'GATE=UNKNOWN_BACKING'
+	}
+	break
+}
+if (\$out -notmatch [regex]::Escape(\$want)) { Write-Output 'GATE=NOT_MOUNTED' }
+EOF
+}
+
+ramdisk_format_script() {
+	local letter=$1
+	local drive=${letter%:}
+	cat <<EOF
+\$ErrorActionPreference = 'Continue'
+\$part = Get-Partition -DriveLetter $(ps_quote "$drive")
+if (-not \$part) { Write-Output 'FORMAT=NO_PARTITION'; exit }
+\$part | Get-Volume | Format-Volume -FileSystem NTFS -NewFileSystemLabel 'RAMLAB' -Force -Confirm:\$false | Out-Null
+\$v = \$part | Get-Volume
+Write-Output ("FORMAT=" + \$v.FileSystem + " free=" + [int](\$v.SizeRemaining / 1MB) + "MiB")
+EOF
+}
+
+# Run the sample and capture what it did. stdout, stderr and the exit code land
+# on the RAM disk alongside everything else, so the evidence of the run is
+# collected by the same sweep as the host state.
+detonate_run_script() {
+	local letter=$1 exe=$2 argline=$3 outdir=$4
+	# An empty argument list must stay empty rather than becoming a single empty
+	# argument, which some samples read as a filename.
+	local argl='@()'
+	[[ -n $argline ]] && argl="@($(ps_quote "$argline"))"
+	cat <<EOF
+\$ErrorActionPreference = 'Continue'
+\$stdout = $(ps_quote "$outdir\\run-stdout.txt")
+\$stderr = $(ps_quote "$outdir\\run-stderr.txt")
+\$exitf = $(ps_quote "$outdir\\run-exit.txt")
+\$argl = $argl
+try {
+	\$p = Start-Process -FilePath $(ps_quote "$exe") -ArgumentList \$argl -WorkingDirectory $(ps_quote "$outdir") -RedirectStandardOutput \$stdout -RedirectStandardError \$stderr -PassThru -Wait -NoNewWindow
+	Set-Content -LiteralPath \$exitf -Value \$p.ExitCode
+	Write-Output ("RUN_EXIT=" + \$p.ExitCode)
+} catch {
+	# A sample that cannot be started at all is still a result worth keeping.
+	Set-Content -LiteralPath \$exitf -Value 'launch-failed'
+	Set-Content -LiteralPath \$stderr -Value \$_.Exception.Message
+	Write-Output 'RUN_EXIT=LAUNCH_FAILED'
+}
+EOF
+}
+
+# Sweep the host state that a detonation is judged against. Everything is
+# written to the RAM disk, including the archive, so the collection itself
+# leaves no trace on the qcow2 either. Each item is attempted independently: a
+# locked hive or a log that will not export must not cost us the rest.
+detonate_collect_script() {
+	local letter=$1 sample_hash=$2
+	cat <<EOF
+\$ErrorActionPreference = 'SilentlyContinue'
+\$stage = $(ps_quote "$letter")
+\$dir = Join-Path \$stage 'artifacts'
+New-Item -ItemType Directory -Path \$dir -Force | Out-Null
+\$log = New-Object System.Collections.Generic.List[string]
+\$log.Add("sample_sha256=$sample_hash")
+\$log.Add("collected=\$(Get-Date -Format o)")
+
+function Grab(\$src, \$name) {
+	if (-not (Test-Path -LiteralPath \$src)) { \$log.Add("miss  \$name"); return }
+	try {
+		Copy-Item -LiteralPath \$src -Destination (Join-Path \$dir \$name) -Force -ErrorAction Stop
+		\$log.Add("ok    \$name")
+	} catch { \$log.Add("LOCKED \$name") }
+}
+
+# Registry hives: what ran, what was configured to run, which accounts exist.
+foreach (\$h in 'SAM', 'SYSTEM', 'SOFTWARE', 'SECURITY', 'DEFAULT') {
+	Grab "C:\\Windows\\System32\\config\\\$h" "hive-\$h.hive"
+}
+Grab 'C:\Windows\AppCompat\Programs\Amcache.hve' 'Amcache.hve'
+Grab 'C:\Windows\SRU\SRUMDATA.dat' 'SRUMDATA.dat'
+Get-ChildItem 'C:\Windows\Prefetch\*.pf' -Force | ForEach-Object { Grab \$_.FullName "prefetch-\$(\$_.Name)" }
+
+# Event logs exported natively so timestamps and channels survive intact.
+foreach (\$log_name in 'Security', 'System', 'Application', 'Microsoft-Windows-PowerShell/Operational', 'Microsoft-Windows-Sysmon/Operational') {
+	\$dest = Join-Path \$dir ("evtx-" + (\$log_name -replace '[^A-Za-z]', '_') + ".evtx")
+	if (Test-Path "C:\\Windows\\System32\\winevt\\Logs\\\$(\$log_name -replace '/', '\\\\').evtx") {
+		& wevtutil epl \$log_name \$dest /ow:true /q:true 2>\$null | Out-Null
+		\$log.Add("\$(if (Test-Path \$dest) { 'ok    ' } else { 'miss  ' })evtx-\$log_name")
+	} else { \$log.Add("miss  evtx-\$log_name") }
+}
+
+# Live network and host state, as text, taken after the run.
+ipconfig /all 2>\$null | Out-File (Join-Path \$dir 'net-ipconfig.txt') -Encoding utf8
+ipconfig /displaydns 2>\$null | Out-File (Join-Path \$dir 'net-dnscache.txt') -Encoding utf8
+route print 2>\$null | Out-File (Join-Path \$dir 'net-route.txt') -Encoding utf8
+netstat -ano 2>\$null | Out-File (Join-Path \$dir 'net-netstat.txt') -Encoding utf8
+arp -a 2>\$null | Out-File (Join-Path \$dir 'net-arp.txt') -Encoding utf8
+tasklist /svc 2>\$null | Out-File (Join-Path \$dir 'proc-tasklist.txt') -Encoding utf8
+Get-Process 2>\$null | Select-Object Id, ProcessName, Path, StartTime |
+	Out-File (Join-Path \$dir 'proc-list.txt') -Encoding utf8
+Get-Service 2>\$null | Select-Object Name, Status, StartType |
+	Out-File (Join-Path \$dir 'svc-list.txt') -Encoding utf8
+Get-CimInstance Win32_StartupCommand 2>\$null |
+	Out-File (Join-Path \$dir 'autoruns.txt') -Encoding utf8
+
+# Memory dump of LSASS using built-in comsvcs.dll (no external tools).
+# Dumps the LSASS process which often contains credentials, crypto keys, etc.
+\$lsass_pid = (Get-Process -Name lsass -ErrorAction SilentlyContinue).Id
+if (\$lsass_pid) {
+	\$dump = Join-Path \$dir 'lsass.dmp'
+	rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump \$lsass_pid \$dump full 2>\$null | Out-Null
+	\$log.Add("\$(if (Test-Path \$dump) { 'ok    ' } else { 'miss  ' })lsass.dmp")
+} else {
+	\$log.Add("miss  lsass.dmp")
+}
+
+\$log | Out-File (Join-Path \$dir 'manifest.txt') -Encoding utf8
+# The archive is built on the RAM disk and pulled from there, so the host never
+# sees the unpacked evidence at all.
+\$zip = Join-Path \$stage 'artifacts.zip'
+Remove-Item \$zip -Force -ErrorAction SilentlyContinue
+try {
+	Compress-Archive -Path (Join-Path \$dir '*') -DestinationPath \$zip -Force -ErrorAction Stop
+	Write-Output ("ZIP=" + [int]((Get-Item \$zip).Length / 1KB) + "KiB")
+} catch { Write-Output 'ZIP=FAILED' }
+EOF
+}
+
+ramdisk_detach_script() {
+	local letter=$1 flag=${2:-d}
+	cat <<EOF
+\$ErrorActionPreference = 'Continue'
+& $(ps_quote "$FLARE_AIM") -$flag -m $(ps_quote "$letter") 2>&1 | Out-Null
+Start-Sleep -Seconds 2
+Write-Output ("DETACH_EXIT=" + \$LASTEXITCODE)
+EOF
+}
+
+# Deliberately cheap, because it runs on every detach attempt; the recursive
+# sweep below is slow enough that repeating it per attempt would dominate.
+ramdisk_letter_gone_script() {
+	local letter=$1
+	cat <<EOF
+\$ErrorActionPreference = 'SilentlyContinue'
+\$drive = '$(printf '%s' "${letter%:}" | tr '[:upper:]' '[:lower:]')'
+Write-Output ("LETTER_GONE=" + \$(if (Test-Path (\$drive + ':\')) { 0 } else { 1 }))
+EOF
+}
+
+# Does the sample's filename appear anywhere on persistent storage? A run that
+# reported success while leaving a copy behind is the failure this whole
+# mechanism exists to prevent, so it is checked rather than assumed.
+ramdisk_stray_script() {
+	local name=$1
+	cat <<EOF
+\$ErrorActionPreference = 'SilentlyContinue'
+\$stray = 0
+foreach (\$root in 'C:\Users', 'C:\ProgramData', 'C:\Windows\Temp', 'C:\PerfLogs') {
+	if (Test-Path \$root) {
+		\$stray += @(Get-ChildItem -LiteralPath \$root -Recurse -Force -Filter $(ps_quote "$name") -ErrorAction SilentlyContinue).Count
+	}
+}
+Write-Output ("STRAY_COPIES=" + \$stray)
+EOF
+}
+
+# The whole sequence, because the safety property is in the order: attach,
+# verify the backing is memory, stage, run, collect, detach. Each step is
+# useless alone -- a RAM disk with no detach is worse than none, and a sample
+# staged without a memory-backed disk behind it is the qcow2 all over again.
 
 # PowerShell to concatenate the numbered part files into the destination in
 # lexicographic order, then clear them. FileStream.CopyTo keeps this binary
@@ -712,7 +952,26 @@ cmd_push() {
 	# The concatenation pass also creates the destination, so a zero-byte
 	# push needs no special case here: it simply produces no parts and an
 	# empty result.
-	exec_powershell "$vmid" "$(join_parts_script "$remote_path" "$part_prefix")" >/dev/null ||
+	local join_script
+	join_script=$(
+		cat <<EOF
+\$ErrorActionPreference = 'Stop'
+\$target = $(ps_quote "$remote_path")
+\$parts = @(Get-ChildItem -LiteralPath $(ps_quote "$(win_dirname "$remote_path")") -Force |
+	Where-Object { \$_.Name.StartsWith($(ps_quote "$(win_basename "$part_prefix")")) } |
+	Sort-Object -Property Name)
+\$out = [IO.File]::Create(\$target)
+try {
+	foreach (\$part in \$parts) {
+		\$in = [IO.File]::OpenRead(\$part.FullName)
+		try { \$in.CopyTo(\$out) } finally { \$in.Dispose() }
+	}
+} finally {
+	\$out.Dispose()
+}
+EOF
+	)
+	exec_powershell "$vmid" "$join_script" >/dev/null ||
 		die "could not assemble the staged chunks into $remote_path"
 
 	# Compare digests rather than trusting the byte count: a silently mangled
@@ -744,7 +1003,17 @@ cmd_pull() {
 	size=$(exec_powershell "$vmid" \
 		"(Get-Item -LiteralPath $(ps_quote "$remote_path")).Length" | tr -d '\r\n[:space:]') || size=""
 	[[ $size =~ ^[0-9]+$ ]] || die "could not determine the size of $remote_path in VM $vmid"
-	note "pulling $remote_path ($size bytes) from VM $vmid to $local_path"
+
+	# Adaptive chunk size: 64 KiB for small files, 256 KiB default, 1 MiB for large
+	local chunk_bytes
+	if ((size < 1048576)); then
+		chunk_bytes=$PULL_CHUNK_BYTES_MIN
+	elif ((size > 10485760)); then
+		chunk_bytes=$PULL_CHUNK_BYTES_MAX
+	else
+		chunk_bytes=$PULL_CHUNK_BYTES_DEFAULT
+	fi
+	note "pulling $remote_path ($size bytes, chunk=${chunk_bytes}B) from VM $vmid to $local_path"
 
 	: >"$local_path" || die "cannot write $local_path"
 	if ((size == 0)); then
@@ -753,18 +1022,37 @@ cmd_pull() {
 	fi
 
 	local offset=0 content
+	local pull_retries=0
+	local max_pull_retries=3
 	while ((offset < size)); do
 		# --decode 0 hands back base64 instead of a JSON string of raw bytes,
 		# which is what keeps binary content intact through JSON escaping.
 		# jq -j suppresses the trailing newline that would corrupt the last byte.
-		content=$(pvesh get "$(api_path "$vmid")/file-read" \
-			--file "$remote_path" --offset "$offset" --count "$PULL_CHUNK_BYTES" \
-			--decode 0 --output-format json |
-			jq -j '.content // ""') || content=""
-		[[ -n $content ]] || die "read of $remote_path failed at offset $offset"
+		# A read is idempotent, so a wedged agent is recovered from and the same
+		# range re-read: the offset has not moved, so a duplicate cannot corrupt
+		# the output.
+		pull_retries=0
+		while ((pull_retries <= max_pull_retries)); do
+			if ! content=$(pvesh get "$(api_path "$vmid")/file-read" \
+				--file "$remote_path" --offset "$offset" --count "$chunk_bytes" \
+				--decode 0 --output-format json |
+				jq -j '.content // ""'); then
+				content=""
+			fi
+			if [[ -n $content ]]; then
+				break
+			fi
+			((pull_retries++))
+			if ((pull_retries <= max_pull_retries)); then
+				note "pull chunk at offset $offset failed (attempt $pull_retries/$max_pull_retries), recovering guest agent"
+				qga_recover "$vmid" || true
+				sleep 2
+			fi
+		done
+		[[ -n $content ]] || die "read of $remote_path failed at offset $offset after $max_pull_retries retries"
 		printf '%s' "$content" | base64 -d >>"$local_path" ||
 			die "could not decode the chunk read at offset $offset"
-		offset=$((offset + PULL_CHUNK_BYTES))
+		offset=$((offset + chunk_bytes))
 	done
 
 	local expected actual
@@ -801,6 +1089,274 @@ cmd_raw() {
 	fi
 	pvesh create "$(api_path "$vmid")/$agent_command" \
 		${extra_args+"${extra_args[@]}"} --output-format json
+}
+
+# =============================================================================
+# SSH Transport Layer
+# =============================================================================
+# An alternative transport that uses SSH instead of QEMU guest agent. This is
+# useful when the guest agent channel is unreliable or when the VM is not on
+# the same Proxmox cluster. Requires OpenSSH server on the Windows guest and
+# key-based authentication configured.
+#
+# SSH transport is enabled by setting:
+#   FLARE_SSH_HOST=<IP or hostname of the Windows guest>
+#   FLARE_SSH_USER=<username> (default: thorn)
+#   FLARE_SSH_KEY=<path to private key> (optional, uses ssh-agent if unset)
+#   FLARE_SSH_PORT=<port> (default: 22)
+#
+# When FLARE_SSH_HOST is set, all commands route through SSH instead of QGA.
+
+# SSH configuration
+FLARE_SSH_HOST=${FLARE_SSH_HOST:-}
+FLARE_SSH_USER=${FLARE_SSH_USER:-thorn}
+FLARE_SSH_KEY=${FLARE_SSH_KEY:-}
+FLARE_SSH_PORT=${FLARE_SSH_PORT:-22}
+# Array of SSH options to avoid word-splitting issues
+FLARE_SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o BatchMode=yes)
+
+# Check if SSH transport is enabled
+ssh_transport_enabled() {
+	[[ -n ${FLARE_SSH_HOST:-} ]]
+}
+
+# Build SSH command array
+ssh_cmd() {
+	local -a cmd=(ssh "${FLARE_SSH_OPTS[@]}" -p "${FLARE_SSH_PORT}")
+	[[ -n ${FLARE_SSH_KEY:-} ]] && cmd+=(-i "${FLARE_SSH_KEY}")
+	cmd+=("${FLARE_SSH_USER}@${FLARE_SSH_HOST}")
+	printf '%s\n' "${cmd[@]}"
+}
+
+# Run a command via SSH and return stdout/stderr/exit code
+ssh_exec() {
+	local -a ssh_args
+	mapfile -t ssh_args < <(ssh_cmd)
+	"${ssh_args[@]}" "$@"
+}
+
+# Run a PowerShell script via SSH (encoded as UTF-16LE base64 for -EncodedCommand)
+ssh_exec_powershell() {
+	local script=$1
+	[[ -n $script ]] || die "ssh_exec_powershell needs a script to run"
+	local encoded
+	script="\$ProgressPreference = 'SilentlyContinue'; $script"
+	encoded=$(printf '%s' "$script" | iconv -f UTF-8 -t UTF-16LE | base64 -w0)
+	ssh_exec powershell.exe -NoProfile -NonInteractive -OutputFormat Text -EncodedCommand "$encoded"
+}
+
+# Run an arbitrary command via SSH (no shell)
+ssh_exec_argv() {
+	ssh_exec "$@"
+}
+
+# Upload a file via SCP
+ssh_push() {
+	local local_path=$1 remote_path=$2
+	[[ -f $local_path ]] || die "no such local file: $local_path"
+	[[ -n $remote_path ]] || die "ssh_push needs a destination path"
+
+	local -a scp_cmd=(scp "${FLARE_SSH_OPTS[@]}" -P "${FLARE_SSH_PORT}")
+	[[ -n ${FLARE_SSH_KEY:-} ]] && scp_cmd+=(-i "${FLARE_SSH_KEY}")
+	scp_cmd+=("$local_path" "${FLARE_SSH_USER}@${FLARE_SSH_HOST}:${remote_path}")
+	"${scp_cmd[@]}"
+}
+
+# Download a file via SCP
+ssh_pull() {
+	local remote_path=$1 local_path=${2:-}
+	[[ -n $remote_path ]] || die "ssh_pull needs a source path"
+	[[ -z $local_path ]] && local_path=$(win_basename "$remote_path")
+
+	local -a scp_cmd=(scp "${FLARE_SSH_OPTS[@]}" -P "${FLARE_SSH_PORT}")
+	[[ -n ${FLARE_SSH_KEY:-} ]] && scp_cmd+=(-i "${FLARE_SSH_KEY}")
+	scp_cmd+=("${FLARE_SSH_USER}@${FLARE_SSH_HOST}:${remote_path}" "$local_path")
+	"${scp_cmd[@]}"
+}
+
+# Restart QEMU-GA service via SSH (replaces qga_recover)
+ssh_qga_recover() {
+	note "guest agent in VM (SSH) has stopped draining requests, restarting it"
+	ssh_exec_powershell 'Restart-Service QEMU-GA -Force' >/dev/null 2>&1 || true
+	local i
+	for ((i = 0; i < QGA_RECOVERY_POLLS; i++)); do
+		sleep "$QGA_RECOVERY_INTERVAL"
+		if ssh_exec_powershell 'Write-Output "ok"' >/dev/null 2>&1; then
+			note "guest agent in VM (SSH) is responding again"
+			return 0
+		fi
+	done
+	return 1
+}
+
+# Ping via SSH
+ssh_ping() {
+	if ssh_exec_powershell 'Write-Output "ok"' >/dev/null 2>&1; then
+		note "VM (SSH) guest agent is responding"
+		return 0
+	fi
+	die "VM (SSH) did not answer a guest agent ping"
+}
+
+# Get OS info via SSH
+ssh_info() {
+	note "VM (SSH) guest agent is responding"
+	printf '\n-- osinfo --\n'
+	ssh_exec_powershell '(Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber | ConvertTo-Json -Compress)'
+
+	printf '\n-- hostname --\n'
+	ssh_exec_powershell 'Write-Output $env:COMPUTERNAME'
+
+	printf '\n-- interfaces --\n'
+	ssh_exec_powershell 'Get-NetIPAddress | Where-Object {$_.AddressFamily -eq "IPv4" -and $_.InterfaceAlias -notlike "*Loopback*"} | Select-Object IPAddress, InterfaceAlias, PrefixOrigin | ConvertTo-Json -Compress'
+
+	printf '\n-- memory (MiB total / free) --\n'
+	local mem
+	mem=$(ssh_exec_powershell '(Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory | ConvertTo-Json -Compress)' 2>/dev/null | tr -d '\r')
+	if [[ -n ${mem:-} ]]; then
+		local total free
+		total=$(jq -r '.TotalVisibleMemorySize // 0' <<<"$mem")
+		free=$(jq -r '.FreePhysicalMemory // 0' <<<"$mem")
+		if [[ -n ${total:-} ]]; then
+			printf '  %s / %s\n' "$((total / 1024))" "$((free / 1024))"
+		fi
+	fi
+}
+
+# Doctor via SSH
+ssh_doctor() {
+	printf '== VM (SSH) on %s ==\n' "${FLARE_SSH_HOST}"
+
+	local osinfo
+	if ! osinfo=$(ssh_exec_powershell '(Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber | ConvertTo-Json -Compress)' 2>/dev/null | tr -d '\r'); then
+		printf 'guest agent:  UNREACHABLE\n'
+		return 1
+	fi
+	local name version build hostname
+	name=$(jq -r '.Caption // "?"' <<<"$osinfo")
+	version=$(jq -r '.Version // "?"' <<<"$osinfo")
+	build=$(jq -r '.BuildNumber // "?"' <<<"$osinfo")
+	hostname=$(ssh_exec_powershell 'Write-Output $env:COMPUTERNAME' 2>/dev/null | tr -d '\r') || hostname="?"
+	printf 'guest agent:  ok\n'
+	printf 'os:           %s (NT %s.%s)\n' "$name" "$version" "$build"
+	printf 'hostname:     %s\n' "$hostname"
+
+	# Probe for tools
+	local probe
+	if ! probe=$(ssh_exec_powershell "$(doctor_probe_script)" 2>/dev/null | tr -d '\r'); then
+		printf 'guest survey: FAILED\n'
+		return 1
+	fi
+	[[ -n $probe ]] || probe='{}'
+
+	printf 'memory:       %s MiB free of %s MiB\n' \
+		"$(jq -r '.freeMemMiB // 0' <<<"$probe")" \
+		"$(jq -r '.totalMemMiB // 0' <<<"$probe")"
+
+	printf '\n-- guest tooling --\n'
+	local tool
+	for tool in "${FLARE_AGENT_GUEST_TOOLS[@]}"; do
+		local hit
+		hit=$(jq -r --arg t "${tool,,}" '.found[$t] // empty' <<<"$probe")
+		if [[ -n $hit ]]; then
+			printf '  ok      %-22s %s\n' "$tool" "$hit"
+		else
+			printf '  missing %s\n' "$tool"
+		fi
+	done
+
+	local backend=""
+	backend=$(jq -r '.found["imdisk.exe"] // .found["ramdisk.exe"] // .found["aim_ll.exe"] // empty' <<<"$probe")
+	printf '\n-- verdict --\n'
+	if [[ -n $backend ]]; then
+		printf '  RAM disk:     available (%s)\n' "$backend"
+	else
+		printf '  RAM disk:     UNAVAILABLE - no ImDisk, ramdisk or Arsenal in the guest\n'
+		printf '                detonating now would write the sample to the qcow2.\n'
+	fi
+
+	printf '\n-- guest filesystems --\n'
+	jq -r '.drives[] | "  \(.name)  \(.sizeMiB) MiB total, \(.freeMiB) MiB free (type \(.type))"' \
+		<<<"$probe" 2>/dev/null || printf '  (none reported)\n'
+
+	printf '\n-- this host --\n'
+	if mkdir -p "$ARTIFACT_DIR" 2>/dev/null; then
+		printf '  artifact dir: %s (%s MiB free)\n' "$ARTIFACT_DIR" \
+			"$(df -Pm "$ARTIFACT_DIR" 2>/dev/null | awk 'NR==2 {print $4}')"
+	else
+		printf '  artifact dir: %s NOT WRITABLE\n' "$ARTIFACT_DIR"
+	fi
+	printf '  note:         /run is volatile; exported case reports, not raw dumps,\n'
+	printf '                are what should survive a reboot.\n'
+}
+
+# Transport selection wrapper functions
+# These delegate to SSH if enabled, otherwise fall back to QGA
+
+transport_exec_powershell() {
+	if ssh_transport_enabled; then
+		ssh_exec_powershell "$@"
+	else
+		exec_powershell "$@"
+	fi
+}
+
+transport_exec_argv() {
+	if ssh_transport_enabled; then
+		ssh_exec_argv "$@"
+	else
+		exec_argv "$@"
+	fi
+}
+
+transport_push() {
+	if ssh_transport_enabled; then
+		# ssh_push takes (local_path, remote_path), cmd_push takes (vmid, local_path, remote_path)
+		ssh_push "$2" "$3"
+	else
+		cmd_push "$@"
+	fi
+}
+
+transport_pull() {
+	if ssh_transport_enabled; then
+		# ssh_pull takes (remote_path, local_path), cmd_pull takes (vmid, remote_path, local_path)
+		ssh_pull "$2" "${3:-}"
+	else
+		cmd_pull "$@"
+	fi
+}
+
+transport_ping() {
+	if ssh_transport_enabled; then
+		ssh_ping
+	else
+		cmd_ping "$@"
+	fi
+}
+
+transport_info() {
+	if ssh_transport_enabled; then
+		ssh_info
+	else
+		cmd_info "$@"
+	fi
+}
+
+transport_doctor() {
+	if ssh_transport_enabled; then
+		ssh_doctor
+	else
+		cmd_doctor "$@"
+	fi
+}
+
+transport_qga_recover() {
+	if ssh_transport_enabled; then
+		ssh_qga_recover
+	else
+		qga_recover "$@"
+	fi
 }
 
 if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
@@ -860,8 +1416,14 @@ readonly NODE
 readonly SUBCOMMAND=$1
 readonly VMID=$2
 
-require_command pvesh
-require_command qm
+# Transport-aware command requirements
+if ssh_transport_enabled; then
+	require_command ssh
+	require_command scp
+else
+	require_command pvesh
+	require_command qm
+fi
 require_command jq
 require_command iconv
 require_command base64
@@ -869,27 +1431,216 @@ require_command sha256sum
 require_command dd
 
 case $SUBCOMMAND in
-doctor) cmd_doctor "$VMID" ;;
-ping) cmd_ping "$VMID" ;;
-info) cmd_info "$VMID" ;;
+doctor) transport_doctor "$VMID" ;;
+ping) transport_ping "$VMID" ;;
+info) transport_info "$VMID" ;;
 exec)
 	shift 2
-	exec_argv "$VMID" "$@"
+	transport_exec_argv "$VMID" "$@"
 	;;
 powershell)
 	shift 2
 	[[ $# -ge 1 ]] || die "powershell needs a script to run"
-	exec_powershell "$VMID" "$*"
+	transport_exec_powershell "$VMID" "$*"
 	;;
 push)
 	shift 2
 	[[ $# -eq 2 ]] || die "push needs exactly: <vmid> <local-file> <windows-path>"
-	cmd_push "$VMID" "$1" "$2"
+	transport_push "$VMID" "$1" "$2"
 	;;
 pull)
 	shift 2
 	[[ $# -ge 1 && $# -le 2 ]] || die "pull needs: <vmid> <windows-path> [local-file]"
-	cmd_pull "$VMID" "$1" "${2:-}"
+	transport_pull "$VMID" "$1" "${2:-}"
+	;;
+detonate)
+	shift 2
+	[[ $# -ge 1 ]] || die "detonate needs: <vmid> <local-sample> [run-args...]"
+	# Inline detonate logic to avoid function definition issues
+	local_path=$1
+	shift
+	[[ -f $local_path ]] || die "no such local sample: $local_path"
+	transport_exec_powershell "$VMID" "Write-Output 'transport test'" >/dev/null || die "transport not working for VM $VMID"
+	require_running_vm "$VMID"
+
+	name=$(basename "$local_path")
+	size=$(wc -c <"$local_path")
+	((size > 0)) || die "sample $name is empty"
+	sample_hash=$(sha256sum "$local_path" | cut -d' ' -f1)
+
+	ram_mib=$((size / 1048576 + DETONATE_HEADROOM_MIB))
+	((ram_mib < DETONATE_MIN_MIB)) && ram_mib=$DETONATE_MIN_MIB
+	((ram_mib <= DETONATE_MAX_MIB)) ||
+		die "sample needs a ${ram_mib} MiB RAM disk, over the ${DETONATE_MAX_MIB} MiB ceiling"
+
+	free_mib=""
+	free_mib=$(transport_exec_powershell "$VMID" \
+		"[int]((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1KB)" |
+		tr -d '\r\n[:space:]') || free_mib=""
+	[[ $free_mib =~ ^[0-9]+$ ]] || die "could not read free memory in VM $VMID"
+	((ram_mib + 512 <= free_mib)) ||
+		die "VM $VMID has ${free_mib} MiB free, too little for a ${ram_mib} MiB RAM disk plus headroom"
+
+	note "detonating $name (sha256 ${sample_hash}) in VM $VMID on a ${ram_mib} MiB memory disk"
+
+	letter=""
+	letter=$(transport_exec_powershell "$VMID" "$(ramdisk_free_letter_script)" | tr -d '\r\n[:space:]')
+	[[ $letter == ?: ]] || die "no free drive letter in VM $VMID"
+
+	# case_dir must be defined before trap uses it for PCAP
+	case_dir=""
+	case_dir="$ARTIFACT_DIR/$(date -u +%Y%m%dT%H%M%SZ)-${name%.*}"
+	mkdir -p "$case_dir" || die "cannot create the case directory $case_dir"
+
+	# Start PCAP capture on host tap interface for this VM's network
+	PCAP_FILE="$case_dir/network.pcap"
+	note "starting PCAP capture on vmbr1 to $PCAP_FILE"
+	timeout 3600 tcpdump -i vmbr1 -s 0 -w "$PCAP_FILE" "ether host $(qm config "$VMID" | awk -F= '/^net0:/{print $2}' | cut -d, -f1)" &
+	PCAP_PID=$!
+
+	DETONATE_VMID=$VMID DETONATE_LETTER=$letter DETONATE_SAMPLE=$name
+	# Inline cleanup trap to avoid function definition issues
+	trap '
+		rc=0
+		# Stop PCAP capture
+		if [[ -n ${PCAP_PID:-} ]] && kill -0 $PCAP_PID 2>/dev/null; then
+			kill $PCAP_PID
+			wait $PCAP_PID 2>/dev/null
+			note "PCAP capture saved to $PCAP_FILE"
+		fi
+		# Escalate rather than reporting failure on the first refusal. A graceful
+		# detach is refused whenever anything holds the volume open, and after a
+		# detonation that is routinely the guest agent itself: a transfer that timed
+		# out leaves it holding the archive we were reading, and its dismount is what
+		# fails. Restarting the agent is what releases those handles, and the force
+		# flag is the last resort for a volume that is genuinely wedged.
+		gone=""
+		note "detaching RAM disk $DETONATE_LETTER from VM $DETONATE_VMID"
+		transport_exec_powershell "$DETONATE_VMID" "$(ramdisk_detach_script "$DETONATE_LETTER")" >/dev/null 2>&1 || true
+		gone=$(transport_exec_powershell "$DETONATE_VMID" "$(
+			cat <<EOF
+\$ErrorActionPreference = '"'"'SilentlyContinue'"'"'
+\$drive = '"'"'$(printf '"'"'%s'"'"' "${DETONATE_LETTER%:}" | tr '"'"'[:upper:]'"'"' '"'"'[:lower:]'"'"')"
+Write-Output ("LETTER_GONE=" + \$(if (Test-Path (\$drive + '"'"':'"'"')) { 0 } else { 1 }))
+EOF
+		)" 2>/dev/null | tr -d '"'"'\r'"'"' | sed -n '"'"'s/.*LETTER_GONE=\([01]\).*/\1/p'"'"') || gone=""
+		if [[ $gone != 1 ]]; then
+			note "$DETONATE_LETTER refused a graceful detach; releasing handles held by the guest agent"
+			transport_qga_recover "$DETONATE_VMID" || true
+			note "waiting for guest agent to fully restart and release handles"
+			sleep 8
+			transport_exec_powershell "$DETONATE_VMID" "$(ramdisk_detach_script "$DETONATE_LETTER")" >/dev/null 2>&1 || true
+			gone=$(transport_exec_powershell "$DETONATE_VMID" "$(
+				cat <<EOF
+\$ErrorActionPreference = '"'"'SilentlyContinue'"'"'
+\$drive = '"'"'$(printf '"'"'%s'"'"' "${DETONATE_LETTER%:}" | tr '"'"'[:upper:]'"'"' '"'"'[:lower:]'"'"')"
+Write-Output ("LETTER_GONE=" + \$(if (Test-Path (\$drive + '"'"':'"'"')) { 0 } else { 1 }))
+EOF
+			)" 2>/dev/null | tr -d '"'"'\r'"'"' | sed -n '"'"'s/.*LETTER_GONE=\([01]\).*/\1/p'"'"') || gone=""
+		fi
+		if [[ $gone != 1 ]]; then
+			note "$DETONATE_LETTER still attached; forcing removal with retries"
+			force_attempt=0
+			max_force_attempts=3
+			while ((force_attempt < max_force_attempts && gone != 1)); do
+				((force_attempt++))
+				note "force detach attempt $force_attempt/$max_force_attempts"
+				transport_exec_powershell "$DETONATE_VMID" "$(ramdisk_detach_script "$DETONATE_LETTER" D)" >/dev/null 2>&1 || true
+				sleep 3
+				gone=$(transport_exec_powershell "$DETONATE_VMID" "$(
+					cat <<EOF
+\$ErrorActionPreference = '"'"'SilentlyContinue'"'"'
+\$drive = '"'"'$(printf '"'"'%s'"'"' "${DETONATE_LETTER%:}" | tr '"'"'[:upper:]'"'"' '"'"'[:lower:]'"'"')"
+Write-Output ("LETTER_GONE=" + \$(if (Test-Path (\$drive + '"'"':'"'"')) { 0 } else { 1 }))
+EOF
+				)" 2>/dev/null | tr -d '"'"'\r'"'"' | sed -n '"'"'s/.*LETTER_GONE=\([01]\).*/\1/p'"'"') || gone=""
+			done
+		fi
+		if [[ $gone == 1 ]]; then
+			note "$DETONATE_LETTER is gone; the sample existed only in guest memory"
+		else
+			note "SEVERE: $DETONATE_LETTER is STILL ATTACHED to VM $DETONATE_VMID."
+			note "        the sample is still resident; detach it by hand with"
+			note "        aim_ll.exe -D -m $DETONATE_LETTER before the next case."
+		fi
+
+		stray=""
+		stray=$(transport_exec_powershell "$DETONATE_VMID" "$(ramdisk_stray_script "$DETONATE_SAMPLE")" 2>/dev/null |
+			tr -d '"'"'\r'"'"' | sed -n '"'"'s/.*STRAY_COPIES=\([0-9]*\).*/\1/p'"'"') || stray=""
+		if [[ -z $stray ]]; then :; elif [[ $stray == 0 ]]; then
+			note "verified: no copy of $DETONATE_SAMPLE on guest persistent storage"
+		else
+			note "WARNING: $stray copy/copies of $DETONATE_SAMPLE reached persistent storage"
+		fi
+	' EXIT
+	transport_exec_powershell "$VMID" "$(ramdisk_attach_script "$letter" "$ram_mib")" >/dev/null 2>&1 || true
+
+	gate=""
+	gate=$(transport_exec_powershell "$VMID" "$(ramdisk_gate_script "$letter")" 2>/dev/null | tr -d '\r') || gate=""
+	gate=${gate##*$'\n'}
+	[[ $gate == *'GATE=VM'* ]] ||
+		die "refusing to stage: $letter is not memory-backed (${gate:-Arsenal said nothing})"
+	note "memory-backed disk at $letter (${gate#*size=} bytes)"
+
+	fmt=""
+	fmt=$(transport_exec_powershell "$VMID" "$(ramdisk_format_script "$letter")" 2>/dev/null | tr -d '\r') || fmt=""
+	[[ $fmt == FORMAT=NTFS* ]] || die "could not format the RAM disk: ${fmt:-no answer from the guest}"
+
+	outdir="${letter}\\artifacts"
+	transport_exec_powershell "$VMID" "New-Item -ItemType Directory -Path $(ps_quote "${letter}\\sample"),$(ps_quote "$outdir") -Force | Out-Null" >/dev/null
+
+	transport_push "$VMID" "$local_path" "${letter}\\sample\\$name"
+
+	runout=""
+	runout=$(transport_exec_powershell "$VMID" \
+		"$(detonate_run_script "$letter" "${letter}\\sample\\$name" "$*" "$outdir")" 2>/dev/null | tr -d '\r') || runout=""
+	note "sample finished: ${runout##*$'\n'}"
+	runout=""
+
+	collected=""
+	collected=$(transport_exec_powershell "$VMID" "$(detonate_collect_script "$letter" "$sample_hash")" 2>/dev/null |
+		tr -d '\r') || collected=""
+	zipkb=""
+	zipkb=$(sed -n 's/^.*ZIP=\([0-9]*\)KiB.*$/\1/p' <<<"$collected")
+	[[ -n $zipkb ]] || die "artifact archive was not produced on the RAM disk"
+	note "collected $zipkb KiB of evidence into the archive"
+
+	transport_pull "$VMID" "${letter}\\artifacts.zip" "$case_dir/artifacts.zip"
+
+	# Post-pull analysis: YARA + capa if available. The extraction is hoisted
+	# out of the yara branch because capa analyses the same directory, and it
+	# must not depend on yara being installed to have somewhere to look.
+	# Both ship in the agent's package set, so this is currently unreachable,
+	# but the ordering is a latent trap rather than a guarantee.
+	if command -v yara >/dev/null 2>&1 || command -v capa >/dev/null 2>&1; then
+		unzip -q -o "$case_dir/artifacts.zip" -d "$case_dir/extracted"
+	fi
+	if command -v yara >/dev/null 2>&1; then
+		note "running YARA scan on extracted artifacts"
+		if [[ -d /etc/yara/rules ]]; then
+			yara -r /etc/yara/rules "$case_dir/extracted" >"$case_dir/yara.txt" 2>&1 || true
+			note "YARA results: $(grep -c '^' "$case_dir/yara.txt" 2>/dev/null || echo 0) matches"
+		else
+			note "YARA rules not found at /etc/yara/rules, skipping"
+		fi
+	fi
+	if command -v capa >/dev/null 2>&1; then
+		note "running capa capability analysis on sample"
+		# capa needs rules - try embedded first, then fall back to /opt/capa-rules
+		if capa -V 2>&1 | grep -q "rules embedded"; then
+			capa "$case_dir/extracted" >"$case_dir/capa.txt" 2>&1 || true
+		elif [[ -d /opt/capa-rules ]]; then
+			capa -r /opt/capa-rules "$case_dir/extracted" >"$case_dir/capa.txt" 2>&1 || true
+		else
+			note "capa rules not found, skipping"
+		fi
+		# Only claimed when a branch above actually wrote it.
+		[[ -f $case_dir/capa.txt ]] &&
+			note "capa results written to $case_dir/capa.txt"
+	fi
+
+	printf '\n  case:       %s\n  sample:     %s\n  sha256:     %s\n  ram disk:   %s (%s MiB, memory backed)\n  artifacts:  %s\n\n' \
+		"$(basename "$case_dir")" "$name" "$sample_hash" "$letter" "$ram_mib" "$case_dir/artifacts.zip"
 	;;
 raw)
 	shift 2
