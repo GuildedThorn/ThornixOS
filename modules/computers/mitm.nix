@@ -7,6 +7,7 @@
       config.nixos.modules.services-ssh
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.services-hashtopolis-server
+      config.nixos.modules.services-threadfin
 
       config.nixos.modules.hardware-mitm
       { _module.args.inputs = inputs; }

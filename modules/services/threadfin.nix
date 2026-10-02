@@ -72,6 +72,25 @@
           default = "info";
           description = "Log level";
         };
+
+        domain = lib.mkOption {
+          type = lib.types.str;
+          default = "threadfin.guildedthorn.arpa";
+          description = ''
+            Hostname the web UI is published under. Must be present in the
+            host's ACME `extraDomainNames` so nginx can obtain a certificate
+            for it.
+          '';
+        };
+
+        acmeHost = lib.mkOption {
+          type = lib.types.str;
+          default = "mitm.guildedthorn.arpa";
+          description = ''
+            Existing ACME-enabled vhost whose certificate is reused, rather
+            than requesting a separate certificate for this service.
+          '';
+        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -101,7 +120,7 @@
             ExecStart = "${pkgs.podman}/bin/podman run --rm --name threadfin \
               -p ${toString cfg.port}:34400 \
               -v ${cfg.dataDir}:/data \
-              -v ${cfg.configFile}:/etc/threadfin/config.json:ro \
+              -v /etc/threadfin/config.json:/etc/threadfin/config.json:ro \
               --user 1000:1000 \
               ghcr.io/threadfin/threadfin:latest";
             Restart = "on-failure";
@@ -120,6 +139,7 @@
 
         users.users.threadfin = {
           isSystemUser = true;
+          group = "threadfin";
           home = cfg.dataDir;
           description = "Threadfin M3U proxy";
         };
@@ -128,11 +148,11 @@
 
         networking.firewall.allowedTCPPorts = [ cfg.port ];
 
-        nginxConfig = lib.mkIf config.thorn.acme.enable {
-          services.nginx.virtualHosts."threadfin.${config.networking.domain}" = {
-            serverName = "threadfin.${config.networking.domain}";
+        services.nginx.virtualHosts = lib.mkIf config.thorn.acme.enable {
+          "${cfg.domain}" = {
+            serverName = cfg.domain;
             forceSSL = true;
-            useACMEHost = config.networking.domain;
+            useACMEHost = cfg.acmeHost;
             locations."/" = {
               proxyPass = "http://127.0.0.1:${toString cfg.port}";
               proxyWebsockets = true;

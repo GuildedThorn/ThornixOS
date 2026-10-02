@@ -848,6 +848,18 @@ in
     "L+ /var/lib/hass/thorn-home.yaml - - - - ${inputs.self}/hosts/mitm/thorn-home.yaml"
   ];
 
+  # Threadfin M3U/EPG proxy for IPTV
+  thorn.threadfin = {
+    enable = true;
+    port = 34400;
+    dataDir = "/var/lib/threadfin";
+    m3uUrl = "https://iptv-org.github.io/iptv/countries/us.m3u";
+    epgUrl = "https://epg.iptv-org.com/epg.xml.gz";
+    bufferSize = 2048;
+    transcoding = false;
+    logLevel = "info";
+  };
+
   thorn.acme = {
     enable = true;
     domain = "mitm.guildedthorn.arpa";
@@ -856,6 +868,7 @@ in
     extraDomainNames = [
       "resolver2.guildedthorn.arpa"
       "hashtopolis.guildedthorn.arpa"
+      "threadfin.guildedthorn.arpa"
     ];
   };
 
