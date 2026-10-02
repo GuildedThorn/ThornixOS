@@ -263,7 +263,11 @@ let
     share = "disabled";
     snapshot = true;
     formatter = true;
-    lsp = true;
+    # An `lsp` object keeps the built-in servers enabled while overriding
+    # individual ones. nixd forks nixd-attrset-eval workers that evaluate the
+    # whole flake per session (~300M resident) to serve completion to a client
+    # that reads files directly instead. nvim keeps the interactive nixd.
+    lsp.nixd.disabled = true;
     subagent_depth = 2;
     shell = lib.getExe pkgs.zsh;
 
