@@ -54,6 +54,7 @@
       # $ nix search <package>
       environment.systemPackages = with pkgs; [
         git
+        forgejo-cli
         gh
         glab
         gnumake
