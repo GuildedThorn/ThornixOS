@@ -1,0 +1,14 @@
+# Hack The Box target list.
+#
+# One "<address> <name>" pair per line. Blank lines and "#" comments are
+# allowed. Installed as /etc/security-tools/targets and queried with
+# `htb-targets`.
+#
+# HTB re-issues the 10.129.x.x address every time a machine is spawned, so
+# replace the line below after each reset rather than keeping every stale
+# address around.
+
+10.129.120.182 cap.htb
+
+10.129.120.209 management.htb
+10.129.120.209 sso.management.htb

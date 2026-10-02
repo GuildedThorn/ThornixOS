@@ -27,6 +27,8 @@
       config.nixos.modules.services-velociraptor-client
       config.nixos.modules.services-vr
 
+      config.nixos.modules.services-security-tools
+
       config.nixos.modules.thorn-glance
 
       config.nixos.modules.hardware-nixos
@@ -60,12 +62,6 @@
 
           environment.systemPackages = with pkgs; [
             asciinema
-
-            # GPU hash-cracking host: this workstation's RX 6700 XT is one of
-            # the two GPUs driven by the Hashtopolis agents. Hashtopolis ships
-            # its own hashcat for agent work; these are for manual CLI use.
-            hashcat
-            john
 
             corectrl
             openrgb
@@ -103,8 +99,6 @@
             osu-lazer-bin
             clonehero
 
-            openvpn
-
             retroarch
             libretro.pcsx-rearmed
             libretro.pcsx2
@@ -118,8 +112,6 @@
             claude-code
 
             virt-viewer
-
-            keepassxc
 
             system-config-printer
 
@@ -142,7 +134,6 @@
             ffmpeg
             steamcmd
 
-            binwalk
             mkuimage
           ];
 
@@ -152,6 +143,49 @@
             enable = true;
             url = "https://hashtopolis.guildedthorn.arpa/api/server.php";
             sopsFile = "${inputs.self}/hosts/nixos/hashtopolis-agent.sops";
+          };
+
+          # -------------------------
+          # Security tooling
+          # -------------------------
+          # The general-purpose security suite, grouped the way Kali groups
+          # its menu. This host is the main analysis workstation, so every
+          # group is on; drop individual groups here rather than forking the
+          # module when the closure gets too heavy.
+          thorn.securityTools = {
+            enable = true;
+
+            groups = {
+              reconnaissance = true;
+              resourceDevelopment = true;
+              initialAccess = true;
+              execution = true;
+              persistence = true;
+              privilegeEscalation = true;
+              defenseEvasion = true;
+              credentialAccess = true;
+              discovery = true;
+              lateralMovement = true;
+              collection = true;
+              commandAndControl = true;
+              exfiltration = true;
+              impact = true;
+
+              exploitation = true;
+              reversing = true;
+              pwn = true;
+              wireless = true;
+              forensics = true;
+              utilities = true;
+            };
+
+            containers = true;
+            hostTuning = true;
+
+            targets = {
+              file = "${inputs.self}/hosts/nixos/htb-targets";
+              etcHosts = true;
+            };
           };
 
           # -------------------------
@@ -165,8 +199,6 @@
             enable = true;
             pkiBundle = "/var/lib/sbctl";
           };
-
-          virtualisation.docker.enable = true;
 
           services.printing = {
             enable = true;
