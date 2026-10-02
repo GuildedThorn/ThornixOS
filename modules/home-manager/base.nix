@@ -3,8 +3,19 @@
   homeManager.modules.thorn =
     {
       pkgs,
+      lib,
       ...
     }:
+    let
+      # arc-theme's unstable snapshot fails to build its gnome-shell/cinnamon
+      # variants against GNOME Shell 50 (missing 45/icons dir upstream).
+      # This fleet runs Hyprland, so build only the GTK/X11 theme variants.
+      arc-theme = pkgs.arc-theme.overrideAttrs (old: {
+        mesonFlags = (lib.filter (f: !(lib.hasPrefix "-Dthemes=" f)) old.mesonFlags) ++ [
+          (lib.mesonOption "themes" "gtk3,gtk4,metacity,plank,unity,xfwm")
+        ];
+      });
+    in
     {
 
       imports = [
