@@ -334,6 +334,29 @@
           boot.tmp.tmpfsSize = "8G";
 
           security.pam.services.sudo.u2fAuth = true;
+
+          networking.nftables.enable = true;
+
+          services.zapret2 = {
+            enable = true;
+            firewall = {
+              configureAutomatically = true;
+              tcpPorts = [
+                80
+                443
+              ];
+              udpPorts = [ 4501 ];
+              queue = 200;
+              desyncFwmark = "0x40000000";
+            };
+            profiles.default.parameters = [
+              "--filter-tcp=80,443"
+              "--payload=tls_client_hello"
+              "--dpi-desync=fake,disorder2"
+              "--dpi-desync-ttl=1"
+              "--dpi-desync-autottl=2"
+            ];
+          };
         }
       )
     ];

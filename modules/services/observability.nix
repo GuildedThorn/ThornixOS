@@ -57,7 +57,7 @@
 
           # comin's metrics endpoint is similarly visible only to the SOC.
           # Loopback remains available for scout's local Alloy scrape.
-          networking.firewall.extraCommands = ''
+          networking.firewall.extraCommands = lib.mkIf (!config.networking.nftables.enable) ''
             iptables -w -A nixos-fw -p tcp -s 172.16.25.51/32 \
               -m multiport --dports 9100,4243 -j nixos-fw-accept
           '';
