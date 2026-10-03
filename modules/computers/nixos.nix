@@ -244,6 +244,9 @@
             }
           ];
 
+          services.tailscale.enable = true;
+          services.tailscale.useRoutingFeatures = "both";
+
           programs.npm.enable = true;
 
           programs.corectrl = {

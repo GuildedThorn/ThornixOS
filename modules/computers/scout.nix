@@ -135,6 +135,9 @@
             ];
           };
 
+          services.tailscale.enable = true;
+          services.tailscale.useRoutingFeatures = "both";
+
           boot.kernelParams = [
             "acpi_backlight=native"
             #"snd_intel_dspcfg.dsp_driver=3"
