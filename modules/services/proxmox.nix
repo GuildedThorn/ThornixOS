@@ -29,6 +29,13 @@
         openFirewall = false;
       };
 
+      # pvedaemon and friends run against the glibc of proxmox-nixos's pinned
+      # nixpkgs-stable.  PAM modules built from a newer root nixpkgs reference
+      # symbol versions that glibc does not provide, so pam_unix.so fails to
+      # dlopen and every login 401s.  Serve all PAM stacks from the same pin
+      # the proxmox packages use; older-module-into-newer-glibc is safe.
+      security.pam.package = inputs.nixpkgs-stable.legacyPackages.${config.nixpkgs.system}.linux-pam;
+
       nixpkgs.overlays = [
         inputs.proxmox-nixos.overlays.${config.nixpkgs.system}
       ];

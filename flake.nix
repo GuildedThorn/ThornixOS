@@ -146,6 +146,12 @@
     yazi.url = "github:sxyazi/yazi";
 
     proxmox-nixos.url = "github:SaumonNet/proxmox-nixos";
+    # proxmox-nixos hard-pins nixpkgs-stable and builds every pve* package
+    # (and its glibc) from it, while system PAM modules come from the root
+    # nixpkgs.  When the two glibc versions diverge, pvedaemon can no longer
+    # dlopen pam_unix.so and web-UI login 401s.  This alias feeds
+    # security.pam.package in modules/services/proxmox.nix.
+    nixpkgs-stable.follows = "proxmox-nixos/nixpkgs-stable";
 
     scroll-flake = {
       url = "github:Diax170/scroll-flake";

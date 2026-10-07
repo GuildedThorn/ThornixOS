@@ -1657,6 +1657,10 @@
         "nix-flatpak": "nix-flatpak",
         "nixpkgs": "nixpkgs_5",
         "nixpkgs-rpi": "nixpkgs-rpi",
+        "nixpkgs-stable": [
+          "proxmox-nixos",
+          "nixpkgs-stable"
+        ],
         "nixvim": "nixvim",
         "opencode-freecad-mcp-src": "opencode-freecad-mcp-src",
         "opencode-graphify-src": "opencode-graphify-src",
