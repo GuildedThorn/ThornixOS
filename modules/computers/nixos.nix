@@ -34,6 +34,7 @@
       config.nixos.modules.hardware-nixos
       "${inputs.self}/hosts/nixos/disko.nix"
       "${inputs.self}/hosts/nixos/networking.nix"
+      "${inputs.self}/hosts/nixos/nfs.nix"
       "${inputs.self}/hosts/nixos/secrets.nix"
 
       { home-manager.users.thorn = import "${inputs.self}/hosts/nixos/home.nix"; }
@@ -332,6 +333,8 @@
 
           boot.tmp.useTmpfs = true;
           boot.tmp.tmpfsSize = "8G";
+
+          boot.supportedFilesystems.nfs = true;
 
           # The workstation produces large development and gaming logs. Keep
           # the local incident window bounded; fleet telemetry remains on the

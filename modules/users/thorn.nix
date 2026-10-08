@@ -67,6 +67,7 @@ in
           "wheel"
           "xen"
           "kvm"
+          "media"
         ];
         packages = with pkgs; [
           tree
@@ -74,6 +75,12 @@ in
           gtop
         ];
       };
+
+      # `media` is the group granite's *arr stack and Jellyfin own the media
+      # pool with. NFSv4 with AUTH_SYS carries numeric GIDs only, so every host
+      # must resolve the name to granite's number to read `/platter/media`
+      # (`2770 root:media`). Pin it rather than let each host allocate its own.
+      users.groups.media.gid = 989;
 
       programs.zsh.enable = true;
 

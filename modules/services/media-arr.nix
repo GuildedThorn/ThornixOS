@@ -24,6 +24,8 @@
         }
       ];
 
+      # The GID itself is pinned fleet-wide in modules/users/thorn.nix so NFS
+      # clients can map this group; see hosts/nixos/nfs.nix.
       users.groups.${mediaGroup} = { };
       users.users.prowlarr = {
         isSystemUser = true;
