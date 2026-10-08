@@ -45,9 +45,10 @@ in
         {
           hardware.sc0710.enable = true;
 
-          # sc0710 supports kernels up to 7.0, and 7.0 is EOL in nixpkgs, so
-          # pin the boot kernel to 6.18 (same line the installer boots).
-          boot.kernelPackages = lib.mkForce pkgs.linuxPackages_6_18;
+          # sc0710 is tested through 7.0+ upstream and confirmed working on
+          # 7.1/7.2 (Nakildias/sc0710#69, #77); NixOS 7.2 config ships
+          # CONFIG_VIDEOBUF2_DMA_SG=m, which the driver links unconditionally.
+          boot.kernelPackages = lib.mkForce pkgs.linuxPackages_7_2;
 
           boot.loader.systemd-boot.enable = true;
           boot.loader.efi.canTouchEfiVariables = true;
