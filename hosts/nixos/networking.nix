@@ -30,12 +30,6 @@
       iptables -w -A nixos-fw -p tcp -s 192.168.1.74/32 -m mac --mac-source 64:bc:58:4f:db:9d --dport 22 -j nixos-fw-accept
       iptables -w -A nixos-fw -p tcp -s 172.16.25.3/32 --dport 22 -j nixos-fw-accept
     '';
-
-    extraHosts = "
-      172.16.25.1 pfsense.guildedthorn.arpa
-      172.16.25.3 proxmox.guildedthorn.arpa
-      172.16.25.4 truenas.guildedthorn.arpa
-      ";
   };
 
   networking.networkmanager = {
