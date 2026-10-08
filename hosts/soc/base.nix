@@ -19,7 +19,6 @@
     kernelParams = [ "net.ifnames=0" ];
   };
 
-  services.qemuGuest.enable = true;
   fileSystems."/".autoResize = true;
   services.openssh.settings = {
     PermitRootLogin = "prohibit-password";

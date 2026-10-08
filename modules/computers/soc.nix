@@ -7,6 +7,7 @@ in
     system = "x86_64-linux";
     modules = [
       config.nixos.modules.thorn-headless
+      #config.nixos.modules.profile-qemu-server
 
       # The SIEM host is worth defending too — an attacker who reaches soc
       # can rewrite the record of how they got in.
@@ -17,7 +18,6 @@ in
 
       { _module.args.inputs = inputs; }
 
-      config.nixos.modules.hardware-qemu-guest
       "${inputs.self}/hosts/soc/disko.nix"
       "${inputs.self}/hosts/soc/networking.nix"
       "${inputs.self}/hosts/soc/secrets.nix"
