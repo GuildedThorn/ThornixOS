@@ -54,22 +54,34 @@ in
       extraCommands = lib.mkForce "";
 
       interfaces = {
-        wan.allowedUDPPorts = [ 4501 ];
+        wan.allowedTCPPorts = [ 8000 ];
+        wan.allowedUDPPorts = [
+          4501
+          8000
+        ];
         lan = {
-          allowedTCPPorts = [ 53 ];
+          allowedTCPPorts = [
+            53
+            8000
+          ];
           allowedUDPPorts = [
             53
             67
             123
             4501
+            8000
           ];
         };
         opt1 = {
-          allowedTCPPorts = [ 53 ];
+          allowedTCPPorts = [
+            53
+            8000
+          ];
           allowedUDPPorts = [
             53
             67
             123
+            8000
           ];
         };
         wg0 = {
