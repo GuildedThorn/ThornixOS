@@ -3,7 +3,7 @@
   # plugins. The concerns that break independently live in sibling files
   # (keymaps.nix, lsp.nix, completion.nix, debug.nix), each behind its own
   # enable flag defaulting on — same pattern as hyprland/.
-  homeManager.modules.thorn =
+  homeManager.modules.nixvim =
     {
       config,
       lib,

@@ -1,7 +1,7 @@
 {
   # General keymaps. Debug keymaps live with DAP in debug.nix; LSP buffer
   # keymaps attach via autocmd in lsp.nix.
-  homeManager.modules.thorn =
+  homeManager.modules.nixvim =
     {
       config,
       lib,

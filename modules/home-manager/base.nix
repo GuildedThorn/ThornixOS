@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ config, inputs, ... }:
 {
   homeManager.modules.thorn =
     {
@@ -19,7 +19,7 @@
     {
 
       imports = [
-        inputs.nixvim.homeModules.nixvim
+        config.homeManager.modules.nixvim
       ];
 
       home.stateVersion = "26.11";

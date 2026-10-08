@@ -1,7 +1,7 @@
 {
   # Completion (blink-cmp and friends) and snippets.
   # Kill-switch: thorn.programs.nixvim.completion.enable = false.
-  homeManager.modules.thorn =
+  homeManager.modules.nixvim =
     {
       config,
       lib,

@@ -3,7 +3,7 @@
   # debugging. Everything is Nix-managed and reproducible; easy-dotnet.nvim is
   # intentionally omitted because its current server is a mutable global tool.
   # Kill-switch: thorn.programs.nixvim.dotnet.enable = false.
-  homeManager.modules.thorn =
+  homeManager.modules.nixvim =
     {
       config,
       lib,

@@ -6,7 +6,7 @@
   # LSP servers, buffer-local LSP keymaps (via LspAttach autocmd), and
   # formatting (conform + the formatter binaries it shells out to).
   # Kill-switch: thorn.programs.nixvim.lsp.enable = false.
-  homeManager.modules.thorn =
+  homeManager.modules.nixvim =
     {
       config,
       lib,

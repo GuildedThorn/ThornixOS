@@ -2,7 +2,7 @@
   # Shared test runner UI and conventional test keymaps. Language modules add
   # their own adapters so disabling one stack does not affect the others.
   # Kill-switch: thorn.programs.nixvim.testing.enable = false.
-  homeManager.modules.thorn =
+  homeManager.modules.nixvim =
     {
       config,
       lib,

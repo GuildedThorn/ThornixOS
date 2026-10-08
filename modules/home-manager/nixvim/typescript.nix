@@ -1,7 +1,7 @@
 {
   # TypeScript/JavaScript LSP, formatting, tests, code actions, and debugging.
   # Kill-switch: thorn.programs.nixvim.typescript.enable = false.
-  homeManager.modules.thorn =
+  homeManager.modules.nixvim =
     {
       config,
       lib,

@@ -3,7 +3,7 @@
   # <leader>d keymaps. TypeScript and C# adapters live with their language
   # stacks so their kill-switches remove the whole integration.
   # Kill-switch: thorn.programs.nixvim.debug.enable = false.
-  homeManager.modules.thorn =
+  homeManager.modules.nixvim =
     {
       config,
       lib,
