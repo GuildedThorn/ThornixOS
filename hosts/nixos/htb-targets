@@ -8,7 +8,4 @@
 # replace the line below after each reset rather than keeping every stale
 # address around.
 
-10.129.120.182 cap.htb
-
-10.129.120.209 management.htb
-10.129.120.209 sso.management.htb
+10.129.244.174 cohort.htb
