@@ -118,6 +118,7 @@ in
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.51 tcp dport { 3000, 3100, 9090 } accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.53 tcp dport 80 accept
         iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.57 tcp dport 8000 accept
+        iifname "lan" ether saddr d8:bb:c1:13:9e:4a ip saddr 192.168.1.6 ip daddr 172.16.25.102 tcp dport 25565 accept
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.0/24 tcp dport { 22, 443 } accept
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.3 tcp dport 8006 accept
         iifname "lan" ether saddr 64:bc:58:4f:db:9d ip saddr 192.168.1.74 ip daddr 172.16.25.4 tcp dport { 30304, 8920 } accept
