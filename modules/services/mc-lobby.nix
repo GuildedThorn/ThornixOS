@@ -1,0 +1,476 @@
+{
+  nixos.modules.mc-lobby =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.thorn.mc-lobby;
+      k3s = config.thorn.mc-cluster.k3s;
+      clusterEnabled = config.thorn.mc-cluster.enable or false;
+
+      # Content-addressed tags: a change to jars, JVM, or baked config yields a
+      # new tag, so `kubectl apply` actually rolls pods instead of leaving the
+      # old image running under IfNotPresent.
+      shortHash = s: builtins.substring 0 12 (builtins.hashString "sha256" s);
+      lobbyTag = "${cfg.environment}-${
+        shortHash (playerConfig + pkgs.jdk25.version + pkgs.papermc.version)
+      }";
+      proxyTag = "${cfg.environment}-${
+        shortHash (proxyConfig + pkgs.jdk25.version + pkgs.velocity.version)
+      }";
+
+      # Jars are unpacked from nixpkgs to a stable layout so the image build
+      # never depends on upstream output names.
+      mcJars = pkgs.runCommand "mc-server-jars" { } ''
+        mkdir -p $out
+        cp ${pkgs.papermc}/share/papermc/papermc.jar $out/lobby.jar
+        cp ${pkgs.velocity}/share/velocity/velocity.jar $out/velocity.jar
+      '';
+
+      playerConfig = ''
+        eula=true
+        level-type=flat
+        motd=Thornix Lobby
+        server-port=${toString cfg.lobbyPort}
+        max-players=${toString (cfg.maxPlayersPerLobby * 2)}
+        view-distance=6
+        online-mode=false
+        velocity.enabled=true
+        velocity.online-mode=true
+        velocity.secret=${cfg.forwardingSecret}
+        enable-rcon=true
+        rcon.port=${toString cfg.rconPort}
+        rcon.password=${cfg.rconPassword}
+        broadcast-rcon-to-ops=false
+      '';
+
+      proxyConfig = ''
+        [servers]
+        lobby = "mc-lobby.mc.svc.cluster.local:${toString cfg.lobbyPort}"
+        try = ["lobby"]
+
+        [forced-hosts]
+        "lobby.${cfg.domainSuffix}" = ["lobby"]
+
+        [advanced]
+        announce-forge = false
+
+        [query]
+        enabled = false
+
+        [forwarding]
+        secret = "${cfg.forwardingSecret}"
+      '';
+
+      lobbyImage = pkgs.dockerTools.buildLayeredImage {
+        name = "localhost/guildedthorn/mc-lobby";
+        tag = lobbyTag;
+        contents = [
+          pkgs.jdk25
+          mcJars
+        ];
+        extraCommands = ''
+          mkdir -p ./data
+          printf '%s' '${playerConfig}' > ./data/server.properties
+          echo "eula=true" > ./data/eula.txt
+        '';
+        config = {
+          Cmd = [ "nogui" ];
+          WorkingDir = "/data";
+          Entrypoint = [
+            "${pkgs.jdk25}/bin/java"
+            "-Xms1G"
+            "-Xmx${toString cfg.lobbyHeapGb}G"
+            "-jar"
+            "/lobby.jar"
+          ];
+        };
+      };
+
+      proxyImage = pkgs.dockerTools.buildLayeredImage {
+        name = "localhost/guildedthorn/mc-velocity";
+        tag = proxyTag;
+        contents = [
+          pkgs.jdk25
+          mcJars
+        ];
+        extraCommands = ''
+          mkdir -p ./data
+          printf '%s' '${proxyConfig}' > ./data/velocity.toml
+        '';
+        config = {
+          WorkingDir = "/data";
+          Cmd = [ ];
+          Entrypoint = [
+            "${pkgs.jdk25}/bin/java"
+            "-Xms512M"
+            "-Xmx${toString cfg.proxyHeapGb}G"
+            "-jar"
+            "/velocity.jar"
+          ];
+        };
+      };
+
+      autoscalerPy = pkgs.writeScript "mc-lobby-autoscaler.py" ''
+        import argparse
+        import json
+        import re
+        import socket
+        import struct
+        import subprocess
+        import sys
+        import time
+
+
+        def rcon(host, port, password, cmd, timeout=3):
+            def pack(rid, ptype, body):
+                data = struct.pack("<iii", rid, ptype, len(body.encode()) + 1) + body.encode("utf-8") + b"\0\0"
+                return struct.pack("<i", len(data)) + data
+
+            def recv(sock):
+                (n,) = struct.unpack("<i", sock.recv(4))
+                data = b""
+                while len(data) < n:
+                    data += sock.recv(n - len(data))
+                return data
+
+            with socket.create_connection((host, port), timeout=timeout) as s:
+                s.sendall(pack(1, 3, password))
+                recv(s)
+                s.sendall(pack(2, 2, cmd))
+                body = recv(s)[12:].decode("utf-8", errors="replace").rstrip("\0")
+                return body
+
+
+        def kubectl(*args):
+            return subprocess.run(
+                ["kubectl"] + list(args), check=True, capture_output=True, text=True
+            ).stdout
+
+
+        def players_on(host, port, password):
+            try:
+                out = rcon(host, port, password, "list")
+                m = re.search(r"There are (\d+) of a max of", out)
+                return int(m.group(1)) if m else 0
+            except Exception:
+                return -1  # unreachable / not yet up
+
+
+        def main():
+            ap = argparse.ArgumentParser()
+            ap.add_argument("--interval", type=int, default=30)
+            ap.add_argument("--label", required=True)
+            ap.add_argument("--deployment", required=True)
+            ap.add_argument("--namespace", default="mc")
+            ap.add_argument("--max-per-lobby", type=int, default=40)
+            ap.add_argument("--max-lobbies", type=int, default=4)
+            ap.add_argument("--rcon-port", type=int, default=25575)
+            ap.add_argument("--rcon-password", default="")
+            args = ap.parse_args()
+
+            while True:
+                try:
+                    pods = json.loads(
+                        kubectl(
+                            "get", "pods", "-n", args.namespace, "-l", args.label, "-o", "json"
+                        )
+                    )
+                    items = [
+                        p
+                        for p in pods["items"]
+                        if not p["metadata"].get("deletionTimestamp")
+                        and p["status"].get("phase") == "Running"
+                    ]
+                    ips = [p["status"].get("podIP") for p in items]
+                    total = 0
+                    live = 0
+                    for ip in ips:
+                        if not ip:
+                            continue
+                        count = players_on(ip, args.rcon_port, args.rcon_password)
+                        if count >= 0:
+                            live += 1
+                            total += count
+                    desired = max(1, min(args.max_lobbies, -(-total // args.max_per_lobby)))
+                    if live and desired != len(ips):
+                        print(f"scaling lobby pool: {len(ips)} -> {desired} ({total} players)")
+                        kubectl(
+                            "scale", "deployment/" + args.deployment,
+                            "--replicas", str(desired),
+                            "-n", args.namespace,
+                        )
+                except Exception as e:
+                    print(f"autoscaler error: {e}", file=sys.stderr)
+                time.sleep(args.interval)
+
+
+        if __name__ == "__main__":
+            main()
+      '';
+
+      mcNamespace = pkgs.writeText "mc-namespace.yaml" ''
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: ${cfg.namespace}
+          labels:
+            app: thornix-mc
+      '';
+
+      mcLobby = pkgs.writeText "mc-lobby.yaml" ''
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${cfg.identity}
+          namespace: ${cfg.namespace}
+          labels:
+            app: ${cfg.identity}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${cfg.identity}
+          strategy:
+            type: RollingUpdate
+            rollingUpdate:
+              maxSurge: 1
+              maxUnavailable: 0
+          template:
+            metadata:
+              labels:
+                app: ${cfg.identity}
+            spec:
+              containers:
+                - name: lobby
+                  image: localhost/guildedthorn/mc-lobby:${lobbyTag}
+                  imagePullPolicy: IfNotPresent
+                  ports:
+                    - name: game
+                      containerPort: ${toString cfg.lobbyPort}
+                    - name: rcon
+                      containerPort: ${toString cfg.rconPort}
+                  readinessProbe:
+                    tcpSocket:
+                      port: ${toString cfg.lobbyPort}
+                    initialDelaySeconds: 15
+                    periodSeconds: 10
+                  lifecycle:
+                    preStop:
+                      exec:
+                        command: ["sh", "-c", "sleep 5"]
+      '';
+
+      mcLobbyService = pkgs.writeText "mc-lobby-service.yaml" ''
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${cfg.identity}
+          namespace: ${cfg.namespace}
+        spec:
+          selector:
+            app: ${cfg.identity}
+          ports:
+            - name: game
+              port: ${toString cfg.lobbyPort}
+              targetPort: ${toString cfg.lobbyPort}
+            - name: rcon
+              port: ${toString cfg.rconPort}
+              targetPort: ${toString cfg.rconPort}
+      '';
+
+      mcVelocity = pkgs.writeText "mc-velocity.yaml" ''
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: mc-velocity
+          namespace: ${cfg.namespace}
+          labels:
+            app: mc-velocity
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: mc-velocity
+          template:
+            metadata:
+              labels:
+                app: mc-velocity
+            spec:
+              containers:
+                - name: velocity
+                  image: localhost/guildedthorn/mc-velocity:${proxyTag}
+                  imagePullPolicy: IfNotPresent
+                  ports:
+                    - name: proxy
+                      containerPort: ${toString cfg.lobbyPort}
+                  readinessProbe:
+                    tcpSocket:
+                      port: ${toString cfg.lobbyPort}
+                    initialDelaySeconds: 15
+                    periodSeconds: 5
+      '';
+
+      mcVelocityService = pkgs.writeText "mc-velocity-service.yaml" ''
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: mc-velocity
+          namespace: ${cfg.namespace}
+        spec:
+          type: LoadBalancer
+          selector:
+            app: mc-velocity
+          ports:
+            - name: proxy
+              port: ${toString cfg.lobbyPort}
+              targetPort: ${toString cfg.lobbyPort}
+      '';
+    in
+    {
+      options.thorn.mc-lobby = {
+        enable = lib.mkEnableOption "Minecraft lobby pool: Velocity proxy + fairscale Paper lobbies";
+
+        environment = lib.mkOption {
+          type = lib.types.enum [
+            "dev"
+            "prod"
+          ];
+          default = "dev";
+        };
+
+        domainSuffix = lib.mkOption {
+          type = lib.types.str;
+          default = "mc.theroux.local";
+        };
+
+        maxPlayersPerLobby = lib.mkOption {
+          type = lib.types.int;
+          default = 40;
+        };
+
+        maxLobbies = lib.mkOption {
+          type = lib.types.int;
+          default = 4;
+        };
+
+        lobbyPort = lib.mkOption {
+          type = lib.types.port;
+          default = 25565;
+        };
+
+        rconPort = lib.mkOption {
+          type = lib.types.port;
+          default = 25575;
+        };
+
+        rconPassword = lib.mkOption {
+          type = lib.types.str;
+          default = "insecure-local-rcon";
+          description = "RCON password. Swap to sops-backed secret before real play.";
+        };
+
+        forwardingSecret = lib.mkOption {
+          type = lib.types.str;
+          default = "dev-only-forwarding-secret";
+          description = "Shared secret between Velocity and Paper. Swap to sops-backed secret before real play.";
+        };
+
+        identity = lib.mkOption {
+          type = lib.types.str;
+          default = "mc-lobby";
+        };
+
+        namespace = lib.mkOption {
+          type = lib.types.str;
+          default = "mc";
+        };
+
+        lobbyHeapGb = lib.mkOption {
+          type = lib.types.int;
+          default = 2;
+        };
+
+        proxyHeapGb = lib.mkOption {
+          type = lib.types.int;
+          default = 1;
+        };
+
+        autoscalerInterval = lib.mkOption {
+          type = lib.types.int;
+          default = 30;
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        assertions = [
+          {
+            assertion = clusterEnabled;
+            message = "mc-lobby requires mc-cluster (k3s + Agones). Enable thorn.mc-cluster first.";
+          }
+        ];
+
+        networking.firewall.allowedTCPPorts = [ cfg.lobbyPort ];
+
+        systemd.services.mc-lobby-install = lib.mkIf (k3s.role == "server") {
+          description = "Apply Minecraft lobby pool to the k3s cluster";
+          after = [ "mc-agones-install.service" ];
+          requires = [ "mc-agones-install.service" ];
+          before = [ "mc-lobby-autoscaler.service" ];
+          path = [
+            pkgs.kubectl
+            pkgs.k3s
+          ];
+          environment.KUBECONFIG = "/etc/rancher/k3s/k3s.yaml";
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            TimeoutStartSec = "15m";
+          };
+          script = ''
+            set -euo pipefail
+
+            k3s ctr -n k8s.io images import ${lobbyImage}
+            k3s ctr -n k8s.io images import ${proxyImage}
+
+            kubectl apply -f ${mcNamespace}
+            kubectl apply -f ${mcLobby}
+            kubectl apply -f ${mcLobbyService}
+            kubectl apply -f ${mcVelocity}
+            kubectl apply -f ${mcVelocityService}
+
+            kubectl rollout status --timeout=600s deployment/${cfg.identity} -n ${cfg.namespace}
+            kubectl rollout status --timeout=600s deployment/mc-velocity -n ${cfg.namespace}
+          '';
+        };
+
+        systemd.services.mc-lobby-autoscaler = lib.mkIf (k3s.role == "server") {
+          description = "Scale lobby pool to demand using RCON player counts";
+          after = [ "mc-lobby-install.service" ];
+          requires = [ "mc-lobby-install.service" ];
+          wantedBy = [ "multi-user.target" ];
+          restartIfChanged = true;
+          environment.KUBECONFIG = "/etc/rancher/k3s/k3s.yaml";
+          path = [ pkgs.kubectl ];
+          serviceConfig = {
+            ExecStart = ''
+              ${pkgs.python3}/bin/python3 -u ${autoscalerPy} \
+                --interval ${toString cfg.autoscalerInterval} \
+                --label app=${cfg.identity} \
+                --deployment ${cfg.identity} \
+                --namespace ${cfg.namespace} \
+                --max-per-lobby ${toString cfg.maxPlayersPerLobby} \
+                --max-lobbies ${toString cfg.maxLobbies} \
+                --rcon-port ${toString cfg.rconPort} \
+                --rcon-password ${cfg.rconPassword}
+            '';
+            Restart = "always";
+            RestartSec = "10s";
+          };
+        };
+      };
+    };
+}
