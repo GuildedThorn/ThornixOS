@@ -16,11 +16,17 @@
       # actually rolls pods instead of leaving the old image running under
       # IfNotPresent. `lobbyEntrypoint`/`proxyEntrypoint` are store paths whose
       # names hash their inputs, so they capture entrypoint and config changes.
+      # Declarative whitelist, keyed by Mojang UUID: the Velocity proxy
+      # authenticates players online, so the backend receives each player's
+      # real account UUID rather than an offline-mode name derivation.
+      whitelistJson = builtins.toJSON (map (p: { inherit (p) name uuid; }) cfg.whitelist);
+
       shortHash = s: builtins.substring 0 12 (builtins.hashString "sha256" s);
       lobbyTag = "${cfg.environment}-${
         shortHash (
           playerConfig
           + paperGlobalConfig
+          + whitelistJson
           + toString lobbyEntrypoint
           + toString pkgs.coreutils
           + pkgs.jdk25.version
@@ -57,6 +63,8 @@
         rcon.port=${toString cfg.rconPort}
         rcon.password=__RCON_PASSWORD__
         broadcast-rcon-to-ops=false
+        white-list=${lib.boolToString (cfg.whitelist != [ ])}
+        enforce-whitelist=${lib.boolToString (cfg.whitelist != [ ])}
       '';
 
       # Modern Paper (1.19+) reads Velocity forwarding from paper-global.yml,
@@ -110,6 +118,7 @@
             -e "s|__FORWARDING_SECRET__|''${FORWARDING_SECRET}|g" \
             /opt/paper-global.yml.tmpl > /data/config/paper-global.yml
           echo "eula=true" > /data/eula.txt
+          cp /opt/whitelist.json /data/whitelist.json
           exec ${pkgs.jdk25}/bin/java -Xms1G -Xmx${toString cfg.lobbyHeapGb}G -jar /lobby.jar nogui
         ''} $out/entrypoint.sh
         chmod +x $out/entrypoint.sh
@@ -142,6 +151,7 @@
           mkdir -p ./opt ./data
           printf '%s' '${playerConfig}' > ./opt/server.properties.tmpl
           printf '%s' '${paperGlobalConfig}' > ./opt/paper-global.yml.tmpl
+          printf '%s' '${whitelistJson}' > ./opt/whitelist.json
         '';
         config = {
           WorkingDir = "/data";
@@ -439,6 +449,23 @@
         namespace = lib.mkOption {
           type = lib.types.str;
           default = "mc";
+        };
+
+        whitelist = lib.mkOption {
+          description = ''
+            Players allowed to join. Each entry needs the account name and its
+            Mojang UUID (resolved online by the Velocity proxy). An empty list
+            disables the whitelist.
+          '';
+          type = lib.types.listOf (
+            lib.types.submodule {
+              options = {
+                name = lib.mkOption { type = lib.types.str; };
+                uuid = lib.mkOption { type = lib.types.str; };
+              };
+            }
+          );
+          default = [ ];
         };
 
         lobbyHeapGb = lib.mkOption {
