@@ -57,6 +57,7 @@
         extraDomainNames = [
           "jellyfin.guildedthorn.arpa"
           "immich.guildedthorn.arpa"
+          "reposilite.guildedthorn.arpa"
           "qbittorrent.guildedthorn.arpa"
           "prowlarr.guildedthorn.arpa"
           "seerr.guildedthorn.arpa"

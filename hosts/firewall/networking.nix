@@ -449,6 +449,7 @@ in
         ''"jellyfin.guildedthorn.arpa. A 172.16.25.4"''
         ''"immich.guildedthorn.arpa. A 172.16.25.4"''
         ''"qbittorrent.guildedthorn.arpa. A 172.16.25.4"''
+        ''"reposilite.guildedthorn.arpa. A 172.16.25.4"''
         ''"prowlarr.guildedthorn.arpa. A 172.16.25.4"''
         ''"seerr.guildedthorn.arpa. A 172.16.25.4"''
         ''"sonarr.guildedthorn.arpa. A 172.16.25.4"''

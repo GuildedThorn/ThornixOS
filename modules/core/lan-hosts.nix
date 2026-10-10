@@ -38,6 +38,7 @@ in
           "jellyfin.guildedthorn.arpa"
           "immich.guildedthorn.arpa"
           "qbittorrent.guildedthorn.arpa"
+          "reposilite.guildedthorn.arpa"
           "prowlarr.guildedthorn.arpa"
           "seerr.guildedthorn.arpa"
           "sonarr.guildedthorn.arpa"

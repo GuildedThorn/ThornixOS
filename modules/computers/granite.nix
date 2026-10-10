@@ -9,6 +9,7 @@ in
       config.nixos.modules.thorn-headless
       config.nixos.modules.services-ssh
       config.nixos.modules.services-forgejo
+      config.nixos.modules.services-reposilite
       config.nixos.modules.services-jellyfin
       config.nixos.modules.services-seaweedfs
       config.nixos.modules.services-mongodb
