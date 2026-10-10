@@ -228,6 +228,18 @@ in
     };
   };
 
+  minebox = mkHost {
+    address = "172.16.25.102";
+    fqdn = "minebox.guildedthorn.arpa";
+    role = "server";
+    monitoring = {
+      mode = "scrape";
+      journal = true;
+      canary = true;
+      readyFiles = [ "hosts/minebox/telemetry.nix" ];
+    };
+  };
+
   mitm = mkHost {
     address = "172.16.25.2";
     fqdn = "mitm.guildedthorn.arpa";
