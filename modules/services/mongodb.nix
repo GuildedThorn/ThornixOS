@@ -29,6 +29,14 @@
         ];
       };
 
+      # The bind-mounted data directory arrived from TrueNAS owned by root, but
+      # mongod runs as 568:568 inside the container and must create its journal
+      # subdirectory. `d` covers a fresh deploy; `Z` repairs the migrated tree.
+      systemd.tmpfiles.rules = [
+        "d /.ix-apps/app_mounts/mongodb/data 0750 568 568 -"
+        "Z /.ix-apps/app_mounts/mongodb/data 0750 568 568 -"
+      ];
+
       networking.firewall.allowedTCPPorts = [ 27017 ];
     };
 }

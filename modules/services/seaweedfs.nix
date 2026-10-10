@@ -36,6 +36,23 @@
         isSystemUser = true;
       };
 
+      # The data directories were copied over from the TrueNAS app mounts as
+      # root; every weed process runs as uid 568 and must be able to create its
+      # metadb/volume files. `d` covers a fresh deploy, `Z` repairs the
+      # migrated (wrongly root-owned) directories on every boot.
+      systemd.tmpfiles.rules = [
+        "d /.ix-apps 0755 root root -"
+        "d /.ix-apps/app_mounts 0755 root root -"
+        "d ${dataRoot} 0755 root root -"
+      ]
+      ++ map (dir: "Z ${dataRoot}/${dir} 0750 seaweedfs seaweedfs -") [
+        "master-data"
+        "volume-data"
+        "filer-data"
+        "admin-data"
+        "worker-data"
+      ];
+
       systemd.services = {
         seaweedfs-master = {
           description = "SeaweedFS master";
