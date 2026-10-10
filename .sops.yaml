@@ -35,6 +35,11 @@ keys:
   - &host_minebox age1tp99f7qsxt27pxawmxptadwzx4s4lsym9vzee3m04y8vg90uh4dsuegsl9
 
 creation_rules:
+  # Minecraft server cluster secrets (Velocity forwarding secret, RCON
+  # password). Only the cluster host needs to decrypt them.
+  - path_regex: hosts/shared/minecraft-secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_minebox
   # Shared Alloy writer identity. Every telemetry-enrolled host must be able
   # to decrypt it unattended; the certificate can push telemetry but nginx
   # does not permit it to query Loki or Prometheus.
