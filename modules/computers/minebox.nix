@@ -15,6 +15,9 @@ in
 
       config.nixos.modules.services-ssh
 
+      config.nixos.modules.mc-cluster
+      "${inputs.self}/hosts/minebox/mc-cluster.nix"
+
       config.nixos.modules.hardware-minebox
       "${inputs.self}/hosts/minebox/disko.nix"
       "${inputs.self}/hosts/minebox/networking.nix"
