@@ -37,6 +37,12 @@
       options.thorn.mc-lobby = {
         enable = lib.mkEnableOption "Minecraft lobby pool: Velocity proxy + fairscale Paper lobbies";
 
+        networkName = lib.mkOption {
+          description = "Network name shown in the proxy and lobby MOTDs.";
+          type = lib.types.str;
+          default = "Aethralis";
+        };
+
         environment = lib.mkOption {
           type = lib.types.enum [
             "dev"

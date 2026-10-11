@@ -10,7 +10,7 @@
   playerProperties = ''
     eula=true
     level-type=flat
-    motd=Thornix Lobby
+    motd=${cfg.networkName}
     server-port=${toString cfg.lobbyPort}
     max-players=${toString (cfg.maxPlayersPerLobby * 2)}
     view-distance=6
@@ -39,7 +39,7 @@
   velocity = ''
     config-version = "2.9"
     bind = "0.0.0.0:${toString cfg.lobbyPort}"
-    motd = "<#09add3>Thornix Network"
+    motd = "<#09add3>${cfg.networkName}"
     player-info-forwarding-mode = "modern"
     forwarding-secret-file = "forwarding.secret"
 
