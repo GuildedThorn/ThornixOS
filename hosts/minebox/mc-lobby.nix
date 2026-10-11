@@ -7,4 +7,10 @@
       uuid = "9381854f-3bfc-4fda-9734-0646e021492d";
     }
   ];
+  thorn.mc-lobby.ops = [
+    {
+      name = "GuildedThorn";
+      uuid = "9381854f-3bfc-4fda-9734-0646e021492d";
+    }
+  ];
 }
