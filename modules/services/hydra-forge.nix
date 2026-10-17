@@ -224,6 +224,11 @@
             # for all eight cores and driving the VM into swap or OOM.
             max-jobs = 2;
             cores = 4;
+            # Hydra's module forces keep-derivations on, which transitively
+            # retains the whole build-time .drv/tooling graph and overflows
+            # this 238G builder. Keep the outputs promotion needs
+            # (keep-outputs) but let GC reclaim the build-only graph.
+            keep-derivations = lib.mkForce false;
           };
 
           # Hydra maintains GC roots for retained builds. Collect everything
