@@ -246,6 +246,37 @@
           # database before Hydra refreshes its GC roots so the ordinary Nix
           # collector can actually reclaim superseded builds.
           systemd.services = {
+            # nixpkgs' check-space unit only ever stops the Hydra services.
+            # A manual `systemctl stop` defeats Restart=always, so once the
+            # store dipped under 20G the queue runner stayed dead with a full
+            # queue and no evaluation could ever produce a promotable
+            # revision. Mirror the thresholds with else-branches that start
+            # the services again the moment space recovers.
+            hydra-check-space = {
+              description = "Guard Hydra against a full /nix/store";
+              serviceConfig.ExecStart = lib.mkForce (
+                pkgs.writeShellScript "hydra-check-space" ''
+                  free=$(( $(stat -f -c '%a' /nix/store) * $(stat -f -c '%S' /nix/store) ))
+
+                  if [ "$free" -lt $((20 * 1024**3)) ]; then
+                    echo "stopping Hydra queue runner due to lack of free space..."
+                    systemctl stop hydra-queue-runner.service || true
+                  else
+                    echo "starting Hydra queue runner, free space is sufficient..."
+                    systemctl start hydra-queue-runner.service || true
+                  fi
+
+                  if [ "$free" -lt $((10 * 1024**3)) ]; then
+                    echo "stopping Hydra evaluator due to lack of free space..."
+                    systemctl stop hydra-evaluator.service || true
+                  else
+                    echo "starting Hydra evaluator, free space is sufficient..."
+                    systemctl start hydra-evaluator.service || true
+                  fi
+                ''
+              );
+            };
+
             hydra-retention-policy = {
               description = "Enforce bounded Hydra evaluation retention";
               wantedBy = [ "multi-user.target" ];
