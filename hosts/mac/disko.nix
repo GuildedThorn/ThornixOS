@@ -17,11 +17,52 @@
                 type = "filesystem";
                 format = "ext4";
                 mountpoint = "/mnt/pve/bulk";
+                # A missing or failed data disk must never take the
+                # hypervisor to an emergency shell: the guests that live
+                # here then fail to start, but the host still boots and
+                # can be repaired. The device timeout bounds the wait for
+                # a removed drive.
+                mountOptions = [
+                  "nofail"
+                  "x-systemd.device-timeout=15s"
+                ];
                 extraArgs = [
                   "-L"
                   "bulk"
                   # Pure data disk; one percent still gives root a recovery
                   # margin without hiding capacity from Proxmox.
+                  "-m"
+                  "1"
+                ];
+              };
+            };
+          };
+        };
+      };
+
+      # Third internal bay: Western Digital Blue 1 TB HDD. Dedicated
+      # Proxmox backup pool so vzdump images and the restic staging copies
+      # they are archived from never compete with the guest-image pool for
+      # space. nofail for the same reason as bulk.
+      dumps = {
+        type = "disk";
+        device = "/dev/disk/by-id/ata-WDC_WD10EZEX-00WN4A0_WD-WCC6Y5UZ3ZDN";
+        content = {
+          type = "gpt";
+          partitions = {
+            dumps = {
+              size = "100%";
+              content = {
+                type = "filesystem";
+                format = "ext4";
+                mountpoint = "/mnt/pve/dumps";
+                mountOptions = [
+                  "nofail"
+                  "x-systemd.device-timeout=15s"
+                ];
+                extraArgs = [
+                  "-L"
+                  "dumps"
                   "-m"
                   "1"
                 ];

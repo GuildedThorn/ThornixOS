@@ -77,6 +77,7 @@ in
 
           systemd.tmpfiles.rules = [
             "d /var/backup/proxmox 0700 root root -"
+            "d /mnt/pve/dumps/dump 0700 root root -"
           ];
 
           # Guest application state is protected on each VM. Preserve the
@@ -91,7 +92,7 @@ in
             # protected independently by each VM's own daily backup.
             paths = [
               "/var/backup/proxmox"
-              "/var/lib/vz/dump"
+              "/mnt/pve/dumps/dump"
             ];
             prepareCommand = ''
               temporary=/var/backup/proxmox/config.db.new
@@ -111,8 +112,8 @@ in
           };
 
           # Full VM dumps are large and only supplement the authoritative
-          # per-guest backups. Remove aged local copies only after restic has
-          # successfully archived the dump directory off-host.
+          # per-guest backups. They live on the dedicated dump disk; remove
+          # aged copies only after restic has archived them off-host.
           systemd.services."restic-backups-mac".unitConfig.OnSuccess = [
             "proxmox-vzdump-retention.service"
           ];
@@ -122,7 +123,7 @@ in
               Type = "oneshot";
               ExecStart = pkgs.writeShellScript "proxmox-vzdump-retention" ''
                 set -o errexit -o nounset -o pipefail
-                ${pkgs.findutils}/bin/find /var/lib/vz/dump \
+                ${pkgs.findutils}/bin/find /mnt/pve/dumps/dump \
                   -maxdepth 1 -type f -mtime +14 \
                   \( -name 'vzdump-*.vma.zst' \
                      -o -name 'vzdump-*.vma.zst.sha256' \) \
