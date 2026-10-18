@@ -215,19 +215,26 @@
             # moved out of hydra.conf when the evaluator was rewritten.
             evaluatorSettings.max_concurrent_evals = 1;
 
-            queueRunner.settings = {
-              # Honour the builder's advertised maxJobs so slots match the
-              # builder config below instead of the Static (unlimited) default.
-              machineFreeFn = "DynamicWithMaxJobLimit";
+            # Forge runs with IPv6 disabled; the new listeners (gRPC, REST,
+            # WebSocket) default to [::1] and fail to bind there.
+            queueRunner = {
+              grpc.address = "127.0.0.1";
+              rest.address = "127.0.0.1";
+              settings = {
+                # Honour the builder's advertised maxJobs so slots match the
+                # builder config below instead of the Static (unlimited) default.
+                machineFreeFn = "DynamicWithMaxJobLimit";
+              };
             };
+            ws.bind.address = "127.0.0.1";
           };
 
           # gRPC build agent, replacing the removed buildMachinesFiles /
-          # nix.buildMachines config. Binds queue runner gRPC on [::1]:50051
-          # (loopback only); no auth token needed on a single host.
+          # nix.buildMachines config. Connects to the queue runner's gRPC
+          # endpoint on IPv4 loopback; no auth token needed on a single host.
           services.hydra-builder = {
             enable = true;
-            queueRunnerAddr = "http://[::1]:50051";
+            queueRunnerAddr = "http://127.0.0.1:50051";
             settings = {
               maxJobs = 4;
               # Default picks up config.nix.settings.cores (= 4).
