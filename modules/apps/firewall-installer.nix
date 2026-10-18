@@ -45,7 +45,7 @@ in
             }:
             {
               disabledModules = [ "${modulesPath}/installer/cd-dvd/iso-image.nix" ];
-              imports = [ "${serialIsoModule}" ];
+              imports = [ (builtins.seq serialIsoModule.drvPath "${serialIsoModule}") ];
 
               image.baseName = lib.mkForce "thornix-firewall-installer";
               isoImage = {
