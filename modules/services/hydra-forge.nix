@@ -195,7 +195,6 @@
             notificationSender = "hydra@guildedthorn.arpa";
             listenHost = "127.0.0.1";
             port = 3000;
-            buildMachinesFiles = [ ];
             useSubstitutes = true;
             minimumDiskFree = 20;
             minimumDiskFreeEvaluator = 10;
@@ -204,9 +203,36 @@
             # evaluating each host. Hydra defaults this off independently of
             # nix.conf, so opt in for this administrator-controlled jobset.
             # Builds remain sandboxed and flake inputs remain URI-allowlisted.
+            # These keys are still read by the Perl hydra-eval-jobset that
+            # the new Rust evaluator scheduler spawns.
             extraConfig = ''
-              allow_import_from_derivation = true
+              allow_import_from_derivation = false
+              evaluator_workers = 4
+              evaluator_max_memory_size = 5000
             '';
+
+            # The Rust evaluator only reads evaluator.toml; max_concurrent_evals
+            # moved out of hydra.conf when the evaluator was rewritten.
+            evaluatorSettings.max_concurrent_evals = 1;
+
+            queueRunner.settings = {
+              # Honour the builder's advertised maxJobs so slots match the
+              # builder config below instead of the Static (unlimited) default.
+              machineFreeFn = "DynamicWithMaxJobLimit";
+            };
+          };
+
+          # gRPC build agent, replacing the removed buildMachinesFiles /
+          # nix.buildMachines config. Binds queue runner gRPC on [::1]:50051
+          # (loopback only); no auth token needed on a single host.
+          services.hydra-builder = {
+            enable = true;
+            queueRunnerAddr = "http://[::1]:50051";
+            settings = {
+              maxJobs = 4;
+              # Default picks up config.nix.settings.cores (= 4).
+              speedFactor = 1;
+            };
           };
 
           # Flake jobsets evaluate in restricted mode. Permit only the URI
@@ -221,7 +247,7 @@
             ];
             # Forge runs 12 vCPU and 32 GiB RAM. Four concurrent four-core
             # builds keep the queue moving without starving the evaluator;
-            # the 500G disk comfortably holds the doubled build working set.
+            # daily GC bounds the working set on the 250G builder disk.
             max-jobs = 4;
             cores = 4;
             # Hydra's module forces keep-derivations on, which transitively
