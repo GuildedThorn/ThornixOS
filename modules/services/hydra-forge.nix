@@ -219,14 +219,14 @@
               "git+https://github.com/"
               "git+https://codeberg.org/"
             ];
-            # Forge starts with 8 vCPU and 16 GiB RAM. Two four-core builds
-            # preserve throughput without six concurrent compilers fighting
-            # for all eight cores and driving the VM into swap or OOM.
-            max-jobs = 2;
+            # Forge runs 12 vCPU and 32 GiB RAM. Four concurrent four-core
+            # builds keep the queue moving without starving the evaluator;
+            # the 500G disk comfortably holds the doubled build working set.
+            max-jobs = 4;
             cores = 4;
             # Hydra's module forces keep-derivations on, which transitively
-            # retains the whole build-time .drv/tooling graph and overflows
-            # this 238G builder. Keep the outputs promotion needs
+            # retains the whole build-time .drv/tooling graph and outgrows
+            # the builder disk. Keep the outputs promotion needs
             # (keep-outputs) but let GC reclaim the build-only graph.
             keep-derivations = lib.mkForce false;
           };
