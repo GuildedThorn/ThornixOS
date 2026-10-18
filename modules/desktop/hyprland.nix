@@ -36,6 +36,13 @@
         xwayland.enable = true;
       };
 
+      # nixpkgs fe13242's ensure-wrapper-integrity check refuses to wrap
+      # script targets, and lib/hyprland-pkg.nix deliberately wrapPrograms
+      # bin/Hyprland to put guiutils/pciutils/pkg-config on its PATH. Aim
+      # the capability wrapper at the real ELF makeWrapper leaves behind
+      # instead of the launcher script.
+      security.wrappers.Hyprland.source = pkgs.lib.mkForce "${hyprlandPkg}/bin/.Hyprland-wrapped";
+
       xdg.portal = {
         enable = true;
         xdgOpenUsePortal = true;
@@ -160,6 +167,7 @@
         gtk-layer-shell
         hyprpaper
         hyprsunset
+        hyprland-qtutils
         waypaper
         hyprsysteminfo
         swayosd
