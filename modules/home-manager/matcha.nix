@@ -17,25 +17,29 @@
             diff --git a/fetcher/fetcher.go b/fetcher/fetcher.go
             --- a/fetcher/fetcher.go
             +++ b/fetcher/fetcher.go
-            @@ -438,14 +438,17 @@ func connectWithOptions(account *config.Account, extraOpts *imapclient.Options)
-             ''\t// Authenticate using OAuth2 (XOAUTH2) or plain password
+            @@ -443,9 +443,11 @@
              ''\tif account.IsOAuth2() {
              ''\t''\ttoken, err := config.GetOAuth2Token(account.Email)
              ''\t''\tif err != nil {
-            +''\t''\t''\t_ = c.Close()
+            +''\t''\t''\tc.Close() //nolint:errcheck,gosec
              ''\t''\t''\treturn nil, fmt.Errorf("oauth2: %w", err)
              ''\t''\t}
              ''\t''\tif err := c.Authenticate(newXOAuth2Client(account.Email, token)); err != nil {
-            +''\t''\t''\t_ = c.Close()
+            +''\t''\t''\tc.Close() //nolint:errcheck,gosec
              ''\t''\t''\treturn nil, fmt.Errorf("XOAUTH2 authentication failed: %w", err)
              ''\t''\t}
              ''\t} else {
-             ''\t''\tif err := c.Login(account.Email, account.Password).Wait(); err != nil {
-            +''\t''\t''\t_ = c.Close()
+            @@ -455,6 +457,7 @@
+             ''\t''\t''\treturn nil, fmt.Errorf("no password available for %s: keyring or pass_cmd returned nothing (see https://docs.matcha.email/Features/PassCmd)", account.Email)
+             ''\t''\t}
+             ''\t''\tif err := c.Login(account.Email, password).Wait(); err != nil {
+            +''\t''\t''\tc.Close() //nolint:errcheck,gosec
              ''\t''\t''\treturn nil, fmt.Errorf("authentication error: %w", err)
              ''\t''\t}
              ''\t}
-            @@ -1403,4 +1406,17 @@ func DeleteEmailFromMailbox(account *config.Account, mailbox string, uid uint32)
+            @@ -1458,6 +1461,18 @@
+             ''\t}
+             
              ''\tuidSet := imap.UIDSetNum(imap.UID(uid))
             +''\t// Gmail deletion must move mail to Trash. Marking it deleted and
             +''\t// expunging only removes the current Gmail label.
@@ -49,11 +53,12 @@
             +''\t''\t''\treturn moveErr
             +''\t''\t}
             +''\t}
-            +
              ''\tif err := c.Store(uidSet, &imap.StoreFlags{
              ''\t''\tOp:     imap.StoreFlagsAdd,
              ''\t''\tSilent: true,
-            @@ -1480,4 +1496,17 @@ func DeleteEmailsFromMailbox(account *config.Account, mailbox string, uids []uin
+            @@ -1535,6 +1550,18 @@
+             ''\t}
+             
              ''\tuidSet := uidsToUIDSet(uids)
             +''\t// Gmail deletion must move mail to Trash. Marking it deleted and
             +''\t// expunging only removes the current Gmail label.
@@ -67,21 +72,26 @@
             +''\t''\t''\treturn moveErr
             +''\t''\t}
             +''\t}
-            +
              ''\tif err := c.Store(uidSet, &imap.StoreFlags{
              ''\t''\tOp:     imap.StoreFlagsAdd,
              ''\t''\tSilent: true,
             diff --git a/daemon/daemon.go b/daemon/daemon.go
             --- a/daemon/daemon.go
             +++ b/daemon/daemon.go
-            @@ -38,2 +38,3 @@ type Daemon struct {
+            @@ -37,6 +37,7 @@
+             
              ''\t// Mutex for disk cache updates.
              ''\tcacheMu sync.Mutex
             +''\temailActionMu sync.Mutex
+             
+             ''\t// IMAP IDLE watcher for push notifications.
+             ''\tidleWatcher *fetcher.IdleWatcher
             diff --git a/daemon/handler.go b/daemon/handler.go
             --- a/daemon/handler.go
             +++ b/daemon/handler.go
-            @@ -147,5 +147,8 @@
+            @@ -145,6 +145,9 @@
+             }
+             
              func (d *Daemon) handleDeleteEmails(ctx context.Context, _ *daemonrpc.Conn, params json.RawMessage) (any, error) {
             +''\td.emailActionMu.Lock()
             +''\tdefer d.emailActionMu.Unlock()
@@ -89,8 +99,9 @@
              ''\targs, err := decodeParams[daemonrpc.DeleteEmailsParams](params)
              ''\tif err != nil {
              ''\t''\treturn nil, parseError(err)
-             ''\t}
-            @@ -167,5 +170,8 @@
+            @@ -165,6 +168,9 @@
+             }
+             
              func (d *Daemon) handleArchiveEmails(ctx context.Context, _ *daemonrpc.Conn, params json.RawMessage) (any, error) {
             +''\td.emailActionMu.Lock()
             +''\tdefer d.emailActionMu.Unlock()
@@ -98,8 +109,9 @@
              ''\targs, err := decodeParams[daemonrpc.ArchiveEmailsParams](params)
              ''\tif err != nil {
              ''\t''\treturn nil, parseError(err)
-             ''\t}
-            @@ -187,5 +193,8 @@
+            @@ -185,6 +191,9 @@
+             }
+             
              func (d *Daemon) handleMoveEmails(ctx context.Context, _ *daemonrpc.Conn, params json.RawMessage) (any, error) {
             +''\td.emailActionMu.Lock()
             +''\tdefer d.emailActionMu.Unlock()
@@ -107,7 +119,6 @@
              ''\targs, err := decodeParams[daemonrpc.MoveEmailsParams](params)
              ''\tif err != nil {
              ''\t''\treturn nil, parseError(err)
-             ''\t}
           '')
         ];
       });

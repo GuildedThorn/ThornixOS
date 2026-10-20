@@ -11,12 +11,12 @@
       authentikSecretKey = "${authentikStateDirectory}/secret-key";
 
       # This pinned nixpkgs revision has stale distribution metadata in
-      # django-postgres-extra and django-tenants, plus incorrect versions on
-      # Authentik's bundled workspace packages. Authentik builds a private
-      # Python package set, so wrap only the interpreter passed to Authentik
-      # and compose these fixes with Authentik's own package overrides. The
-      # fail-fast replacements keep metadata checks enabled and make a future
-      # source change tell us when this workaround is obsolete.
+      # django-postgres-extra and assigns Authentik's release version to its
+      # bundled workspace packages. Authentik builds a private Python package
+      # set, so wrap only the interpreter passed to Authentik and compose these
+      # fixes with Authentik's own package overrides. The fail-fast replacement
+      # keeps metadata checks enabled and makes a future source change tell us
+      # when this workaround is obsolete.
       authentikPython = pkgs.python314 // {
         override =
           arguments:
@@ -24,7 +24,24 @@
             arguments
             // {
               packageOverrides = lib.composeExtensions (arguments.packageOverrides or (_: _: { })) (
-                _final: previous: {
+                _final: previous:
+                let
+                  # The bundled workspace packages declare their real versions
+                  # in pyproject.toml, but nixpkgs assigns all four Authentik's
+                  # release version. nixpkgs rewrites that file with
+                  # pyproject-version-patch-hook, which aborts when the file
+                  # already matches the derivation's version; pin the correct
+                  # version and drop the hook for these packages instead.
+                  pinVersion =
+                    pkg: version:
+                    pkg.overridePythonAttrs (old: {
+                      inherit version;
+                      nativeBuildInputs = builtins.filter (
+                        p: (p.name or "") != "pyproject-version-patch-hook.sh"
+                      ) old.nativeBuildInputs;
+                    });
+                in
+                {
                   django-postgres-extra = previous.django-postgres-extra.overridePythonAttrs (old: {
                     # nixpkgs' patch used to match 2.0.9rc4, but the current
                     # source already carries a different version literal.
@@ -37,29 +54,10 @@
                       sed -i -E 's|^__version__[[:space:]]*=.*$|__version__ = "${old.version}"|' "$version_file"
                     '';
                   });
-                  django-tenants = previous.django-tenants.overridePythonAttrs (old: {
-                    postPatch = (old.postPatch or "") + ''
-                      substituteInPlace pyproject.toml \
-                        --replace-fail 'version = "3.10.2"' 'version = "${old.version}"'
-                    '';
-                  });
-
-                  # The bundled workspace packages have their own versions;
-                  # nixpkgs incorrectly assigns Authentik's release version to
-                  # all four. Preserve the versions declared by their own
-                  # pyproject.toml files and Authentik's dependency metadata.
-                  ak-guardian = previous.ak-guardian.overridePythonAttrs (_: {
-                    version = "3.2.0";
-                  });
-                  django-channels-postgres = previous.django-channels-postgres.overridePythonAttrs (_: {
-                    version = "0.1.0";
-                  });
-                  django-dramatiq-postgres = previous.django-dramatiq-postgres.overridePythonAttrs (_: {
-                    version = "0.1.0";
-                  });
-                  django-postgres-cache = previous.django-postgres-cache.overridePythonAttrs (_: {
-                    version = "0.1.0";
-                  });
+                  ak-guardian = pinVersion previous.ak-guardian "3.2.0";
+                  django-channels-postgres = pinVersion previous.django-channels-postgres "0.1.0";
+                  django-dramatiq-postgres = pinVersion previous.django-dramatiq-postgres "0.1.0";
+                  django-postgres-cache = pinVersion previous.django-postgres-cache "0.1.0";
 
                   # This attribute is named authentik-django inside nixpkgs to
                   # distinguish it from the final wrapper, but the Python
