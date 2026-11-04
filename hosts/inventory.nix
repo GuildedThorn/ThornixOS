@@ -336,20 +336,6 @@ in
     };
   };
 
-  vmware-guest = mkHost {
-    class = "template";
-    deploy = false;
-    production = false;
-    role = "vmware-template";
-  };
-
-  vmware-test = mkHost {
-    class = "test";
-    deploy = false;
-    production = false;
-    role = "vmware-test";
-  };
-
   voice-office = mkHost {
     class = "satellite";
     deploy = false;
