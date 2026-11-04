@@ -9,7 +9,7 @@
       rice = import ../../lib/rice.nix;
       inherit (rice) colors geometry;
       thornixMark = rice.branding.svg pkgs;
-      hyprlandPkg = (import ../../lib/hyprland-pkg.nix) { inherit inputs pkgs; };
+      hyprlandPkg = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
 
       # Same image as in ~/Pictures/walls-catppuccin-mocha, but fetched into
       # the store so the greeter user can read it before anyone logs in.
@@ -35,13 +35,6 @@
         withUWSM = true;
         xwayland.enable = true;
       };
-
-      # nixpkgs fe13242's ensure-wrapper-integrity check refuses to wrap
-      # script targets, and lib/hyprland-pkg.nix deliberately wrapPrograms
-      # bin/Hyprland to put guiutils/pciutils/pkg-config on its PATH. Aim
-      # the capability wrapper at the real ELF makeWrapper leaves behind
-      # instead of the launcher script.
-      security.wrappers.Hyprland.source = pkgs.lib.mkForce "${hyprlandPkg}/bin/.Hyprland-wrapped";
 
       xdg.portal = {
         enable = true;
@@ -167,7 +160,6 @@
         gtk-layer-shell
         hyprpaper
         hyprsunset
-        hyprland-qtutils
         waypaper
         hyprsysteminfo
         swayosd

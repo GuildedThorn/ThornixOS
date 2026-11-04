@@ -175,12 +175,11 @@
     };
 
     boot = {
-      kernelPackages = lib.mkForce pkgs.linuxPackages_jovian;
+      kernelPackages = lib.mkForce pkgs.jovianPackages.linuxPackages;
       loader = {
         systemd-boot.enable = true;
         efi.canTouchEfiVariables = true;
       };
-      initrd.systemd.enable = true;
     };
 
     services = {

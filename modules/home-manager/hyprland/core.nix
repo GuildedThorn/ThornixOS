@@ -18,16 +18,7 @@
       rice = import ../../../lib/rice.nix;
       inherit (rice) colors fonts geometry;
       thornixMarkPng = rice.branding.png pkgs 192;
-      hyprlandPkg = (import ../../../lib/hyprland-pkg.nix) { inherit inputs pkgs; };
-      scrollOverviewPkg =
-        inputs.hyprland-scroll-overview.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs
-          (old: {
-            hyprland = hyprlandPkg;
-            buildInputs = [
-              hyprlandPkg
-            ]
-            ++ lib.filter (input: (input.pname or "") != "hyprland") old.buildInputs;
-          });
+      hyprlandPkg = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
 
       lockStatus = pkgs.writeShellApplication {
         name = "hyprlock-status";
@@ -668,15 +659,6 @@
           configType = "lua";
 
           package = hyprlandPkg;
-
-          plugins = [
-            # inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system}.hyprbars
-            # inputs.hyprland-plugins.packages.${pkgs.stdenv.hostPlatform.system}.hyprexpo
-            # Passed as an explicit path (not the bare package) because home-manager
-            # derives the .so name from the package's `pname` ("hyprland-scroll-overview"),
-            # but this plugin's build output is actually named libscrolloverview.so.
-            "${scrollOverviewPkg}/lib/libscrolloverview.so"
-          ];
 
           settings = {
             #################################

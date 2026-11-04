@@ -11,7 +11,7 @@
       cfg = config.thorn.desktop.wallpaper;
 
       awww = inputs.awww.packages.${pkgs.stdenv.hostPlatform.system}.awww;
-      hyprland = (import ../../lib/hyprland-pkg.nix) { inherit inputs pkgs; };
+      hyprland = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
 
       # Slices one wallpaper across every active monitor using the real layout
       # coordinates from hyprctl, so the desktop reads as one continuous image

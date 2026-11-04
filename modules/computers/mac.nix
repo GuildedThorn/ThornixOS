@@ -179,7 +179,6 @@ in
                 "sd_mod"
                 "sr_mod"
               ];
-              systemd.enable = true;
             };
             kernelModules = [ "kvm-intel" ];
             kernelParams = [

@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 {
   # SSH is the recovery path during and immediately after cutover. The shared
   # headless profile keeps SSH closed by default, so explicitly admit it here.
@@ -7,6 +7,8 @@
   # `platter` is the existing eight-disk, four-mirror data pool. Import it by
   # name at boot, but never let boot-time recovery force an import.
   boot.supportedFilesystems = [ "zfs" ];
+  # zfs 2.4.4 does not support linux 7.3 yet, so stay on 7.2 until it does.
+  boot.kernelPackages = lib.mkForce pkgs.linuxPackages_7_2;
   boot.zfs.extraPools = [ "platter" ];
   boot.zfs.forceImportRoot = false;
 

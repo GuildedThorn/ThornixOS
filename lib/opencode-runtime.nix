@@ -309,19 +309,20 @@ let
     mcp = managedMcpSettings;
   };
 
-  defaultTuiSettings = {
-    diff_style = "auto";
+  defaultCliSettings = {
+    theme = {
+      name = "stylix";
+      mode = "system";
+    };
+    diffs.view = "auto";
     mouse = true;
-    scroll_speed = 3;
-    scroll_acceleration.enabled = true;
 
-    prompt = {
-      max_height = 12;
-      max_width = "auto";
+    scroll = {
+      speed = 3;
+      acceleration = true;
     };
 
     attention = {
-      enabled = true;
       notifications = true;
       sound = false;
     };
@@ -334,14 +335,19 @@ let
 
   renderedManagedSettings = jsonFormat.generate "opencode-nix-managed-unchecked.json" managedSettings;
 
-  # OpenCode 1.18.30+ bundles its own model schema and references it
-  # relatively from config.json (model-schema.json#/$defs/Model). Keep both
-  # files in one output directory so check-jsonschema can resolve the
-  # sibling reference without needing network access in the sandbox.
+  # OpenCode 2 references the model schema by absolute URL. Fetch it as a
+  # pinned input and rewrite the reference to a sibling file so
+  # check-jsonschema can validate without network access in the sandbox.
+  modelSchema = pkgs.fetchurl {
+    url = "https://models.dev/model-schema.json";
+    hash = "sha256-8bJPxd3sWQeoYHOb9PQiTtVdtEa0YmZaEH3CJtq17Po=";
+  };
+
   opencodeConfigSchemaDir = pkgs.runCommand "opencode-config-schema-offline" { } ''
     mkdir "$out"
     cp ${cfg.package}/share/config.json "$out/config.json"
-    cp ${cfg.package}/share/model-schema.json "$out/model-schema.json"
+    substituteInPlace "$out/config.json" \
+      --replace-fail "https://models.dev/model-schema.json" "file://${modelSchema}"
   '';
 
   opencodeConfigSchema = "${opencodeConfigSchemaDir}/config.json";
@@ -421,14 +427,14 @@ let
       config_dir="''${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
       global_config="$config_dir/opencode.json"
       managed_config="$config_dir/nix-managed.json"
-      tui_config="$config_dir/tui.json"
+      cli_config="$config_dir/cli.json"
       theme_config="$config_dir/themes/stylix.json"
       plugin_manifest="$config_dir/package.json"
       auth_file="''${XDG_DATA_HOME:-$HOME/.local/share}/opencode/auth.json"
       model_cache="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode/models.json"
       jcodemunch_config="$HOME/.code-index/config.jsonc"
       config_schema="${opencodeConfigSchema}"
-      tui_schema="${cfg.package}/share/tui.json"
+      cli_schema="${cfg.package}/share/cli.json"
       failures=0
 
       pass() { printf '  [ok]   %s\n' "$1"; }
@@ -459,7 +465,7 @@ let
       printf '  config:  %s\n' "$config_dir"
 
       check_json "Nix-managed config" "$config_schema" "$managed_config"
-      check_json "TUI config" "$tui_schema" "$tui_config"
+      check_json "CLI config" "$cli_schema" "$cli_config"
 
       for relative_asset in ${lib.escapeShellArgs managedAssetPaths}; do
         asset="$config_dir/$relative_asset"
@@ -582,7 +588,7 @@ in
 {
   inherit
     cfg
-    defaultTuiSettings
+    defaultCliSettings
     hasRetrievalIntegrations
     integrationPackages
     jcodemunchConfig

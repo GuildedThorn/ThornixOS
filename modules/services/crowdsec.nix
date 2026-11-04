@@ -45,7 +45,7 @@
         # Deliberately ONE acquisition rather than adding to the sshd-specific
         # one: overlapping sources feed the same event to a scenario twice,
         # tripping bruteforce thresholds at half their configured count.
-        localConfig.acquisitions = [
+        settings.acquisitions = [
           {
             source = "journalctl";
             journalctl_filter = [ "_TRANSPORT=syslog" ];
@@ -58,15 +58,15 @@
         # path and crowdsec dies at startup ("no API client section"). The
         # bootstrap `cscli machine add` writes creds to credentialsFile on
         # first start; the agent then reads them back to reach its own LAPI.
-        settings.general.api.server.enable = true;
+        settings.config.api.server.enable = true;
         # Must live in the crowdsec-owned state dir — /var/lib/crowdsec
         # itself is root:root, so the bootstrap `cscli machine add` can't
         # write the credentials file there (it adds the machine to the DB
         # fine, then fails writing creds one dir too high).
-        settings.lapi.credentialsFile = "/var/lib/crowdsec/state/local_api_credentials.yaml";
+        settings.config.api.client.credentials_path = "/var/lib/crowdsec/state/local_api_credentials.yaml";
         # LAPI default 127.0.0.1:8080 collides with the guildedthorn app on
         # websites; move it clear.
-        settings.general.api.server.listen_uri = "127.0.0.1:8083";
+        settings.config.api.server.listen_uri = "127.0.0.1:8083";
       };
     };
 }

@@ -52,7 +52,6 @@ in
 
           boot.loader.systemd-boot.enable = true;
           boot.loader.efi.canTouchEfiVariables = true;
-          boot.initrd.systemd.enable = true;
 
           # Keep the workstation desktop native while exposing this machine
           # as a small Proxmox node alongside it.
@@ -99,14 +98,6 @@ in
 
           nixpkgs.overlays = [
             (final: prev: {
-              # Hyprland's pinned guiutils build is evaluated against the
-              # nixpkgs package set, so follow the compatible utility input
-              # here as well as in the flake input graph.
-              hyprutils = inputs.hyprutils-guiutils.packages.${final.system}.default;
-              # The NixOS Hyprland module adds this package from nixpkgs to
-              # the system path; select the flake build whose toolkit and
-              # utility inputs are already compatible.
-              hyprland-guiutils = inputs.hyprland-guiutils.packages.${final.system}.default;
               obs-studio = prev.obs-studio.override {
                 ffmpeg = prev.ffmpeg-full;
                 cudaSupport = true;

@@ -104,7 +104,6 @@
             'SUPER + Q              Close focused window' \
             'SUPER + F              Fullscreen' \
             'SUPER + CTRL + F       Client fullscreen state' \
-            'SUPER + G              Scroll overview' \
             'SUPER + arrows         Move focus' \
             'SUPER + SHIFT + arrows Move focused window' \
             'SUPER + CTRL + arrows  Resize focused window' \
@@ -268,15 +267,6 @@
           name:
           lua ''function() hl.exec_cmd("hyprctl eval 'hl.config({ general = { layout = \"${name}\" } })'") end'';
 
-        # Call the plugin's own Lua entry point. `hyprctl dispatch
-        # scrolloverview:overview toggle` is not usable here: under a Lua
-        # config it is compiled to hl.dispatch(scrolloverview:overview
-        # toggle) with the arguments spliced in unquoted, which is not valid
-        # Lua and fails with "function arguments expected near 'toggle'".
-        # The plugin registers one Lua factory per dispatcher (Config.cpp:378)
-        # under hl.plugin.scrolloverview, and "overview" defaults its argument
-        # to "toggle". Equivalent: _dispatch("overview", "toggle").
-        scrollOverview = lua ''hl.plugin.scrolloverview.overview("toggle")'';
         scratchpad = lua ''hl.dsp.workspace.toggle_special("scratchpad")'';
       };
 
@@ -332,7 +322,6 @@
 
           # Window actions
           (bind "SUPER + Q" hypr.kill)
-          (bind "SUPER + G" hypr.scrollOverview)
           (bind "SUPER + F" hypr.fullscreen)
           (bind "SUPER + CTRL + F" hypr.fakeFullscreen)
 

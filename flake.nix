@@ -35,14 +35,8 @@
       flake = false;
     };
 
-    # Pinned just before the src/helpers/Monitor.hpp -> src/output/Monitor.hpp
-    # split (2026-06-08) that hyprland-scroll-overview isn't built for yet;
-    # bump back to "github:hyprwm/Hyprland" once upstream catches up.
     hyprland = {
-      # scroll-overview 5e96ae2 is verified against this exact rev;
-      # newer hyprland moves KeybindManager.hpp / drops WORKSPACEID.
-      # pin here until scroll-overview tracks upstream.
-      url = "github:hyprwm/Hyprland/e0d9283897724403ea8574b3ed419d2678a39231";
+      url = "github:hyprwm/Hyprland";
 
       # Without this, Hyprland (and xdg-desktop-portal-hyprland) build against
       # their own pinned nixpkgs' qtbase, which drifts from the qtbase used to
@@ -51,46 +45,11 @@
       # against another crashes on launch - this is what broke the
       # hyprland-share-picker screenshare dialog.
       inputs.nixpkgs.follows = "nixpkgs";
-
-      # nixpkgs moved hyprtoolkit to gcc16Stdenv (its libhyprtoolkit.so now
-      # exports GLIBCXX_3.4.36); Hyprland's e0d928 pin locks hyprland-guiutils
-      # 0.2.1 which force-builds with gcc15Stdenv and fails to link.
-      # guiutils 0.2.2 (4c30cf3) builds with gcc16Stdenv; it only lands on
-      # Hyprland's PATH, no compositor ABI dependency, so it is a drop-in
-      # here while staying on the scroll-overview-compatible Hyprland rev.
-      inputs.hyprland-guiutils.follows = "hyprland-guiutils";
-    };
-
-    hyprland-guiutils = {
-      url = "github:hyprwm/hyprland-guiutils/4c30cf3097ea963c0e250749ee0c59f8b08816d6";
-      inputs.nixpkgs.follows = "nixpkgs";
-      # hyprtoolkit 0.6 requires hyprutils >= 0.14.2. Keep both nested
-      # consumers on the compatible utility revision instead of allowing the
-      # guiutils lockfile to reintroduce 0.13.x during flake updates.
-      inputs.hyprutils.follows = "hyprutils-guiutils";
-      inputs.hyprtoolkit.follows = "hyprtoolkit-guiutils";
-    };
-
-    hyprutils-guiutils = {
-      url = "github:hyprwm/hyprutils/a21e87b878e72ee5dfd375899e8b2ad0d0c4c0e1";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    hyprtoolkit-guiutils = {
-      url = "github:hyprwm/hyprtoolkit/b3f2d0e725e4eaf804af7e529cb69bbed43d1a04";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.hyprutils.follows = "hyprutils-guiutils";
     };
 
     hyprland-plugins = {
       url = "github:hyprwm/hyprland-plugins";
       inputs.hyprland.follows = "hyprland";
-    };
-
-    hyprland-scroll-overview = {
-      url = "github:yayuuu/hyprland-scroll-overview";
-      inputs.hyprland.follows = "hyprland";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     spicetify-nix.url = "github:Gerg-L/spicetify-nix";

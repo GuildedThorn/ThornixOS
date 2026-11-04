@@ -35,7 +35,6 @@ in
             devices = [ "/dev/sda" ];
             efiSupport = false;
           };
-          boot.initrd.systemd.enable = true;
 
           users.users.root.initialHashedPassword = "!";
           users.users.root.openssh.authorizedKeys.keys = adminSshKeys;

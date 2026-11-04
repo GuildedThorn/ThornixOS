@@ -18,7 +18,7 @@
       };
       inherit (runtime)
         cfg
-        defaultTuiSettings
+        defaultCliSettings
         hasRetrievalIntegrations
         integrationPackages
         jcodemunchConfig
@@ -161,16 +161,16 @@
           '';
         };
 
-        tuiSettings = lib.mkOption {
+        cliSettings = lib.mkOption {
           inherit (jsonFormat) type;
           default = { };
           example = {
-            scroll_speed = 5;
+            scroll.speed = 5;
             attention.notifications = false;
           };
           description = ''
-            Extra TUI settings recursively merged over Thorn's defaults.
-            The theme is owned by the Stylix OpenCode target.
+            Extra OpenCode 2 terminal-client settings recursively merged over
+            Thorn's defaults. The theme is owned by the Stylix OpenCode target.
           '';
         };
       };
@@ -182,8 +182,8 @@
             message = "thorn.programs.opencode.managedSettings.plugin would make plugin updates immutable; keep plugins in the writable global opencode.json";
           }
           {
-            assertion = !(cfg.tuiSettings ? theme);
-            message = "thorn.programs.opencode.tuiSettings.theme conflicts with the Stylix-owned OpenCode theme";
+            assertion = !(cfg.cliSettings ? theme);
+            message = "thorn.programs.opencode.cliSettings.theme conflicts with the Stylix-owned OpenCode theme";
           }
           {
             assertion =
@@ -201,7 +201,9 @@
           inherit (cfg) package;
           extraPackages = opencodeExtraPackages;
           enableMcpIntegration = true;
-          tui = lib.recursiveUpdate defaultTuiSettings cfg.tuiSettings;
+          cli = lib.recursiveUpdate defaultCliSettings cfg.cliSettings;
+          tui = lib.mkForce { };
+          validateFiles.cli = true;
 
           agents.thornix-auditor = ''
             ---

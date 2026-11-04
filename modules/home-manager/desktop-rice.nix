@@ -39,8 +39,10 @@
 
         programs.rofi = {
           enable = true;
-          font = "${fonts.sans} 14";
           theme = "${config.xdg.configHome}/rofi/catppuccin-mocha.rasi";
+          settings = {
+            font = "${fonts.sans} 14";
+          };
         };
 
         # Preserve Rofi's useful fullscreen preview layout, but replace its

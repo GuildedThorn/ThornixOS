@@ -4,11 +4,6 @@
 
     {
 
-      programs.envision = {
-        enable = false;
-        openFirewall = true; # This is set true by default
-      };
-
       services.monado = {
         enable = false;
         defaultRuntime = false;

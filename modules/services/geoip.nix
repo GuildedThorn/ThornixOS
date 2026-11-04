@@ -11,15 +11,15 @@
     }:
     let
       cfg = config.thorn.geoip;
-      release = "2026-08";
+      release = "2026-11";
 
       cityArchive = pkgs.fetchurl {
         url = "https://download.db-ip.com/free/dbip-city-lite-${release}.mmdb.gz";
-        hash = "sha256-K1MgPsNql1BRqBidwSB9Yk47wwL77kdkiShHZTO+adE=";
+        hash = "sha256-tpxiVRX2NqySEStx3ya7kqV0j2SMebrRJOzZuhyXv0o=";
       };
       asnArchive = pkgs.fetchurl {
         url = "https://download.db-ip.com/free/dbip-asn-lite-${release}.mmdb.gz";
-        hash = "sha256-EraUoa7u7j2HR4aC+omhquQ4affDMmTHUV/R+SmSAT4=";
+        hash = "sha256-NqjEUTaHfY30itNx3mycl8hh3t01YnfzDecwwW/A+Sg=";
       };
 
       unpackMmdb =
