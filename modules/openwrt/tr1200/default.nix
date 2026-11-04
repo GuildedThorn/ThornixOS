@@ -11,18 +11,18 @@
       # ImageBuilder cache's stale index hashes while package payload hashes
       # remain pinned by the release's sha256sums files.
       refreshedIndexHashes = {
-        "https://downloads.openwrt.org/releases/25.12.5/packages/mipsel_24kc/base/packages.adb" =
-          "sha256-5UB86Q8yMVUV8SWJ4kU7TcitIl0Yo+SdX3vj9nQdVvI=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/mipsel_24kc/luci/packages.adb" =
-          "sha256-34ijlOuARFirq6tgsvn5aCVBvUny7Go1GHf/IEdVIwI=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/mipsel_24kc/packages/packages.adb" =
-          "sha256-mio0fn838g8NMxGXyihLOnRXmFzyFy1cO0d8KLwPMtI=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/mipsel_24kc/routing/packages.adb" =
-          "sha256-EP6PDZmCZ2Opus4+56IswVQtkjcQucyQOrS2yq03rYs=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/mipsel_24kc/telephony/packages.adb" =
-          "sha256-rNmvZE/jlEOk+YQ770gexEgF/5FOfxfgejErQ57AHpo=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/mipsel_24kc/sha256sums" =
-          "sha256-tcG2rY0ZgkyoLDa59rDMG5sGvznS91kvxfKrIYyZfnE=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/base/packages.adb" =
+          "sha256-UmaEMWpDVGo00ZSXJPG7ZVJWHp6JiHTZTU0s6EJQ51Q=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/luci/packages.adb" =
+          "sha256-yyiNjM+Kjgm9juztgEW9mnrAKYYEdSs60QZvDh1MNLc=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/packages/packages.adb" =
+          "sha256-2Fhm7fNcUXmDGUL6zMwX4jUw7ig+xJJWkqd0r+r7tQQ=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/routing/packages.adb" =
+          "sha256-H8/uLV7PGNnKBImpofrujhsZ5UoOk2bLS/a+hWdt5dc=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/telephony/packages.adb" =
+          "sha256-LE8R6LCErV7SDzjXM+utJgxVbddD7HGKarILR8g42EQ=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/sha256sums" =
+          "sha256-lu0czvGKcaYyoqvoSu4XTfabIhz33FL4l8vgAmEzP14=";
       };
       fetchurl =
         args:

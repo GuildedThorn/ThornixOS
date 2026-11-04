@@ -11,18 +11,18 @@
       # ImageBuilder cache's stale index hashes while package payload hashes
       # remain pinned by the release's sha256sums files.
       refreshedIndexHashes = {
-        "https://downloads.openwrt.org/releases/25.12.5/packages/aarch64_cortex-a53/base/packages.adb" =
-          "sha256-wwP3BG31vyZPJ57SMlgGTnBpbHERb5jJ2HaBzY4wUqo=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/aarch64_cortex-a53/luci/packages.adb" =
-          "sha256-ZfCQUfQh1uGObuuKY1+nuCYy2dwTs7QD74LLQ6R3OVc=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/aarch64_cortex-a53/packages/packages.adb" =
-          "sha256-eobFMycRoOMCvoean06VDW6vMvfZMDNNDgkc1b1ffXA=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/aarch64_cortex-a53/routing/packages.adb" =
-          "sha256-Uwlhl2hygrArGkvF5gXNsVH3OA/ZSRSjyskRRWZpK0s=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/aarch64_cortex-a53/telephony/packages.adb" =
-          "sha256-1LBHxB+sG3iL4itFVX6KPYJE5oolg81rL3EiaskUmPw=";
-        "https://downloads.openwrt.org/releases/25.12.5/packages/aarch64_cortex-a53/sha256sums" =
-          "sha256-i8LXdUsmvLGIAsJyxuh8vS1wUu0n60uijfosquKYMcs=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/base/packages.adb" =
+          "sha256-e/3688us45+OalO9cK1xEIFpC7JyIbdstzBaGaldFIU=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/luci/packages.adb" =
+          "sha256-nTuHyAjVQM5xLYVZyKtF3tchpUgLC9QyfFp0kLnRN98=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/packages/packages.adb" =
+          "sha256-v/8kZVyoWx8jCbsXcC09vuqRbupfOJkgZ2sUI+zmAjE=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/routing/packages.adb" =
+          "sha256-oqYA4BIiaUHeZ6meZnPhUfwpRRq8LwoZAM+z7bD2J/E=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/telephony/packages.adb" =
+          "sha256-8T/o/dgIOBYw2a1yuGvDUO+UHJNnCpLvf4yybZmHuCk=";
+        "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/sha256sums" =
+          "sha256-/01zDyLGbKE6pQdmE5wbCYWDbiJrWtXnixtOENsIjQM=";
       };
       fetchurl =
         args:
