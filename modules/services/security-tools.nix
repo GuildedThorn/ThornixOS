@@ -81,7 +81,7 @@
           cdncheck
           altdns
           uncover
-          pacu
+          #pacu
           prowler
         ];
 
@@ -121,7 +121,7 @@
           netexec
           python3Packages.impacket
           powershell
-          pacu
+          #pacu
           chisel
         ];
 
@@ -190,7 +190,7 @@
           dnsx
           amass
           dnsrecon
-          pacu
+          #pacu
           prowler
         ];
 
@@ -269,7 +269,7 @@
         reversing = with pkgs; [
           ghidra
           radare2
-          cutter
+          #cutter
           rizin
           detect-it-easy
           binutils
@@ -285,7 +285,7 @@
           python3Packages.capstone
           python3Packages.z3-solver
           radare2
-          cutter
+          #cutter
           aflplusplus
           honggfuzz
           gef

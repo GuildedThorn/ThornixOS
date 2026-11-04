@@ -340,7 +340,7 @@ let
   # check-jsonschema can validate without network access in the sandbox.
   modelSchema = pkgs.fetchurl {
     url = "https://models.dev/model-schema.json";
-    hash = "sha256-8bJPxd3sWQeoYHOb9PQiTtVdtEa0YmZaEH3CJtq17Po=";
+    hash = "sha256-be/vrFLxinH+AP/C4z1/v5VYq6hDDHHGS1iy7DID7uQ=";
   };
 
   opencodeConfigSchemaDir = pkgs.runCommand "opencode-config-schema-offline" { } ''

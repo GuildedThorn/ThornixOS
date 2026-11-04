@@ -54,16 +54,10 @@
         ];
 
         # Run a self-contained local LAPI (engine + agent on the same box).
-        # Without this the module leaves api.client with a null credentials
-        # path and crowdsec dies at startup ("no API client section"). The
-        # bootstrap `cscli machine add` writes creds to credentialsFile on
-        # first start; the agent then reads them back to reach its own LAPI.
-        settings.config.api.server.enable = true;
-        # Must live in the crowdsec-owned state dir — /var/lib/crowdsec
-        # itself is root:root, so the bootstrap `cscli machine add` can't
-        # write the credentials file there (it adds the machine to the DB
-        # fine, then fails writing creds one dir too high).
-        settings.config.api.client.credentials_path = "/var/lib/crowdsec/state/local_api_credentials.yaml";
+        # New module enables the server by default and writes creds next
+        # to the DB under config_paths.data_dir, so the setup script's
+        # `cscli machines add` bootstrap lands in the same DB the LAPI
+        # reads — no override needed.
         # LAPI default 127.0.0.1:8080 collides with the guildedthorn app on
         # websites; move it clear.
         settings.config.api.server.listen_uri = "127.0.0.1:8083";
