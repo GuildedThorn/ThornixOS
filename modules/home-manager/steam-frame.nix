@@ -122,31 +122,19 @@
           fi
         '';
 
-        home.activation.steamFrameUserServices = lib.hm.dag.entryAfter [ "steamFrameReloadUserManager" ] (
-          ''
-            (
-            export XDG_RUNTIME_DIR=${lib.escapeShellArg runtimeDir}
-            export DBUS_SESSION_BUS_ADDRESS=${lib.escapeShellArg busAddress}
+        home.activation.steamFrameUserServices = lib.hm.dag.entryAfter [ "steamFrameReloadUserManager" ] ''
+          export XDG_RUNTIME_DIR=${lib.escapeShellArg runtimeDir}
+          export DBUS_SESSION_BUS_ADDRESS=${lib.escapeShellArg busAddress}
 
-            if [ -S ${lib.escapeShellArg "${runtimeDir}/bus"} ] && [ -x /usr/bin/systemctl ]; then
-          ''
-          + lib.optionalString (cfg.session.services.start != [ ]) ''
+          if [ -S ${lib.escapeShellArg "${runtimeDir}/bus"} ] && [ -x /usr/bin/systemctl ]; then
             run /usr/bin/systemctl --user start ${lib.escapeShellArgs cfg.session.services.start}
-          ''
-          + lib.optionalString (cfg.session.services.stop != [ ]) ''
             for unit in ${lib.escapeShellArgs cfg.session.services.stop}; do
               [[ $(/usr/bin/systemctl --user show -p ActiveState --value "$unit") == inactive ]] \
                 || run /usr/bin/systemctl --user stop "$unit" || true
             done
-          ''
-          + lib.optionalString (cfg.session.services.restart != [ ]) ''
             run /usr/bin/systemctl --user restart ${lib.escapeShellArgs cfg.session.services.restart}
-          ''
-          + ''
-            fi
-            )
-          ''
-        );
+          fi
+        '';
 
         # KDE applications build ksycoca from applications.menu. SteamOS only
         # ships plasma-applications.menu; the nested desktop sets
