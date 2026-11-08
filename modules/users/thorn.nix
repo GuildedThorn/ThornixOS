@@ -68,6 +68,7 @@ in
           "xen"
           "kvm"
           "media"
+          "audio"
         ];
         packages = with pkgs; [
           tree

@@ -35,6 +35,10 @@
       flake = false;
     };
 
+    hermes = {
+      url = "github:nousresearch/hermes-agent";
+    };
+
     hyprland = {
       url = "github:hyprwm/Hyprland";
 
@@ -144,6 +148,14 @@
     # Shared source for the FreeCAD addon and OpenCode's MCP bridge.
     opencode-freecad-mcp-src = {
       url = "github:neka-nat/freecad-mcp/0ff3dd380f0deb13677aff4d9a0c94fae326c44a";
+      flake = false;
+    };
+
+    # Source lock for OpenCode's Ghidra MCP bridge. Paired with the pinned
+    # release wheel below; the extension itself is installed into the
+    # per-user Ghidra profile (it must match the Ghidra build exactly).
+    opencode-ghidra-mcp-src = {
+      url = "github:bethington/ghidra-mcp/v7.0.0";
       flake = false;
     };
   };

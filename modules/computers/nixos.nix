@@ -14,7 +14,7 @@
       config.nixos.modules.services-bluetooth
       config.nixos.modules.services-clamav
       config.nixos.modules.services-crowdsec
-      config.nixos.modules.services-displaylink
+      #config.nixos.modules.services-displaylink
       config.nixos.modules.services-fingerprint
       config.nixos.modules.services-hashtopolis-agent
       config.nixos.modules.services-ollama
@@ -23,6 +23,7 @@
       config.nixos.modules.services-sdr
       config.nixos.modules.services-ssh
       config.nixos.modules.services-steam
+      config.nixos.modules.services-steam-frame
       config.nixos.modules.services-tablets
       config.nixos.modules.services-velociraptor-client
       config.nixos.modules.services-vr
@@ -40,7 +41,11 @@
       { home-manager.users.thorn = import "${inputs.self}/hosts/nixos/home.nix"; }
 
       (
-        { pkgs, ... }:
+        {
+          pkgs,
+          lib,
+          ...
+        }:
         {
           hjem.users.thorn.packages = [ pkgs.freecad ];
           hjem.users.thorn.files = {
@@ -198,6 +203,10 @@
           boot.lanzaboote = {
             enable = true;
             pkiBundle = "/var/lib/sbctl";
+            # 0 (the default) means "never prune", which filled the 487M ESP
+            # until installs failed with ENOSPC. Keep 3 newest, plus the
+            # currently booted generation which lanzaboote always protects.
+            configurationLimit = 3;
           };
 
           services.printing = {
@@ -299,7 +308,19 @@
 
           services.udev.packages = with pkgs; [
             yubikey-personalization
+            # Grants userspace write access to wheel sysfs knobs (range, gain,
+            # autocenter, ...) so Oversteer can change settings without root.
+            oversteer
           ];
+
+          # MMJoy2 handbrake and DOYO shifter: hidraw nodes default to
+          # root-only, so browser/WebHID config tools can't talk to them.
+          # uaccess hands the seat's logged-in user an ACL, same as the
+          # steam-devices rules do for known gamepads.
+          services.udev.extraRules = lib.mkAfter ''
+            KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="8888", ATTRS{idProduct}=="8888", MODE="0660", TAG+="uaccess"
+            KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="2563", ATTRS{idProduct}=="0554", MODE="0660", TAG+="uaccess"
+          '';
 
           services.avahi = {
             enable = true;

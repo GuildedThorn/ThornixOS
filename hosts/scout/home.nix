@@ -22,6 +22,7 @@
       thorn.programs.claude-code.enable = true;
       thorn.programs.opencode.enable = true;
       thorn.programs.opencode.integrations.freecad.enable = true;
+      thorn.programs.opencode.integrations.ghidra.enable = true;
     }
     (lib.mkIf config.thorn.desktop.hyprland.enable {
       wayland.windowManager.hyprland.settings.monitor = [

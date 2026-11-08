@@ -122,6 +122,17 @@
             '';
           };
 
+          ghidra.enable = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              Enable the pinned GhidraMCP bridge. Ghidra 12.1.4 with the
+              matching GhidraMCP extension must be running (Tools > GhidraMCP)
+              before its tools can answer; the extension is installed per
+              user from the release archive and is not managed by Nix.
+            '';
+          };
+
           codex = {
             enable = lib.mkOption {
               type = lib.types.bool;

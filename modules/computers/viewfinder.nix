@@ -118,6 +118,13 @@ in
             # hashcat for agent work; these are for manual CLI use.
             hashcat
             john
+
+            # Viewfinder is my streaming/recording machine
+            # This host will have my Scarlett Solo Gen 4
+            # this will have a ground loop isolator line going to nixos host to pass mic audio
+            # Podcast and Music production should also be done on this machine as OBS recordings will be saved here
+            alsa-scarlett-gui
+            ardour
           ];
 
           # Hashtopolis agent: single-use voucher encrypted in sops so the

@@ -21,6 +21,8 @@
 
       environment.systemPackages = with pkgs; [
         pavucontrol
+        qpwgraph
+        alsa-utils
       ];
     };
 }

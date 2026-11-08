@@ -13,6 +13,8 @@ let
   jcodemunchProject = readUvProject jcodemunchSource;
   freecadMcpSource = inputs."opencode-freecad-mcp-src";
   freecadMcpProject = readUvProject freecadMcpSource;
+  ghidraMcpSource = inputs."opencode-ghidra-mcp-src";
+  ghidraMcpProject = readUvProject ghidraMcpSource;
 
   mkLockedUvTool =
     {
@@ -168,12 +170,25 @@ let
     };
   };
 
+  ghidraMcp = mkLockedUvTool {
+    name = "ghidra-mcp";
+    executable = "bridge-mcp-ghidra";
+    source = ghidraMcpSource;
+    wheel = {
+      fileName = "ghidra_mcp_bridge-7.0.0-py3-none-any.whl";
+      name = "ghidra_mcp_bridge-7.0.0-py3-none-any.whl";
+      url = "https://github.com/bethington/ghidra-mcp/releases/download/v7.0.0/ghidra_mcp_bridge-7.0.0-py3-none-any.whl";
+      hash = "sha256-p1BQBh0NFRTUsR5iiOp1dcCathJaE5TDP+NJ+3ZYu64=";
+    };
+  };
+
   integrationPackages = lib.unique (
     lib.optionals cfg.integrations.jcodemunch.enable [ jcodemunch ]
     ++ lib.optionals cfg.integrations.serena.enable [ serena ]
     ++ lib.optionals cfg.integrations.context7.enable [ cfg.integrations.context7.package ]
     ++ lib.optionals cfg.integrations.graphify.enable [ graphify ]
     ++ lib.optionals cfg.integrations.freecad.enable [ freecadMcp ]
+    ++ lib.optionals cfg.integrations.ghidra.enable [ ghidraMcp ]
   );
 
   opencodeExtraPackages = lib.unique (cfg.extraPackages ++ integrationPackages);
@@ -246,6 +261,17 @@ let
         command = [ (lib.getExe freecadMcp) ];
         enabled = true;
         timeout = cfg.integrations.mcpTimeout;
+      };
+    }
+    // lib.optionalAttrs cfg.integrations.ghidra.enable {
+      ghidra = {
+        type = "local";
+        command = [ (lib.getExe ghidraMcp) ];
+        enabled = true;
+        timeout = cfg.integrations.mcpTimeout;
+        # The GhidraMCP plugin serves HTTP on 8089; pin the bridge instead
+        # of letting it scan the local port range.
+        environment.GHIDRA_MCP_URL = "http://127.0.0.1:8089";
       };
     };
 
@@ -392,6 +418,10 @@ let
         ${lib.getExe freecadMcp} --help >/dev/null
         printf '  FreeCAD MCP: ready (%s)\n' ${lib.escapeShellArg freecadMcpProject.version}
       ''}
+      ${lib.optionalString cfg.integrations.ghidra.enable ''
+        ${lib.getExe ghidraMcp} --help >/dev/null
+        printf '  Ghidra MCP: ready (%s)\n' ${lib.escapeShellArg ghidraMcpProject.version}
+      ''}
 
       printf 'All enabled integrations are ready.\n'
     '';
@@ -495,7 +525,7 @@ let
               fi
               ;;
           esac
-        done < <(jq -r '.plugin[]? | if type == "array" then .[0] else . end' "$global_config")
+        done < <(jq -r '(.plugin // .plugins // [])[]? | if type == "array" then .[0] else . end' "$global_config")
       else
         warn "no writable global config yet (created when plugins/settings are added)"
       fi
@@ -521,7 +551,9 @@ let
         fail "Stylix theme is missing or malformed: $theme_config"
       fi
 
-      if timeout 10s env OPENCODE_CONFIG="$managed_config" opencode --pure debug config >/dev/null 2>&1; then
+      # `--pure` was removed in OpenCode 2; `debug config` resolves the
+      # layered configuration and exits non-zero on a broken config.
+      if timeout 10s env OPENCODE_CONFIG="$managed_config" opencode debug config >/dev/null 2>&1; then
         pass "OpenCode resolves the layered configuration"
       else
         fail "OpenCode could not resolve the layered configuration"
