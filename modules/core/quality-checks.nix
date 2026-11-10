@@ -7,6 +7,16 @@
     in
     {
       checks = {
+        shellcheck =
+          pkgs.runCommand "thornix-shellcheck-check"
+            {
+              nativeBuildInputs = [ pkgs.shellcheck ];
+            }
+            ''
+              shellcheck ${source}/scripts/check-fleet
+              touch "$out"
+            '';
+
         nixfmt =
           pkgs.runCommand "thornix-nixfmt-check"
             {

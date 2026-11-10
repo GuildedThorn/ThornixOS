@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Evaluate one host per process so Nix releases its module graph between hosts.
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+flake="${THORNIX_FLAKE:-.}"
+
+inventory_hosts=$(nix eval --no-update-lock-file --json "$flake#thornixFleet" --apply builtins.attrNames)
+configuration_hosts=$(nix eval --no-update-lock-file --json "$flake#nixosConfigurations" --apply builtins.attrNames)
+if [[ "$inventory_hosts" != "$configuration_hosts" ]]; then
+  echo "hosts/inventory.nix and nixosConfigurations must have identical keys" >&2
+  echo "inventory: $inventory_hosts" >&2
+  echo "configurations: $configuration_hosts" >&2
+  exit 1
+fi
+
+hosts=$(nix eval --no-update-lock-file --raw "$flake#nixosConfigurations" \
+  --apply 'configs: builtins.concatStringsSep "\n" (builtins.attrNames configs)')
+
+while IFS= read -r host; do
+  echo "Evaluating ${host}"
+  expected=$(nix eval --no-update-lock-file --raw "$flake#thornixFleet.${host}.system")
+  actual=$(nix eval --no-update-lock-file --raw "$flake#nixosConfigurations.${host}.pkgs.stdenv.hostPlatform.system")
+  if [[ "$actual" != "$expected" ]]; then
+    echo "${host}: inventory platform ${expected} differs from configuration platform ${actual}" >&2
+    exit 1
+  fi
+  nix eval --no-update-lock-file --raw "$flake#nixosConfigurations.${host}.config.system.build.toplevel.drvPath"
+  echo
+done <<< "$hosts"

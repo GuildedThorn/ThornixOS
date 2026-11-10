@@ -45,8 +45,17 @@ hosts/backup-catalog.nix   recovery contracts and freshness policy
 ## Common Commands
 
 ```sh
-# Evaluate flake outputs and checks
-nix flake check
+# Enter the pinned maintenance environment
+nix develop
+
+# Format maintained Nix files (excludes vendor/)
+nix fmt
+
+# Build source quality checks
+nix build .#checks.x86_64-linux.{nixfmt,statix,deadnix,shellcheck} --no-link
+
+# Evaluate every host in a separate process, checking inventory consistency
+bash scripts/check-fleet
 
 # Dry-build one host
 nix build ".#nixosConfigurations.<host>.config.system.build.toplevel"
@@ -62,3 +71,6 @@ sudo nixos-rebuild switch \
 `main` is never deployed directly. Forge builds every production host, confirms
 closures in Cachix, then fast-forwards `production`; comin activates that proven
 revision on each host.
+
+See [Maintaining ThornixOS](docs/maintenance.md) for module conventions, adding a
+host, dependency updates, and the validation workflow.

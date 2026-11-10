@@ -44,18 +44,11 @@ jobs:
             .#checks.x86_64-linux.nixfmt \
             .#checks.x86_64-linux.statix \
             .#checks.x86_64-linux.deadnix \
+            .#checks.x86_64-linux.shellcheck \
             --no-link
-      - name: Validate the authoritative fleet
+      - name: Validate the source revision
         run: |
           set -euo pipefail
-          inventory_hosts=$(nix eval --json .#thornixFleet --apply builtins.attrNames)
-          configuration_hosts=$(nix eval --json .#nixosConfigurations --apply builtins.attrNames)
-          if [[ "$inventory_hosts" != "$configuration_hosts" ]]; then
-            echo "hosts/inventory.nix and nixosConfigurations do not have identical keys" >&2
-            echo "inventory:     $inventory_hosts" >&2
-            echo "configurations: $configuration_hosts" >&2
-            exit 1
-          fi
           flake_revision=$(nix eval --raw .#thornixRevision)
           git_revision=$(git rev-parse HEAD)
           if [[ "$flake_revision" != "$git_revision" ]]; then
@@ -75,15 +68,4 @@ jobs:
         run: |
           set -euo pipefail
 
-          hosts="$(
-            nix eval --raw .#nixosConfigurations \
-              --apply 'configs: builtins.concatStringsSep "\n" (builtins.attrNames configs)'
-          )"
-
-          for host in ${hosts}; do
-            echo "::group::Evaluating ${host}"
-            nix eval --raw \
-              ".#nixosConfigurations.${host}.config.system.build.toplevel.drvPath"
-            echo
-            echo "::endgroup::"
-          done
+          bash scripts/check-fleet
