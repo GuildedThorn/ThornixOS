@@ -7,12 +7,13 @@ in
 {
   flake.nixosConfigurations.courier = inputs.nixpkgs.lib.nixosSystem {
     modules = [
+      { _module.args.inputs = inputs; }
       { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).courier.system; }
 
       config.nixos.modules.profile-qemu-server
 
       config.nixos.modules.services-thorncloud-acme
-      config.nixos.modules.services-courier-mail
+      ../../hosts/courier/mail
       ../../hosts/courier/disko.nix
       ../../hosts/courier/networking.nix
 

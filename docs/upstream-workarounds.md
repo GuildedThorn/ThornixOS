@@ -49,6 +49,13 @@ before activating the application update.
 
 ## Reviewing future updates
 
+Validation during this cleanup: all 30 hosts evaluated, the source and Compose
+lifecycle checks passed, and native Graphify extraction/query smoke tests
+passed. The upstream Arc, kingfisher, ltrace, anyio, and NetExec packages were
+successfully obtained. The n8n 2.39.6 build reached dependency fetching but
+failed on npm registry timeouts/connection resets; its full build and existing
+database behavior remain unverified. No configuration was activated.
+
 Start with the locked package definition and module, then inspect upstream
 changes. Prefer the normal `services.<name>.package` option over copying an
 entire derivation. Delete a compatibility override only after checking the

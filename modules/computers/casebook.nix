@@ -7,11 +7,12 @@ in
 {
   flake.nixosConfigurations.casebook = inputs.nixpkgs.lib.nixosSystem {
     modules = [
+      { _module.args.inputs = inputs; }
       { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).casebook.system; }
 
       config.nixos.modules.profile-qemu-server
 
-      config.nixos.modules.services-thehive
+      ../../hosts/casebook/thehive
       config.nixos.modules.services-thorncloud-acme
       ../../hosts/casebook/disko.nix
       ../../hosts/casebook/networking.nix

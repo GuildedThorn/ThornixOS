@@ -12,7 +12,7 @@ Keep those documents authoritative rather than duplicating instructions here.
   belong under `hosts/<host>/`; shared features belong in named modules.
 - Preserve state versions, provisioning readiness checks, compatibility pins,
   encrypted secrets, and the gated `production` promotion contract.
-- Use `nix fmt`, the four source checks, and `bash scripts/check-fleet` during
+- Use `nix fmt`, the source and Compose lifecycle checks, and `bash scripts/check-fleet` during
   maintenance. Build affected system closures before production promotion.
 - Evaluation and builds do not authorize activation. `nixos-rebuild switch`
   changes a running machine.

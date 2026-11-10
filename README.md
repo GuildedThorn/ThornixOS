@@ -38,6 +38,9 @@ modules/core/              baseline config and module plumbing
 modules/services/          reusable service modules
 modules/home-manager/      user programs and desktop features
 hosts/<host>/              host networking, disks, secrets, and service data
+hosts/<host>/<service>/    host-specific deployments and supporting scripts
+lib/                       explicitly imported helpers
+tests/                     shared helper tests
 hosts/inventory.nix        authoritative fleet and monitoring membership
 hosts/backup-catalog.nix   recovery contracts and freshness policy
 ```
@@ -52,7 +55,7 @@ nix develop
 nix fmt
 
 # Build source quality checks
-nix build .#checks.x86_64-linux.{nixfmt,statix,deadnix,shellcheck} --no-link
+nix build .#checks.x86_64-linux.{nixfmt,statix,deadnix,shellcheck,compose-stack} --no-link
 
 # Evaluate every host in a separate process, checking inventory consistency
 bash scripts/check-fleet

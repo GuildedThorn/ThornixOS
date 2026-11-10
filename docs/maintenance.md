@@ -12,6 +12,23 @@ from `disko.nix`, and user preferences from `home.nix`. Split a large machine
 module by the service or subsystem a maintainer would look for, rather than by
 an arbitrary line limit. A module used by only one host can stay with that host.
 
+Host-specific service deployments live in `hosts/<host>/<service>/default.nix`,
+beside their Compose files, scripts, and tests. The host composition imports
+these directories directly. `modules/services/` contains integrations intended
+for reuse across machines, such as backup, telemetry, and endpoint agents.
+
+Loom's n8n directory keeps its four bootstrap scripts separate from service
+configuration. `replaceVarsWith` fills explicit store paths into executable
+templates and checks substitutions; ShellCheck validates the rendered scripts.
+Its bootstrap tests use disposable state and mock PostgreSQL/n8n commands,
+including malformed-secret, credential-rotation, and import-idempotence cases.
+
+`lib/compose-stack.nix` shares Compose start/stop locking, config validation,
+and administrator commands across Greenbone, TheHive, and OpenCTI. Each host
+still owns its readiness gates, secrets, updates, backups, and application
+settings. OpenCanary retains its distinct start sequence, which waits for a
+real decoy listener before declaring the unit ready.
+
 `flake.nix` declares external inputs. `import-tree` loads every Nix file under
 `modules/` as a **flake-parts module**. A file placed there must therefore define
 flake-parts options such as `nixos.modules`, `homeManager.modules`, `perSystem`,
@@ -61,7 +78,7 @@ Run these commands from the repository root:
 ```sh
 nix develop
 nix fmt
-nix build .#checks.x86_64-linux.{nixfmt,statix,deadnix,shellcheck} --no-link
+nix build .#checks.x86_64-linux.{nixfmt,statix,deadnix,shellcheck,compose-stack} --no-link
 bash scripts/check-fleet
 nix build .#nixosConfigurations.<host>.config.system.build.toplevel --no-link
 ```
@@ -76,6 +93,11 @@ evaluation without changing the script.
 `nix fmt -- --check` checks formatting without rewriting files. `nix develop`
 provides nixfmt, Statix, deadnix, and ShellCheck from the locked nixpkgs input.
 For shell changes, run `shellcheck scripts/check-fleet`.
+
+The Compose lifecycle check uses a mock command and checks argument quoting,
+lock contention, root-only administration, and volume-preserving shutdown.
+Service-specific checks remain attached to their host's `system.checks`, so
+Hydra runs them when building that system closure.
 
 The fleet script covers NixOS systems. When changing shared flake plumbing,
 also evaluate the standalone Home Manager configuration and firmware outputs:

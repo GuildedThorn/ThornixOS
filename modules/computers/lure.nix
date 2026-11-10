@@ -11,7 +11,7 @@ in
 
       config.nixos.modules.profile-qemu-server
 
-      config.nixos.modules.services-opencanary
+      ../../hosts/lure/opencanary
       ../../hosts/lure/disko.nix
       ../../hosts/lure/networking.nix
 

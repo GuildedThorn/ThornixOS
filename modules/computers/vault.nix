@@ -7,11 +7,12 @@ in
 {
   flake.nixosConfigurations.vault = inputs.nixpkgs.lib.nixosSystem {
     modules = [
+      { _module.args.inputs = inputs; }
       { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).vault.system; }
 
       config.nixos.modules.profile-qemu-server
 
-      config.nixos.modules.services-vaultwarden
+      ../../hosts/vault/vaultwarden
       config.nixos.modules.services-thorncloud-acme
       ../../hosts/vault/disko.nix
       ../../hosts/vault/networking.nix

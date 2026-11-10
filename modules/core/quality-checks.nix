@@ -1,12 +1,13 @@
 { inputs, ... }:
 {
   perSystem =
-    { pkgs, ... }:
+    { pkgs, lib, ... }:
     let
       source = inputs.self;
     in
     {
       checks = {
+        compose-stack = import ../../tests/compose-stack.nix { inherit pkgs lib; };
         shellcheck =
           pkgs.runCommand "thornix-shellcheck-check"
             {

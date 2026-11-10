@@ -11,7 +11,7 @@ in
 
       config.nixos.modules.profile-qemu-server
 
-      config.nixos.modules.services-greenbone
+      ../../hosts/sieve/greenbone
       config.nixos.modules.services-thorncloud-acme
       ../../hosts/sieve/disko.nix
       ../../hosts/sieve/networking.nix

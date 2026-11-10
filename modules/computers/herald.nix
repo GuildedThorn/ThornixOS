@@ -11,7 +11,7 @@ in
 
       config.nixos.modules.profile-qemu-server
 
-      config.nixos.modules.services-herald
+      ../../hosts/herald/notifications
       config.nixos.modules.services-thorncloud-acme
       ../../hosts/herald/disko.nix
       ../../hosts/herald/networking.nix

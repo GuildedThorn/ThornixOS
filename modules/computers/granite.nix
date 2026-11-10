@@ -9,13 +9,13 @@ in
 
       config.nixos.modules.thorn-headless
       config.nixos.modules.services-ssh
-      config.nixos.modules.services-forgejo
-      config.nixos.modules.services-reposilite
-      config.nixos.modules.services-jellyfin
-      config.nixos.modules.services-seaweedfs
-      config.nixos.modules.services-mongodb
-      config.nixos.modules.services-immich
-      config.nixos.modules.services-media-arr
+      ../../hosts/granite/forgejo
+      ../../hosts/granite/reposilite
+      ../../hosts/granite/jellyfin
+      ../../hosts/granite/seaweedfs
+      ../../hosts/granite/mongodb
+      ../../hosts/granite/immich
+      ../../hosts/granite/media-arr
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.hardware-nixos
 

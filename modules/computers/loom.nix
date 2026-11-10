@@ -11,7 +11,7 @@ in
 
       config.nixos.modules.profile-qemu-server
 
-      config.nixos.modules.services-n8n-loom
+      ../../hosts/loom/n8n
       config.nixos.modules.services-thorncloud-acme
       ../../hosts/loom/disko.nix
       ../../hosts/loom/networking.nix

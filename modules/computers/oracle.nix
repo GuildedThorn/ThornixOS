@@ -7,11 +7,12 @@ in
 {
   flake.nixosConfigurations.oracle = inputs.nixpkgs.lib.nixosSystem {
     modules = [
+      { _module.args.inputs = inputs; }
       { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).oracle.system; }
 
       config.nixos.modules.profile-qemu-server
 
-      config.nixos.modules.services-opencti
+      ../../hosts/oracle/opencti
       config.nixos.modules.services-thorncloud-acme
       ../../hosts/oracle/disko.nix
       ../../hosts/oracle/networking.nix

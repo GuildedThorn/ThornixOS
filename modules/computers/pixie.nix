@@ -5,11 +5,12 @@ in
 {
   flake.nixosConfigurations.pixie = inputs.nixpkgs.lib.nixosSystem {
     modules = [
+      { _module.args.inputs = inputs; }
       { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).pixie.system; }
 
       config.nixos.modules.profile-qemu-server
 
-      config.nixos.modules.services-pixie-netboot
+      ../../hosts/pixie/netboot
       ../../hosts/pixie/disko.nix
       ../../hosts/pixie/networking.nix
 
