@@ -4,27 +4,6 @@
 
     {
 
-      # torchcodec 0.16.0's pytest mp3-encoder cases fail against the
-      # current ffmpeg (8 tensor-mismatch failures); skip its check phase
-      # so open-webui's python closure can build.
-      nixpkgs.overlays = [
-        (final: prev: {
-          python3Packages = prev.python3Packages.overrideScope (
-            pyfinal: pyprev: {
-              # pytestCheckHook runs even with doCheck=false in this
-              # python3.14 closure, so strip the hook itself.
-              torchcodec = pyprev.torchcodec.overrideAttrs (old: {
-                # Python packages run pytest in installCheckPhase gated by
-                # doInstallCheck, so doCheck=false alone changes nothing.
-                doCheck = false;
-                doInstallCheck = false;
-                nativeCheckInputs = [ ];
-              });
-            }
-          );
-        })
-      ];
-
       services.ollama = {
         enable = true;
         host = "127.0.0.1";

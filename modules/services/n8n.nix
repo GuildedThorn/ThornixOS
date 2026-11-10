@@ -50,9 +50,7 @@
               ${caalEspnWorkflowSource} > "$out"
           '';
       workflowFilesDirectory = "/var/lib/n8n-files";
-      # Keep the security override isolated from the rest of the fleet's
-      # nixpkgs package set. See packages/n8n.nix for the pinned advisory.
-      n8nPackage = pkgs.callPackage ../../packages/n8n.nix { };
+      n8nPackage = config.services.n8n.package;
       modelGatewaySource = ../../packages/loom_model_workflows.py;
       modelGatewayTestsSource = ../../packages/loom_model_workflows_test.py;
       modelGatewayPackage = pkgs.writeShellApplication {
@@ -194,7 +192,6 @@
 
       services.n8n = {
         enable = true;
-        package = n8nPackage;
         openFirewall = false;
         environment = {
           N8N_LISTEN_ADDRESS = "127.0.0.1";

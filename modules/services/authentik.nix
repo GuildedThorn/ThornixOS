@@ -58,13 +58,6 @@
                   django-channels-postgres = pinVersion previous.django-channels-postgres "0.1.0";
                   django-dramatiq-postgres = pinVersion previous.django-dramatiq-postgres "0.1.0";
                   django-postgres-cache = pinVersion previous.django-postgres-cache "0.1.0";
-
-                  # This attribute is named authentik-django inside nixpkgs to
-                  # distinguish it from the final wrapper, but the Python
-                  # distribution itself is correctly named "authentik".
-                  authentik-django = previous.authentik-django.overridePythonAttrs (_: {
-                    pname = "authentik";
-                  });
                 }
               );
             }

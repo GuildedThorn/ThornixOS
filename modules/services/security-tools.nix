@@ -14,13 +14,6 @@
     let
       cfg = config.thorn.securityTools;
 
-      # ltrace 0.7.91's dejagnu suite fails on this kernel/userland (15
-      # unexpected failures), so the package cannot build with checks on.
-      # Disable its test phase rather than dropping the tool.
-      ltrace = pkgs.ltrace.overrideAttrs (_: {
-        doCheck = false;
-      });
-
       # Every group is off by default: a security workstation should opt in to
       # the tool families it actually exercises rather than inherit the union
       # of everything the fleet has ever needed.
@@ -552,59 +545,6 @@
       };
 
       config = lib.mkIf cfg.enable {
-        # kingfisher 1.113.0's install-check expects the version string in
-        # `--version`/`--help` output, but the release binary reports a
-        # different string, so the check always fails upstream.
-        nixpkgs.overlays = [
-          (final: prev: {
-            kingfisher = prev.kingfisher.overrideAttrs (_: {
-              doInstallCheck = false;
-            });
-          })
-          # anyio 4.14.2's suite fails on nixpkgs fe13242: the TLS-connect
-          # tests raise `server_hostname can only be specified in client
-          # mode`, and test_run_process[asyncio+uvloop-shell] trips
-          # unraisable-exception warnings. Skip just those cases (the rest
-          # of the suite still runs) until nixpkgs disables them upstream.
-          #
-          # netexec builds its own python via `python312.override {
-          # packageOverrides = ... }`, which replaces rather than composes
-          # the scope's packageOverrides, so the fix is also threaded into
-          # that private python through netexec's `python312` argument.
-          (
-            final: prev:
-            let
-              anyioFix = _self: super: {
-                anyio = super.anyio.overrideAttrs (old: {
-                  disabledTests = (old.disabledTests or [ ]) ++ [
-                    "test_tls_connectable"
-                    "test_run_process"
-                  ];
-                });
-              };
-              python312WithAnyioFix =
-                base:
-                base
-                // {
-                  override =
-                    args:
-                    base.override (
-                      args
-                      // {
-                        packageOverrides = lib.composeExtensions anyioFix (args.packageOverrides or (_: _: { }));
-                      }
-                    );
-                };
-            in
-            {
-              python312Packages = prev.python312Packages.overrideScope anyioFix;
-              netexec = prev.netexec.override {
-                python312 = python312WithAnyioFix prev.python312;
-              };
-            }
-          )
-        ];
-
         environment.systemPackages =
           (lib.concatLists packageLists)
           ++ cfg.extraPackages

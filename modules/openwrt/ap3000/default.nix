@@ -12,17 +12,17 @@
       # remain pinned by the release's sha256sums files.
       refreshedIndexHashes = {
         "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/base/packages.adb" =
-          "sha256-e/3688us45+OalO9cK1xEIFpC7JyIbdstzBaGaldFIU=";
+          "sha256-kOkvH69S4rEeSYecXpPHzoGfnpdpW8huKPDHrh3XMr0=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/luci/packages.adb" =
-          "sha256-nTuHyAjVQM5xLYVZyKtF3tchpUgLC9QyfFp0kLnRN98=";
+          "sha256-3+EO6TTm/RSx7yLfGnyh8INn2RPhVOz/w56fhHl28lo=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/packages/packages.adb" =
-          "sha256-v/8kZVyoWx8jCbsXcC09vuqRbupfOJkgZ2sUI+zmAjE=";
+          "sha256-ehe+RiI9qdYE4Wpij9cTy57mkNI6U+txFnBvJpXvzKY=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/routing/packages.adb" =
-          "sha256-oqYA4BIiaUHeZ6meZnPhUfwpRRq8LwoZAM+z7bD2J/E=";
+          "sha256-RUycHBqBftnZHoLc/fuj/foBGrxUoJQBe1JlziclcoU=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/telephony/packages.adb" =
-          "sha256-8T/o/dgIOBYw2a1yuGvDUO+UHJNnCpLvf4yybZmHuCk=";
+          "sha256-m+xNC3ntEvspWmOMt4XTE2iKbXv/opecqsan5S5Ybmk=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/aarch64_cortex-a53/sha256sums" =
-          "sha256-/01zDyLGbKE6pQdmE5wbCYWDbiJrWtXnixtOENsIjQM=";
+          "sha256-x3/0W5YahzK5z21MLZLEFp7Do17+JonubEJaQl55i00=";
       };
       fetchurl =
         args:

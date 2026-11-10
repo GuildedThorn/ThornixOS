@@ -120,11 +120,6 @@
           "2035173"
         ];
 
-        # The pinned nixpkgs Suricata module currently emits
-        # `ProtectProc=true`, which is not a valid systemd mode and is
-        # therefore ignored. Preserve the intended process isolation with a
-        # supported value until the upstream module is corrected.
-        systemd.services.suricata.serviceConfig.ProtectProc = lib.mkForce "invisible";
         # Validating the full ET ruleset can exceed systemd's 90-second
         # default on lower-power sensors such as the edge firewall.
         systemd.services.suricata.serviceConfig.TimeoutStartSec = "5min";

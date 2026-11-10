@@ -12,17 +12,17 @@
       # remain pinned by the release's sha256sums files.
       refreshedIndexHashes = {
         "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/base/packages.adb" =
-          "sha256-UmaEMWpDVGo00ZSXJPG7ZVJWHp6JiHTZTU0s6EJQ51Q=";
+          "sha256-GscOYfNzLxiH18f84UDNaENVSuhyTPqaqAStBEz3r7k=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/luci/packages.adb" =
-          "sha256-yyiNjM+Kjgm9juztgEW9mnrAKYYEdSs60QZvDh1MNLc=";
+          "sha256-F3Nw1nsCPnyYNLk3J1wLFyijclnRoQzDw/krQaak8x8=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/packages/packages.adb" =
-          "sha256-2Fhm7fNcUXmDGUL6zMwX4jUw7ig+xJJWkqd0r+r7tQQ=";
+          "sha256-UpVEwF3dF/GWfgl8bR7VCWCReLBNCmGAvoCs3kFmS2s=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/routing/packages.adb" =
-          "sha256-H8/uLV7PGNnKBImpofrujhsZ5UoOk2bLS/a+hWdt5dc=";
+          "sha256-k0eLTbeFWFh1MZXjVslNZbJSYxunaDCiQDw/6TG1Tv8=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/telephony/packages.adb" =
-          "sha256-LE8R6LCErV7SDzjXM+utJgxVbddD7HGKarILR8g42EQ=";
+          "sha256-5fD3nbRiax9ByCul6imUEDEs4imhm2TZyTbaIZ29GVM=";
         "https://downloads.openwrt.org/releases/25.12.6/packages/mipsel_24kc/sha256sums" =
-          "sha256-lu0czvGKcaYyoqvoSu4XTfabIhz33FL4l8vgAmEzP14=";
+          "sha256-Lvq6lAWKgZkJhbEMKql8kf4cIFUVv38mB1V3uvoFwlU=";
       };
       fetchurl =
         args:

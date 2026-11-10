@@ -1,5 +1,5 @@
 {
-  description = "NixOS + Home Manager + Makefile DevShell";
+  description = "ThornixOS: NixOS, Home Manager, and OpenWrt fleet configuration";
 
   inputs = {
     nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
@@ -133,11 +133,6 @@
 
     opencode-serena-src = {
       url = "github:oraios/serena/v1.7.0";
-      flake = false;
-    };
-
-    opencode-graphify-src = {
-      url = "github:Graphify-Labs/graphify/v0.9.43";
       flake = false;
     };
 

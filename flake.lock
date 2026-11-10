@@ -1225,23 +1225,6 @@
         "type": "github"
       }
     },
-    "opencode-graphify-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1786718215,
-        "narHash": "sha256-WpuiTCJEZAzD266MU8pYW1jld5v875HHBQp6nvyIGyI=",
-        "owner": "Graphify-Labs",
-        "repo": "graphify",
-        "rev": "7281f27eac568f77f50910f59f84543458f5dfd1",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Graphify-Labs",
-        "ref": "v0.9.43",
-        "repo": "graphify",
-        "type": "github"
-      }
-    },
     "opencode-jcodemunch-src": {
       "flake": false,
       "locked": {
@@ -1390,7 +1373,6 @@
         ],
         "nixvim": "nixvim",
         "opencode-freecad-mcp-src": "opencode-freecad-mcp-src",
-        "opencode-graphify-src": "opencode-graphify-src",
         "opencode-jcodemunch-src": "opencode-jcodemunch-src",
         "opencode-serena-src": "opencode-serena-src",
         "openwrt-imagebuilder": "openwrt-imagebuilder",

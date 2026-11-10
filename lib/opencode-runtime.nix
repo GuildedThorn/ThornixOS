@@ -134,16 +134,17 @@ let
     };
   };
 
-  graphify = mkLockedUvTool {
-    name = "graphify";
-    executable = "graphify";
-    source = inputs."opencode-graphify-src";
-    wheel = {
-      fileName = "graphifyy-0.9.43-py3-none-any.whl";
-      name = "graphifyy-0.9.43-py3-none-any.whl";
-      url = "https://files.pythonhosted.org/packages/65/2c/04bd7ddb33ac23c8b13f10e1fcfbc767b10269e6bdee10dafc7c8f7b66d1/graphifyy-0.9.43-py3-none-any.whl";
-      hash = "sha256-oosLgB7JPEBsf8eYUwBmMoDdOraPb1J6dpLU/K1LQAs=";
-    };
+  # Graphify re-execs `python -m graphify` to fix its hash seed. That bypasses
+  # nixpkgs' Python entrypoint wrapper and loses its module search path.
+  # Set the same default before launch so extraction needs no re-exec.
+  graphify = pkgs.symlinkJoin {
+    inherit (pkgs.graphify) name version;
+    paths = [ pkgs.graphify ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    postBuild = ''
+      wrapProgram "$out/bin/graphify" --set-default PYTHONHASHSEED 0
+    '';
+    meta.mainProgram = "graphify";
   };
 
   freecadMcp = pkgs.python313Packages.buildPythonApplication {

@@ -9,20 +9,18 @@
     }:
 
     let
-      system = config.nixpkgs.system;
+      # Read the platform before constructing overlays; using pkgs here can
+      # make the overlay depend on the package set it is still constructing.
+      system = config.nixpkgs.hostPlatform.system;
 
       # proxmox-nixos does not build its packages from the host's own package
       # set: its overlay hard-codes `import nixpkgs-stable { ... }` from the
-      # pin it carries.  Two packages from that pin do not build, so construct
+      # pin it carries. Some packages from that pin do not build, so construct
       # the same package set from an extended copy of our nixpkgs-stable input
       # and feed that to proxmox-nixos' package definitions instead.
       #
       # python3.12/3.13-sh 2.2.2: two asyncio tests deadlock/fail under the
       # build sandbox; skip them exactly as proxmox-nixos does upstream.
-      #
-      # perl XML-Twig 3.54: nixpkgs-stable carries a precedence patch that no
-      # longer applies to the 3.54 tarball ("1 out of 1 hunk ignored").  Both
-      # consumers only use it while rendering pve docs, so drop the patch.
       stablePkgs = inputs.nixpkgs-stable.legacyPackages.${system}.extend (
         _final: prev: {
           pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
@@ -35,11 +33,6 @@
               });
             })
           ];
-          perlPackages = prev.perlPackages // {
-            XMLTwig = prev.perlPackages.XMLTwig.overrideAttrs (_: {
-              patches = [ ];
-            });
-          };
           # Stock nixpkgs-stable's libvncserver carries a patch that no longer
           # applies; proxmox-nixos builds vncterm against its own pinned fork.
           libvncserver =
