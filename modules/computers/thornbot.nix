@@ -6,15 +6,16 @@ let
 in
 {
   flake.nixosConfigurations.thornbot = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).thornbot.system; }
+
       config.nixos.modules.profile-qemu-server
 
       config.nixos.modules.services-ssh
       config.nixos.modules.services-thornbot
-      "${inputs.self}/hosts/thornbot/disko.nix"
-      "${inputs.self}/hosts/thornbot/networking.nix"
-      "${inputs.self}/hosts/thornbot/secrets.nix"
+      ../../hosts/thornbot/disko.nix
+      ../../hosts/thornbot/networking.nix
+      ../../hosts/thornbot/secrets.nix
 
       {
         users.users.root.openssh.authorizedKeys.keys = adminSshKeys;

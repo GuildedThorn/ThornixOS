@@ -5,14 +5,15 @@ let
 in
 {
   flake.nixosConfigurations.identity = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).identity.system; }
+
       config.nixos.modules.profile-qemu-server
 
       config.nixos.modules.services-authentik
-      "${inputs.self}/hosts/identity/disko.nix"
-      "${inputs.self}/hosts/identity/networking.nix"
-      "${inputs.self}/hosts/identity/secrets.nix"
+      ../../hosts/identity/disko.nix
+      ../../hosts/identity/networking.nix
+      ../../hosts/identity/secrets.nix
 
       (
         { config, ... }:

@@ -1,11 +1,12 @@
 { config, inputs, ... }:
 let
-  securityWorkflowReady = builtins.pathExists "${inputs.self}/hosts/soc/security-workflow.nix";
+  securityWorkflowReady = builtins.pathExists ../../hosts/soc/security-workflow.nix;
 in
 {
   flake.nixosConfigurations.soc = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).soc.system; }
+
       config.nixos.modules.thorn-headless
       #config.nixos.modules.profile-qemu-server
 
@@ -18,14 +19,14 @@ in
 
       { _module.args.inputs = inputs; }
 
-      "${inputs.self}/hosts/soc/disko.nix"
-      "${inputs.self}/hosts/soc/networking.nix"
-      "${inputs.self}/hosts/soc/secrets.nix"
-      "${inputs.self}/hosts/soc/base.nix"
-      "${inputs.self}/hosts/soc/monitoring.nix"
+      ../../hosts/soc/disko.nix
+      ../../hosts/soc/networking.nix
+      ../../hosts/soc/secrets.nix
+      ../../hosts/soc/base.nix
+      ../../hosts/soc/monitoring.nix
     ]
     ++ inputs.nixpkgs.lib.optionals securityWorkflowReady [
-      "${inputs.self}/hosts/soc/security-workflow.nix"
+      ../../hosts/soc/security-workflow.nix
     ];
   };
 }

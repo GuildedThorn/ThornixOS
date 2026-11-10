@@ -4,8 +4,9 @@ let
 in
 {
   flake.nixosConfigurations.granite = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).granite.system; }
+
       config.nixos.modules.thorn-headless
       config.nixos.modules.services-ssh
       config.nixos.modules.services-forgejo
@@ -18,12 +19,12 @@ in
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.hardware-nixos
 
-      "${inputs.self}/hosts/granite/disko.nix"
-      "${inputs.self}/hosts/granite/networking.nix"
-      "${inputs.self}/hosts/granite/nfs.nix"
-      "${inputs.self}/hosts/granite/storage.nix"
-      "${inputs.self}/hosts/granite/monitoring.nix"
-      "${inputs.self}/hosts/granite/telemetry.nix"
+      ../../hosts/granite/disko.nix
+      ../../hosts/granite/networking.nix
+      ../../hosts/granite/nfs.nix
+      ../../hosts/granite/storage.nix
+      ../../hosts/granite/monitoring.nix
+      ../../hosts/granite/telemetry.nix
 
       {
         # Keep the break-glass path available during the OS replacement.

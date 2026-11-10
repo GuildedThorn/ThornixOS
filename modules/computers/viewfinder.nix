@@ -1,11 +1,9 @@
 { config, inputs, ... }:
-let
-  adminSshKeys = import ../../hosts/viewfinder/admin-ssh-keys.nix;
-in
 {
   flake.nixosConfigurations.viewfinder = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).viewfinder.system; }
+
       config.nixos.modules.thorn-interactive
       inputs.sc0710.nixosModules.default
       config.nixos.modules.hardware-sc0710-firmware
@@ -28,129 +26,14 @@ in
       config.nixos.modules.services-zeek
 
       config.nixos.modules.hardware-viewfinder
-      "${inputs.self}/hosts/viewfinder/disko.nix"
-      "${inputs.self}/hosts/viewfinder/flare-lab.nix"
-      "${inputs.self}/hosts/viewfinder/networking.nix"
-      "${inputs.self}/hosts/viewfinder/secrets.nix"
+      ../../hosts/viewfinder/disko.nix
+      ../../hosts/viewfinder/flare-lab.nix
+      ../../hosts/viewfinder/networking.nix
+      ../../hosts/viewfinder/secrets.nix
 
-      { home-manager.users.thorn = import "${inputs.self}/hosts/viewfinder/home.nix"; }
+      { home-manager.users.thorn = import ../../hosts/viewfinder/home.nix; }
 
-      (
-        {
-          config,
-          pkgs,
-          lib,
-          ...
-        }:
-        {
-          hardware.sc0710.enable = true;
-
-          # sc0710 is tested through 7.0+ upstream and confirmed working on
-          # 7.1/7.2 (Nakildias/sc0710#69, #77); NixOS 7.2 config ships
-          # CONFIG_VIDEOBUF2_DMA_SG=m, which the driver links unconditionally.
-          boot.kernelPackages = lib.mkForce pkgs.linuxPackages_7_2;
-
-          boot.loader.systemd-boot.enable = true;
-          boot.loader.efi.canTouchEfiVariables = true;
-
-          # Keep the workstation desktop native while exposing this machine
-          # as a small Proxmox node alongside it.
-          boot.kernelModules = [ "kvm-amd" ];
-
-          services.proxmox-ve = {
-            ipAddress = "172.16.25.103";
-            bridges = [
-              "vmbr0"
-              "vmbr1"
-            ];
-          };
-
-          # Passive sensor for the isolated detonation segment. vmbr1 has no
-          # physical uplink and no gateway, so this captures everything the
-          # analysis VMs do on 10.77.0.0/24 and nothing else. No capture
-          # filter is needed because this host's Alloy shipping to the SOC
-          # leaves over vmbr0 and is never seen on this interface.
-          #
-          # The lab profile keeps conn/DNS/HTTP/file/TLS-SNI logs and drops the
-          # SSH-bruteforce and TLS-validation notice sources, which would
-          # otherwise fire continuously against deliberately hostile traffic.
-          # The live topology graph is left off: its purpose is modelling
-          # production assets, and a detonation VM has no stable identity.
-          thorn.zeek = {
-            enable = true;
-            profile = "lab";
-            interface = "vmbr1";
-            localNetworks = [ "10.77.0.0/24" ];
-            topology.enable = false;
-          };
-
-          # The Elgato 4K Capture Pro is a PCIe card, and Discord on Linux
-          # (Vesktop) has no equivalent of Windows' "Capture Devices" source,
-          # while the Hyprland share picker only offers outputs, windows and
-          # regions. So the card is surfaced as an mpv window and that window is
-          # what gets shared. It is drawn on a headless output, so it is never
-          # visible on either display.
-          thorn.captureCard.enable = true;
-
-          boot.extraModulePackages = with config.boot.kernelPackages; [
-            nvidia_x11
-          ];
-
-          nixpkgs.overlays = [
-            (final: prev: {
-              obs-studio = prev.obs-studio.override {
-                ffmpeg = prev.ffmpeg-full;
-                cudaSupport = true;
-              };
-            })
-          ];
-
-          environment.systemPackages = with pkgs; [
-            v4l-utils
-            ffmpeg
-            nwg-displays
-            ghostty
-
-            jellyfin-desktop
-
-            # GPU hash-cracking host: this box's RTX 2070 is one of the two GPUs
-            # driven by the Hashtopolis agents. Hashtopolis ships its own
-            # hashcat for agent work; these are for manual CLI use.
-            hashcat
-            john
-          ];
-
-          # Hashtopolis agent: single-use voucher encrypted in sops so the
-          # plaintext never touches the nix store.
-          thorn.hashtopolisAgent = {
-            enable = true;
-            url = "https://hashtopolis.guildedthorn.arpa/api/server.php";
-            sopsFile = "${inputs.self}/hosts/viewfinder/hashtopolis-agent.sops";
-          };
-
-          users = {
-            users = {
-              root = {
-                initialHashedPassword = "!";
-                openssh.authorizedKeys.keys = adminSshKeys;
-              };
-              thorn = {
-                openssh.authorizedKeys.keys = adminSshKeys;
-              };
-            };
-          };
-
-          zramSwap = {
-            enable = true;
-            memoryPercent = 25;
-          };
-
-          security.rtkit.enable = true;
-
-          services.earlyoom.enable = true;
-          services.fwupd.enable = true;
-        }
-      )
+      ../../hosts/viewfinder/system.nix
     ];
   };
 }

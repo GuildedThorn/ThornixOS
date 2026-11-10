@@ -12,14 +12,5 @@
         "vmnet"
       ];
 
-      # Used for nixos systems inside vmware
-      # virtualisation.vmware.guest.enable = true;
-      # virtualisation.docker = {
-      # enable = true;
-      # enableOnBoot = true;
-      # autoPrune.enable = true;
-      # extraOptions = ''--iptables=false --ip6tables=false'';
-      # };
-
     };
 }

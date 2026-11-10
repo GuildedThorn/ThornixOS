@@ -4,14 +4,15 @@ let
 in
 {
   flake.nixosConfigurations.resolver = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).resolver.system; }
+
       config.nixos.modules.profile-qemu-server
       config.nixos.modules.services-thorncloud-acme
 
-      "${inputs.self}/hosts/resolver/disko.nix"
-      "${inputs.self}/hosts/resolver/networking.nix"
-      "${inputs.self}/hosts/shared/technitium-config.nix"
+      ../../hosts/resolver/disko.nix
+      ../../hosts/resolver/networking.nix
+      ../../hosts/shared/technitium-config.nix
 
       {
         services.technitium-dns-server = {

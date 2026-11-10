@@ -4,13 +4,14 @@ let
 in
 {
   flake.nixosConfigurations.pixie = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).pixie.system; }
+
       config.nixos.modules.profile-qemu-server
 
       config.nixos.modules.services-pixie-netboot
-      "${inputs.self}/hosts/pixie/disko.nix"
-      "${inputs.self}/hosts/pixie/networking.nix"
+      ../../hosts/pixie/disko.nix
+      ../../hosts/pixie/networking.nix
 
       {
         programs.nh.clean.dates = "daily";

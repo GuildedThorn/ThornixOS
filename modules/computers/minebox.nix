@@ -1,13 +1,14 @@
 { config, inputs, ... }:
 let
   adminSshKeys = import ../../hosts/minebox/admin-ssh-keys.nix;
-  telemetryModule = "${inputs.self}/hosts/minebox/telemetry.nix";
+  telemetryModule = ../../hosts/minebox/telemetry.nix;
   telemetryReady = builtins.pathExists telemetryModule;
 in
 {
   flake.nixosConfigurations.minebox = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).minebox.system; }
+
       config.nixos.modules.thorn-headless
 
       config.nixos.modules.processor-intel
@@ -16,14 +17,14 @@ in
       config.nixos.modules.services-ssh
 
       config.nixos.modules.mc-cluster
-      "${inputs.self}/hosts/minebox/mc-cluster.nix"
+      ../../hosts/minebox/mc-cluster.nix
 
       config.nixos.modules.mc-lobby
-      "${inputs.self}/hosts/minebox/mc-lobby.nix"
+      ../../hosts/minebox/mc-lobby.nix
 
       config.nixos.modules.hardware-minebox
-      "${inputs.self}/hosts/minebox/disko.nix"
-      "${inputs.self}/hosts/minebox/networking.nix"
+      ../../hosts/minebox/disko.nix
+      ../../hosts/minebox/networking.nix
 
       (
         { ... }:

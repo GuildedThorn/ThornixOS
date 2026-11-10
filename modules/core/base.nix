@@ -16,9 +16,6 @@
         inputs.nix-flatpak.nixosModules.nix-flatpak
       ];
 
-      # -------------------------
-      # Experimental Features
-      # -------------------------
       nix.settings = {
         experimental-features = [
           "nix-command"
@@ -35,23 +32,15 @@
         ];
       };
 
-      # -------------------------
-      # DNS Resolver
-      # -------------------------
       services.resolved.enable = false;
 
-      # -------------------------
-      # Nix Helper
-      # -------------------------
       programs.nh = {
         enable = true;
         clean.enable = true;
         clean.extraArgs = "--keep-since 4d --keep 3";
-        flake = "/etc/nixos"; # sets NH_OS_FLAKE variable for you
+        flake = "/etc/nixos";
       };
 
-      # List packages installed in system profile. To search, run:
-      # $ nix search <package>
       environment.systemPackages = with pkgs; [
         git
         forgejo-cli
@@ -77,13 +66,8 @@
       hardware.enableRedistributableFirmware = true;
       nixpkgs.config.allowUnfree = true;
 
-      # This value determines the NixOS release from which the default
-      # settings for stateful data, like file locations and database versions
-      # on your system were taken. It's perfectly fine and recommended to leave
-      # this value at the release version of the first install of this system.
-      # Before changing this value read the documentation for this option
-      # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
       boot.kernelPackages = pkgs.linuxPackages_latest;
-      system.stateVersion = "25.05"; # Did you read the comment?
+      # Compatibility defaults for existing installations; not the package release.
+      system.stateVersion = "25.05";
     };
 }

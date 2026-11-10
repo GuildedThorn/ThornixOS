@@ -1,8 +1,9 @@
 { config, inputs, ... }:
 {
   flake.nixosConfigurations.proxmox-guest = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).proxmox-guest.system; }
+
       config.nixos.modules.thorn-interactive
 
       config.nixos.modules.desktop-xfce-i3
@@ -13,10 +14,10 @@
 
       config.nixos.modules.thorn-glance
 
-      "${inputs.self}/hosts/proxmox-guest/networking.nix"
+      ../../hosts/proxmox-guest/networking.nix
       config.nixos.modules.hardware-proxmox-guest
 
-      { home-manager.users.thorn = import "${inputs.self}/hosts/proxmox-guest/home.nix"; }
+      { home-manager.users.thorn = import ../../hosts/proxmox-guest/home.nix; }
 
       (
         { ... }:

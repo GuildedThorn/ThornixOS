@@ -5,8 +5,9 @@
 }:
 {
   flake.nixosConfigurations.websites = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
     modules = [
+      { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).websites.system; }
+
       config.nixos.modules.profile-qemu-server
 
       config.nixos.modules.services-canary
@@ -16,9 +17,9 @@
 
       inputs.guildedthorn-com.nixosModules.default
 
-      "${inputs.self}/hosts/websites/disko.nix"
-      "${inputs.self}/hosts/websites/networking.nix"
-      "${inputs.self}/hosts/websites/secrets.nix"
+      ../../hosts/websites/disko.nix
+      ../../hosts/websites/networking.nix
+      ../../hosts/websites/secrets.nix
 
       (
         {

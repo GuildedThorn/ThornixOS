@@ -34,7 +34,7 @@
       config = lib.mkIf cfg.enable {
         programs.notmuch = {
           enable = true;
-          new.tags = [
+          settings.new.tags = [
             "unread"
             "inbox"
             "new"

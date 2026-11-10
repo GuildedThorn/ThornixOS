@@ -1,0 +1,313 @@
+{ inputs, pkgs, ... }:
+{
+  hjem.users.thorn.packages = [ pkgs.freecad ];
+  hjem.users.thorn.files = {
+    ".local/share/FreeCAD/v1-1/Mod/FreeCADMCP".source =
+      inputs."opencode-freecad-mcp-src" + "/addon/FreeCADMCP";
+
+    ".local/share/FreeCAD/v1-1/freecad_mcp_settings.json" = {
+      type = "copy";
+      clobber = true;
+      permissions = "0600";
+      text = builtins.toJSON {
+        # RPC exposes arbitrary Python execution, so start it only
+        # for sessions where OpenCode needs FreeCAD control.
+        remote_enabled = false;
+        allowed_ips = "127.0.0.1";
+        auto_start_rpc = false;
+      };
+    };
+  };
+
+  environment.systemPackages = with pkgs; [
+    asciinema
+
+    corectrl
+    openrgb
+
+    displaylink
+
+    nwg-displays
+    nwg-look
+
+    jellyfin-desktop
+
+    teamspeak6-client
+    element-desktop
+    telegram-desktop
+    slack
+
+    blender
+
+    krita
+
+    kdePackages.kdenlive
+
+    orca-slicer
+
+    fritzing
+
+    steam
+    steam-run
+    steamcmd
+
+    oversteer
+    piper
+
+    heroic
+    osu-lazer-bin
+    clonehero
+
+    retroarch
+    libretro.pcsx-rearmed
+    libretro.pcsx2
+
+    chirp
+
+    arduino
+    arduino-ide
+
+    codex
+    claude-code
+
+    virt-viewer
+
+    system-config-printer
+
+    android-studio
+    android-tools
+
+    mixxx
+    hydrogen
+
+    openxr-loader
+    xrizer
+    wayvr
+
+    wakatime-cli
+
+    swaybg
+    mpvpaper
+    cage
+    grim
+    ffmpeg
+
+    mkuimage
+  ];
+
+  # Hashtopolis agent: single-use voucher encrypted in sops so the
+  # plaintext never touches the nix store.
+  thorn.hashtopolisAgent = {
+    enable = true;
+    url = "https://hashtopolis.guildedthorn.arpa/api/server.php";
+    sopsFile = ./hashtopolis-agent.sops;
+  };
+
+  # -------------------------
+  # Security tooling
+  # -------------------------
+  # The general-purpose security suite, grouped the way Kali groups
+  # its menu. This host is the main analysis workstation, so every
+  # group is on; drop individual groups here rather than forking the
+  # module when the closure gets too heavy.
+  thorn.securityTools = {
+    enable = true;
+
+    groups = {
+      reconnaissance = true;
+      resourceDevelopment = true;
+      initialAccess = true;
+      execution = true;
+      persistence = true;
+      privilegeEscalation = true;
+      defenseEvasion = true;
+      credentialAccess = true;
+      discovery = true;
+      lateralMovement = true;
+      collection = true;
+      commandAndControl = true;
+      exfiltration = true;
+      impact = true;
+
+      exploitation = true;
+      reversing = true;
+      pwn = true;
+      wireless = true;
+      forensics = true;
+      utilities = true;
+    };
+
+    containers = true;
+    hostTuning = true;
+
+    targets = {
+      file = ./htb-targets;
+      etcHosts = true;
+    };
+  };
+
+  # -------------------------
+  # Bootloader (UEFI systems)
+  # -------------------------
+  boot.loader.systemd-boot.enable = false;
+  boot.loader.efi.canTouchEfiVariables = true;
+
+  boot.lanzaboote = {
+    enable = true;
+    pkiBundle = "/var/lib/sbctl";
+  };
+
+  services.printing = {
+    enable = true;
+    drivers = with pkgs; [
+      cups-filters
+      cups-browsed
+      gutenprint
+      canon-cups-ufr2
+    ];
+  };
+
+  services.hardware.openrgb = {
+    enable = true;
+    package = pkgs.openrgb-with-all-plugins;
+  };
+
+  services.smartd = {
+    enable = true;
+    autodetect = true;
+    defaults.autodetected = "-a -s (S/../.././02|L/../../7/04)";
+  };
+
+  services.flatpak.packages = [
+    {
+      appId = "org.vinegarhq.Sober";
+      origin = "flathub";
+    }
+    {
+      appId = "org.vinegarhq.Vinegar";
+      origin = "flathub";
+    }
+    {
+      appId = "io.github.glaumar.QRookie";
+      origin = "flathub";
+    }
+    {
+      appId = "org.gnome.gitlab.cheywood.Pulp";
+      origin = "flathub";
+    }
+    {
+      appId = "com.mongodb.Compass";
+      origin = "flathub";
+    }
+  ];
+
+  services.tailscale.enable = true;
+  services.tailscale.useRoutingFeatures = "both";
+
+  programs.npm.enable = true;
+
+  programs.corectrl = {
+    enable = true;
+  };
+
+  programs.gnupg.agent = {
+    enable = true;
+    enableSSHSupport = false;
+  };
+
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
+  };
+
+  programs.starship = {
+    enable = true;
+  };
+
+  programs.appimage.enable = true;
+  programs.appimage.binfmt = true;
+
+  programs.seahorse.enable = true;
+  programs.dconf.enable = true;
+
+  programs.steam.remotePlay.openFirewall = true;
+  programs.nix-ld.enable = true;
+
+  hardware.gpgSmartcards.enable = true;
+
+  services.ananicy.enable = true;
+  services.ananicy.package = pkgs.ananicy-cpp;
+  services.ananicy.rulesProvider = pkgs.ananicy-cpp;
+
+  services.earlyoom.enable = true;
+
+  services.fwupd.enable = true;
+
+  services.ratbagd.enable = true;
+
+  services.pcscd.enable = true;
+  services.pcscd.plugins = [ pkgs.ccid ];
+
+  services.flatpak.enable = true;
+
+  systemd.oomd.enable = true;
+
+  services.dbus.enable = true;
+
+  services.udev.packages = with pkgs; [
+    yubikey-personalization
+  ];
+
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    openFirewall = true;
+  };
+
+  services.gvfs.enable = true;
+  services.udisks2.enable = true;
+
+  zramSwap = {
+    enable = true;
+    memoryPercent = 25;
+  };
+
+  security.polkit.enable = true;
+  security.rtkit.enable = true;
+
+  services.ollama.package = pkgs.ollama-vulkan;
+
+  security.pam.u2f = {
+    enable = true;
+    control = "sufficient";
+
+    settings = {
+      cue = true;
+      interactive = true;
+    };
+  };
+
+  boot.tmp.useTmpfs = true;
+  boot.tmp.tmpfsSize = "8G";
+
+  boot.supportedFilesystems.nfs = true;
+
+  # The workstation produces large development and gaming logs. Keep
+  # the local incident window bounded; fleet telemetry remains on the
+  # SOC and old Nix generations are still retained by nh's keep rules.
+  programs.nh.clean.dates = "daily";
+  security.auditd.settings = {
+    max_log_file = 100;
+    num_logs = 10;
+  };
+  services.journald.settings.Journal = {
+    SystemMaxUse = "2G";
+    RuntimeMaxUse = "256M";
+    MaxRetentionSec = "14day";
+  };
+
+  security.pam.services.sudo.u2fAuth = true;
+
+  # ThornCloud CA chain (leaf + intermediate) for hashtopolis.guildedthorn.arpa
+  environment.etc."ssl/certs/thorncloud-ca-chain.crt".source = ./hashtopolis-ca-bundle.crt;
+}
