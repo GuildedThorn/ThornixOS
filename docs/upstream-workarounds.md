@@ -52,9 +52,18 @@ before activating the application update.
 Validation during this cleanup: all 30 hosts evaluated, the source and Compose
 lifecycle checks passed, and native Graphify extraction/query smoke tests
 passed. The upstream Arc, kingfisher, ltrace, anyio, and NetExec packages were
-successfully obtained. The n8n 2.39.6 build reached dependency fetching but
-failed on npm registry timeouts/connection resets; its full build and existing
-database behavior remain unverified. No configuration was activated.
+successfully obtained. The n8n 2.39.6 package built successfully after retrying
+the initial npm registry download failures. A disposable, loopback-only runtime
+test completed fresh SQLite migrations, passed editor/broker readiness, and
+authenticated and registered both external JavaScript and Python runners.
+Loom's complete NixOS system closure also built successfully, including its
+external runner launcher and service checks. The test processes were stopped
+afterward. Existing production PostgreSQL data was not migrated and no
+configuration was activated.
+
+The packaged n8n release also logs an upstream deprecation warning for native
+installations, recommending the official container for future versions. Track
+that separately from the current successful native-package checks.
 
 Start with the locked package definition and module, then inspect upstream
 changes. Prefer the normal `services.<name>.package` option over copying an
