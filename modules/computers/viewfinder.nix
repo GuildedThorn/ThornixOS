@@ -42,6 +42,31 @@ in
           lib,
           ...
         }:
+        let
+          kernel = config.boot.kernelPackages.kernel;
+          sc0710Driver = pkgs.stdenv.mkDerivation {
+            pname = "sc0710";
+            version = "2026.10.27-1";
+            src = inputs.sc0710;
+
+            nativeBuildInputs = kernel.moduleBuildDependencies;
+            makeFlags = [
+              "KBUILD_DIR=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
+            ];
+
+            # The upstream package copies only the .ko. Current Nixpkgs
+            # aggregates per-module kmodigest certificates, so generate the
+            # required sc0710.ko.cer sidecar explicitly.
+            installPhase = ''
+              runHook preInstall
+              moduleDir=$out/lib/modules/${kernel.modDirVersion}/updates
+              mkdir -p "$moduleDir"
+              install -D build/sc0710.ko "$moduleDir/sc0710.ko"
+              ${lib.getExe pkgs.kmodigest} "$moduleDir/sc0710.ko"
+              runHook postInstall
+            '';
+          };
+        in
         {
           hardware.sc0710.enable = true;
 
@@ -92,9 +117,13 @@ in
           # visible on either display.
           thorn.captureCard.enable = true;
 
-          boot.extraModulePackages = with config.boot.kernelPackages; [
-            nvidia_x11
-          ];
+          boot.extraModulePackages = lib.mkForce (
+            with config.boot.kernelPackages;
+            [
+              config.hardware.nvidia.package.mod
+              sc0710Driver
+            ]
+          );
 
           nixpkgs.overlays = [
             (final: prev: {
