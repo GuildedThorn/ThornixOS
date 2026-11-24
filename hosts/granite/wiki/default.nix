@@ -23,6 +23,7 @@ let
     "ifixit_en_all_2025-12.zim"
     # API docs that Wikipedia does not carry.
     "devdocs_en_bash_2026-10.zim"
+    "devdocs_en_c_2026-10.zim"
     "devdocs_en_css_2026-10.zim"
     "devdocs_en_docker_2026-10.zim"
     "devdocs_en_git_2026-10.zim"
