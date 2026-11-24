@@ -24,6 +24,7 @@
       config.nixos.modules.services-sdr
       config.nixos.modules.services-ssh
       config.nixos.modules.services-steam
+      config.nixos.modules.services-steam-frame
       config.nixos.modules.services-tablets
       config.nixos.modules.services-velociraptor-client
       config.nixos.modules.services-vr

@@ -58,6 +58,8 @@ in
       thorn.programs.claude-code.enable = true;
       thorn.programs.opencode.enable = true;
       thorn.programs.opencode.integrations.freecad.enable = true;
+      thorn.programs.opencode.integrations.ghidra.enable = true;
+      thorn.programs.hermes.enable = true;
       thorn.programs.loom-client.enable = true;
 
       thorn.programs.matcha = {
