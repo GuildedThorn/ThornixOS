@@ -21,6 +21,7 @@ in
       ../../hosts/granite/wiki
       ../../hosts/granite/reference
       ../../hosts/granite/maps
+      ../../hosts/granite/rfc-viewer
       ../../hosts/granite/secrets.nix
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.hardware-nixos
