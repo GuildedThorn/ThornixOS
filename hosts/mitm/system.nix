@@ -978,8 +978,9 @@ in
         '';
       };
       # Version-matched NixOS / Home Manager / nixpkgs docs generated from the
-      # deployed flake on Granite. /nixos/options.json is machine-readable and
-      # includes this fleet's own module options.
+      # deployed flake on Granite. Upstream /nixos/options.json has no custom
+      # options; /thorn-options.json and /thorn-options/ document this fleet's
+      # own thorn.* options, extracted from the module sources.
       locations."/nixos/" = {
         proxyPass = "http://172.16.25.4:8083/nixos/";
         extraConfig = ''
@@ -994,6 +995,24 @@ in
       };
       locations."/nixpkgs/" = {
         proxyPass = "http://172.16.25.4:8083/nixpkgs/";
+        extraConfig = ''
+          proxy_read_timeout 300s;
+        '';
+      };
+      locations."= /thorn-options.json" = {
+        proxyPass = "http://172.16.25.4:8083/thorn-options.json";
+        extraConfig = ''
+          proxy_read_timeout 300s;
+        '';
+      };
+      locations."= /thorn-options" = {
+        proxyPass = "http://172.16.25.4:8083/thorn-options";
+        extraConfig = ''
+          proxy_read_timeout 300s;
+        '';
+      };
+      locations."= /thorn-options/" = {
+        proxyPass = "http://172.16.25.4:8083/thorn-options/";
         extraConfig = ''
           proxy_read_timeout 300s;
         '';

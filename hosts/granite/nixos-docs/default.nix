@@ -5,12 +5,16 @@
   ...
 }:
 let
-  # Generated from this exact flake, so option docs include ThornixOS' own
-  # modules and match the nixpkgs revision actually deployed to the fleet.
+  # Generated from this exact flake, so the manuals match the nixpkgs revision
+  # deployed to the fleet. The upstream NixOS options JSON does not include
+  # custom modules; ThornixOS' own thorn.* options are extracted separately
+  # from this flake's module sources.
   nixosManual = config.system.build.manual.manualHTML;
   optionsJson = config.system.build.manual.optionsJSON;
   hmManual = inputs.home-manager.packages.${pkgs.system}.docs-html;
   nixpkgsManual = pkgs.nixpkgs-manual;
+  thornOptionsJson = inputs.self.packages.${pkgs.system}.thorn-options-json;
+  thornOptionsHtml = inputs.self.packages.${pkgs.system}.thorn-options-html;
 in
 {
   assertions = [
@@ -47,6 +51,24 @@ in
         alias = "${nixpkgsManual}/share/doc/nixpkgs/";
         extraConfig = ''
           index index.html;
+        '';
+      };
+      "= /thorn-options.json" = {
+        alias = "${thornOptionsJson}";
+        extraConfig = ''
+          default_type application/json;
+        '';
+      };
+      "= /thorn-options" = {
+        alias = "${thornOptionsHtml}";
+        extraConfig = ''
+          default_type text/html;
+        '';
+      };
+      "= /thorn-options/" = {
+        alias = "${thornOptionsHtml}";
+        extraConfig = ''
+          default_type text/html;
         '';
       };
     };
