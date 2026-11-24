@@ -5,6 +5,7 @@ in
 {
   flake.nixosConfigurations.granite = inputs.nixpkgs.lib.nixosSystem {
     modules = [
+      { _module.args.inputs = inputs; }
       { nixpkgs.hostPlatform = (import ../../hosts/inventory.nix).granite.system; }
 
       config.nixos.modules.thorn-headless
@@ -22,6 +23,7 @@ in
       ../../hosts/granite/reference
       ../../hosts/granite/maps
       ../../hosts/granite/rfc-viewer
+      ../../hosts/granite/nixos-docs
       ../../hosts/granite/secrets.nix
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.hardware-nixos

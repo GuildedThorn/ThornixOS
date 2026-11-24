@@ -977,6 +977,27 @@ in
           proxy_read_timeout 300s;
         '';
       };
+      # Version-matched NixOS / Home Manager / nixpkgs docs generated from the
+      # deployed flake on Granite. /nixos/options.json is machine-readable and
+      # includes this fleet's own module options.
+      locations."/nixos/" = {
+        proxyPass = "http://172.16.25.4:8083/nixos/";
+        extraConfig = ''
+          proxy_read_timeout 300s;
+        '';
+      };
+      locations."/home-manager/" = {
+        proxyPass = "http://172.16.25.4:8083/home-manager/";
+        extraConfig = ''
+          proxy_read_timeout 300s;
+        '';
+      };
+      locations."/nixpkgs/" = {
+        proxyPass = "http://172.16.25.4:8083/nixpkgs/";
+        extraConfig = ''
+          proxy_read_timeout 300s;
+        '';
+      };
     };
   };
 
