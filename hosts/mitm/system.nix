@@ -869,6 +869,9 @@ in
       "resolver2.guildedthorn.arpa"
       "hashtopolis.guildedthorn.arpa"
       "threadfin.guildedthorn.arpa"
+      # MITM terminates TLS for the offline Wikipedia vhost; the ZIM and
+      # kiwix-serve backend live on Granite.
+      "wiki.guildedthorn.arpa"
     ];
   };
 
@@ -940,6 +943,24 @@ in
           allow 192.168.1.0/24;
           allow 10.10.10.0/24;
           deny all;
+        '';
+      };
+    };
+    # Offline Wikipedia. TLS terminates here on MITM's shared step-CA cert;
+    # the ZIM and kiwix-serve backend stay on Granite at 172.16.25.4:8082.
+    virtualHosts."wiki.guildedthorn.arpa" = {
+      serverName = "wiki.guildedthorn.arpa";
+      forceSSL = true;
+      useACMEHost = "mitm.guildedthorn.arpa";
+      extraConfig = ''
+        add_header Strict-Transport-Security "max-age=31536000" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "same-origin" always;
+      '';
+      locations."/" = {
+        proxyPass = "http://172.16.25.4:8082";
+        extraConfig = ''
+          proxy_read_timeout 300s;
         '';
       };
     };

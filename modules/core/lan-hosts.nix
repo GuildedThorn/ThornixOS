@@ -28,23 +28,35 @@ in
   # (Loki push, Prometheus scrapes, S3) working no matter which
   # nameserver a host is using.
   nixos.modules.lan-hosts =
-    { ... }:
+    { lib, ... }:
     {
-      networking.hosts = {
-        "172.16.25.1" = [ "pfsense.guildedthorn.arpa" ];
-        "172.16.25.4" = [
-          "truenas.guildedthorn.arpa"
-          "forgejo.guildedthorn.arpa"
-          "jellyfin.guildedthorn.arpa"
-          "immich.guildedthorn.arpa"
-          "qbittorrent.guildedthorn.arpa"
-          "reposilite.guildedthorn.arpa"
-          "prowlarr.guildedthorn.arpa"
-          "seerr.guildedthorn.arpa"
-          "sonarr.guildedthorn.arpa"
-          "radarr.guildedthorn.arpa"
-        ];
-      }
-      // managedHosts;
+      # Merge hostname lists for shared addresses; an attrset update would
+      # replace every service alias with the inventory's single host name.
+      networking.hosts = lib.mkMerge [
+        managedHosts
+        {
+          "172.16.25.2" = [
+            "resolver2.guildedthorn.arpa"
+            "hashtopolis.guildedthorn.arpa"
+            "threadfin.guildedthorn.arpa"
+            "wiki.guildedthorn.arpa"
+          ];
+          "172.16.25.1" = [ "pfsense.guildedthorn.arpa" ];
+          "172.16.25.4" = [
+            "truenas.guildedthorn.arpa"
+            "forgejo.guildedthorn.arpa"
+            "jellyfin.guildedthorn.arpa"
+            "musicgrabber.guildedthorn.arpa"
+            "livesports.guildedthorn.arpa"
+            "immich.guildedthorn.arpa"
+            "qbittorrent.guildedthorn.arpa"
+            "reposilite.guildedthorn.arpa"
+            "prowlarr.guildedthorn.arpa"
+            "seerr.guildedthorn.arpa"
+            "sonarr.guildedthorn.arpa"
+            "radarr.guildedthorn.arpa"
+          ];
+        }
+      ];
     };
 }

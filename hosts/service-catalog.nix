@@ -320,9 +320,10 @@
     id = "thornflix";
     name = "ThornFlix Jellyfin";
     role = "Personal media streaming";
-    host = "truenas";
-    probeUrl = "https://jellyfin.guildedthorn.com/";
-    launchUrl = "https://jellyfin.guildedthorn.com/";
+    host = "granite";
+    inventoryHost = "granite";
+    probeUrl = "https://jellyfin.guildedthorn.arpa/";
+    launchUrl = "https://jellyfin.guildedthorn.arpa/";
     icon = "mdi:jellyfish";
     aliases = [
       "thorn flix"
@@ -332,13 +333,63 @@
     ];
   }
   {
+    id = "musicgrabber";
+    name = "MusicGrabber";
+    role = "Spotify playlist importer";
+    host = "granite";
+    inventoryHost = "granite";
+    probeUrl = "https://musicgrabber.guildedthorn.arpa/";
+    launchUrl = "https://musicgrabber.guildedthorn.arpa/";
+    icon = "mdi:music-download";
+    aliases = [
+      "music grabber"
+      "musicgrabber"
+      "spotify playlists"
+      "music downloads"
+    ];
+  }
+  {
+    id = "livesports";
+    name = "Live Sports";
+    role = "Nuvio live sports addon";
+    host = "granite";
+    inventoryHost = "granite";
+    probeUrl = "https://livesports.guildedthorn.arpa/manifest.json";
+    launchUrl = "https://livesports.guildedthorn.arpa/configure";
+    icon = "mdi:sports";
+    aliases = [
+      "live sports"
+      "livesports"
+      "nuvio"
+      "stremio"
+      "sports addon"
+    ];
+  }
+  {
+    id = "wiki";
+    name = "Wikipedia";
+    role = "Offline Wikipedia (Kiwix ZIM on Granite)";
+    host = "mitm";
+    inventoryHost = "mitm";
+    probeUrl = "https://wiki.guildedthorn.arpa/";
+    launchUrl = "https://wiki.guildedthorn.arpa/";
+    icon = "mdi:books";
+    aliases = [
+      "wiki"
+      "wikipedia"
+      "kiwix"
+      "offline encyclopedia"
+      "reference"
+    ];
+  }
+  {
     id = "owncast";
     name = "Owncast";
     role = "Self-hosted live streaming";
     host = "websites";
     inventoryHost = "websites";
-    probeUrl = "http://172.16.25.50:8090/";
-    launchUrl = "";
+    probeUrl = "http://172.16.25.50:8090/api/status";
+    launchUrl = "http://172.16.25.50:8090/";
     icon = "mdi:broadcast";
     aliases = [
       "owncast"
@@ -464,25 +515,11 @@
     ];
   }
   {
-    id = "truenas";
-    name = "TrueNAS";
-    role = "Storage management";
-    host = "truenas";
-    probeUrl = "https://truenas.guildedthorn.arpa/";
-    launchUrl = "https://truenas.guildedthorn.arpa/";
-    icon = "mdi:nas";
-    aliases = [
-      "true nas"
-      "truenas"
-      "nas"
-      "storage server"
-    ];
-  }
-  {
     id = "seaweedfs";
     name = "SeaweedFS";
     role = "S3 object storage";
-    host = "truenas";
+    host = "granite";
+    inventoryHost = "granite";
     probeUrl = "https://truenas.guildedthorn.arpa:30304/";
     launchUrl = "";
     icon = "mdi:database-cog-outline";
