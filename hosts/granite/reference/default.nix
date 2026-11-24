@@ -13,17 +13,14 @@ in
     }
   ];
 
-  # These are manual downloads, kept out of the Nix store. The directories are
-  # served on Granite's LAN address (the firewall below restricts clients to
-  # MITM); MITM proxies them on wiki.guildedthorn.arpa.
+  # RFC text is a manual download, kept out of the Nix store. It is served on
+  # Granite's LAN address (the firewall below restricts clients to MITM); MITM
+  # proxies it on wiki.guildedthorn.arpa/rfc/. The maps module owns /maps/.
   # Populate with:
   #   sudo rsync -avz rsync.rfc-editor.org::rfcs-text-only \
   #     /platter/services/reference/rfc/
-  #   sudo curl -L -C - -o /platter/services/reference/maps/illinois-latest.osm.pbf \
-  #     https://download.geofabrik.de/north-america/us/illinois-latest.osm.pbf
   systemd.tmpfiles.rules = [
     "d ${root}/rfc 0755 root root -"
-    "d ${root}/maps 0755 root root -"
   ];
 
   services.nginx = {
@@ -37,13 +34,6 @@ in
       ];
       locations."/rfc/" = {
         alias = "${root}/rfc/";
-        extraConfig = ''
-          autoindex on;
-          autoindex_exact_size off;
-        '';
-      };
-      locations."/maps/" = {
-        alias = "${root}/maps/";
         extraConfig = ''
           autoindex on;
           autoindex_exact_size off;
