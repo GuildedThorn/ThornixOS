@@ -9,13 +9,17 @@
       # nixpkgs 6.3.0-48 sources the driver with requireFile (manual EULA
       # download), which no automated builder can satisfy.  The vendor URL is
       # directly fetchable and hashes to the same value, so bypass requireFile.
-      displaylink = (pkgs.displaylink.override { inherit evdi; }).overrideAttrs (_: {
-        src = pkgs.fetchurl {
-          name = "displaylink-630.zip";
-          url = "https://www.synaptics.com/sites/default/files/exe_files/2026-06/DisplayLink%20USB%20Graphics%20Software%20for%20Ubuntu6.3-EXE.zip";
-          hash = "sha256-cmmFbHUnBgxRMhXOG1o2/vB02Oicq4m8qxPfNCrM4Jg=";
-        };
-      });
+      displaylink =
+        (pkgs.displaylink.override {
+          linuxPackages = config.boot.kernelPackages;
+        }).overrideAttrs
+          (_: {
+            src = pkgs.fetchurl {
+              name = "displaylink-630.zip";
+              url = "https://www.synaptics.com/sites/default/files/exe_files/2026-06/DisplayLink%20USB%20Graphics%20Software%20for%20Ubuntu6.3-EXE.zip";
+              hash = "sha256-cmmFbHUnBgxRMhXOG1o2/vB02Oicq4m8qxPfNCrM4Jg=";
+            };
+          });
     in
     {
 
