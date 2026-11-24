@@ -963,6 +963,20 @@ in
           proxy_read_timeout 300s;
         '';
       };
+      # Complementary offline reference data stored on Granite: IETF RFCs
+      # (authoritative specs) and regional map extracts.
+      locations."/rfc/" = {
+        proxyPass = "http://172.16.25.4:8083/rfc/";
+        extraConfig = ''
+          proxy_read_timeout 300s;
+        '';
+      };
+      locations."/maps/" = {
+        proxyPass = "http://172.16.25.4:8083/maps/";
+        extraConfig = ''
+          proxy_read_timeout 300s;
+        '';
+      };
     };
   };
 

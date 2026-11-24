@@ -19,6 +19,7 @@ in
       ../../hosts/granite/musicgrabber
       ../../hosts/granite/live-sports
       ../../hosts/granite/wiki
+      ../../hosts/granite/reference
       ../../hosts/granite/secrets.nix
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.hardware-nixos
