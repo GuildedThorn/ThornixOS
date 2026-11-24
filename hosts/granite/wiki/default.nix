@@ -11,7 +11,7 @@ let
   # --skipInvalid until downloaded. Add filenames below, then restart
   # kiwix-serve to pick them up. Fetch each from its Kiwix area:
   #   curl -L -C - -o /platter/services/kiwix/<file> \
-  #     https://download.kiwix.org/zim/<wikipedia|stack_exchange|ifixit|devdocs>/<file>
+  #     https://download.kiwix.org/zim/<wikipedia|stack_exchange|ifixit|zimit|devdocs>/<file>
   zimDir = "/platter/services/kiwix";
   zimNames = [
     "wikipedia_en_all_maxi_2026-08.zim"
@@ -21,6 +21,8 @@ let
     "superuser.com_en_all_2026-10.zim"
     # Step-by-step repair procedures.
     "ifixit_en_all_2025-12.zim"
+    # Consumer health reference from the US National Library of Medicine.
+    "medlineplus.gov_en_all_2025-01.zim"
     # API docs that Wikipedia does not carry.
     "devdocs_en_bash_2026-10.zim"
     "devdocs_en_c_2026-10.zim"
