@@ -8,19 +8,24 @@
     let
       extractor = "${inputs.self}/lib/thorn-options-extract.py";
 
-      mkDoc =
-        name: mode:
-        pkgs.runCommand name
-          {
-            nativeBuildInputs = [ pkgs.python3 ];
-            meta.description = "ThornixOS thorn.* options in ${mode} format";
-          }
-          ''
-            ${pkgs.python3.interpreter} ${extractor} ${inputs.self} ${mode} > $out
-          '';
+      commonMeta = {
+        nativeBuildInputs = [ pkgs.python3 ];
+      };
+
+      thornOptionsJson = pkgs.runCommand "thorn-options.json" commonMeta ''
+        ${pkgs.python3.interpreter} ${extractor} ${inputs.self} json > $out
+      '';
+
+      # A directory with index.html lets nginx serve /thorn-options/ via a
+      # normal prefix location. Aliasing a file from a trailing-slash location
+      # makes nginx look for <file>/index.html and return 500.
+      thornOptionsHtml = pkgs.runCommand "thorn-options-html" commonMeta ''
+        mkdir -p $out
+        ${pkgs.python3.interpreter} ${extractor} ${inputs.self} html > $out/index.html
+      '';
     in
     {
-      packages.thorn-options-json = mkDoc "thorn-options.json" "json";
-      packages.thorn-options-html = mkDoc "thorn-options.html" "html";
+      packages.thorn-options-json = thornOptionsJson;
+      packages.thorn-options-html = thornOptionsHtml;
     };
 }

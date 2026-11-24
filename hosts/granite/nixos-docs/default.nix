@@ -60,14 +60,15 @@ in
         '';
       };
       "= /thorn-options" = {
-        alias = "${thornOptionsHtml}";
+        alias = "${thornOptionsHtml}/index.html";
         extraConfig = ''
           default_type text/html;
         '';
       };
-      "= /thorn-options/" = {
-        alias = "${thornOptionsHtml}";
+      "/thorn-options/" = {
+        alias = "${thornOptionsHtml}/";
         extraConfig = ''
+          index index.html;
           default_type text/html;
         '';
       };

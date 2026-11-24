@@ -1011,7 +1011,7 @@ in
           proxy_read_timeout 300s;
         '';
       };
-      locations."= /thorn-options/" = {
+      locations."/thorn-options/" = {
         proxyPass = "http://172.16.25.4:8083/thorn-options/";
         extraConfig = ''
           proxy_read_timeout 300s;
