@@ -2,6 +2,7 @@
 let
   root = "/platter/services/reference";
   port = 8083;
+  graniteAddress = "172.16.25.4";
   mitmAddress = "172.16.25.2";
 in
 {
@@ -13,7 +14,8 @@ in
   ];
 
   # These are manual downloads, kept out of the Nix store. The directories are
-  # served read-only over loopback; MITM proxies them on wiki.guildedthorn.arpa.
+  # served on Granite's LAN address (the firewall below restricts clients to
+  # MITM); MITM proxies them on wiki.guildedthorn.arpa.
   # Populate with:
   #   sudo rsync -avz rsync.rfc-editor.org::rfcs-text-only \
   #     /platter/services/reference/rfc/
@@ -29,7 +31,7 @@ in
     virtualHosts."reference-internal" = {
       listen = [
         {
-          addr = "127.0.0.1";
+          addr = graniteAddress;
           port = port;
         }
       ];
