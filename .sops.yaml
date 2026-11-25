@@ -110,6 +110,9 @@ creation_rules:
   - path_regex: hosts/forge/secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_forge
+  - path_regex: hosts/granite/nix-cache\.secrets\.ya?ml$
+    pgp: *admin_jamie
+    age: *host_granite
   - path_regex: hosts/anvil/backup-secrets\.ya?ml$
     pgp: *admin_jamie
     age: *host_anvil

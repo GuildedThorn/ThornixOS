@@ -68,6 +68,12 @@ let
       icon = "mdi:books";
     }
     {
+      title = "Nix cache";
+      url = "https://cache.guildedthorn.arpa/nix-cache-info";
+      check-url = "https://cache.guildedthorn.arpa/nix-cache-info";
+      icon = "mdi:package-variant-closed";
+    }
+    {
       title = "Forgejo";
       url = "https://forgejo.guildedthorn.arpa/";
       check-url = "https://forgejo.guildedthorn.arpa/api/healthz";
@@ -131,6 +137,7 @@ let
       (link "MusicGrabber" "https://musicgrabber.guildedthorn.arpa/")
       (link "Live Sports" "https://livesports.guildedthorn.arpa/configure")
       (link "Wikipedia" "https://wiki.guildedthorn.arpa/")
+      (link "Nix cache" "https://cache.guildedthorn.arpa/nix-cache-info")
       (link "Forgejo" "https://forgejo.guildedthorn.arpa/")
     ]
     ++ serviceLinks [

@@ -24,6 +24,7 @@ in
       ../../hosts/granite/maps
       ../../hosts/granite/rfc-viewer
       ../../hosts/granite/nixos-docs
+      ../../hosts/granite/nix-cache
       ../../hosts/granite/secrets.nix
       config.nixos.modules.services-thorncloud-acme
       config.nixos.modules.hardware-nixos

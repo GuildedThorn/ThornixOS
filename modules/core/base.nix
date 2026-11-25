@@ -26,10 +26,17 @@
         # CI uploads every successful host closure to this public cache.
         # Consume those artifacts on the fleet instead of rebuilding the
         # same packages locally during each comin deployment.
-        extra-substituters = [ "https://guildedthorn.cachix.org" ];
+        # The LAN Harmonia cache is authoritative for this fleet's closures;
+        # Cachix remains a fallback for packages not yet mirrored.
+        extra-substituters = [
+          "https://cache.guildedthorn.arpa"
+          "https://guildedthorn.cachix.org"
+        ];
         extra-trusted-public-keys = [
+          "cache.guildedthorn.arpa-1:FiC7ATzV0EBfOYZU/L53SqLG1bwtpbeSa3Ly9vz84/w="
           "guildedthorn.cachix.org-1:xBlJbEHPcUXnI4D261WqjlM1/WgPqn2yWH6c5BMOxHc="
         ];
+        connect-timeout = 5;
       };
 
       services.resolved.enable = false;

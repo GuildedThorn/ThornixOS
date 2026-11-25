@@ -19,6 +19,23 @@
     ];
   }
   {
+    id = "nix-cache";
+    name = "Nix cache";
+    role = "Fleet binary cache";
+    host = "granite";
+    inventoryHost = "granite";
+    probeUrl = "https://cache.guildedthorn.arpa/nix-cache-info";
+    launchUrl = "https://cache.guildedthorn.arpa/nix-cache-info";
+    icon = "mdi:package-variant-closed";
+    aliases = [
+      "cache"
+      "nix cache"
+      "harmonia"
+      "binary cache"
+      "substituter"
+    ];
+  }
+  {
     id = "atlas";
     name = "Atlas";
     role = "NetBox inventory";

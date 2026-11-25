@@ -48,6 +48,7 @@ in
             "jellyfin.guildedthorn.arpa"
             "musicgrabber.guildedthorn.arpa"
             "livesports.guildedthorn.arpa"
+            "cache.guildedthorn.arpa"
             "immich.guildedthorn.arpa"
             "qbittorrent.guildedthorn.arpa"
             "reposilite.guildedthorn.arpa"
