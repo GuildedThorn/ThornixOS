@@ -77,7 +77,9 @@ let
         cached=$((cached + 1))
       elif $nixStore -qR "$out" >/dev/null 2>&1; then
         printf 'copy %-16s local store\n' "$host"
-        if $nix copy --to "$targetStore" "$out" >/dev/null; then
+        # The target store has no reason to trust narinfo signatures from the
+        # host store, so disable signature checks for this local-to-local copy.
+        if $nix copy --no-check-sigs --to "$targetStore" "$out" >/dev/null; then
           copied=$((copied + 1))
         else
           failed=$((failed + 1))
