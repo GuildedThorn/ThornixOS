@@ -13,7 +13,9 @@ let
   # transparent zstd compression; clients still see /nix/store paths.
   storeRoot = "/platter/services/nix-cache";
   storeDir = "${storeRoot}/nix/store";
-  dbPath = "${storeRoot}/nix/var/nix/db/db.sqlite";
+  dbDir = "${storeRoot}/nix/var/nix/db";
+  dbPath = "${dbDir}/db.sqlite";
+  rootDir = "${storeRoot}/nix/var/nix/gcroots/auto";
 
   nix = "${config.nix.package}/bin/nix";
   nixStore = "${config.nix.package}/bin/nix-store";
@@ -22,6 +24,19 @@ let
   # Granite's /etc/nixos is a deployment directory without flake.nix, so use
   # the exact flake source baked into this system closure instead.
   flakeSource = inputs.self.outPath;
+
+  # Harmonia refuses to start until the SQLite database exists, but the first
+  # populate may not happen until days after boot. Seed an empty database with
+  # nix-store so the cache is immediately available.
+  init = pkgs.writeShellScript "nix-cache-init" ''
+    set -eu
+
+    dbPath=${lib.escapeShellArg dbPath}
+    if [ ! -f "$dbPath" ]; then
+      ${lib.escapeShellArg nixStore} --store ${lib.escapeShellArg "local?root=${storeRoot}"} \
+        --load-db </dev/null
+    fi
+  '';
 
   populate = pkgs.writeShellScript "nix-cache-populate" ''
     set -o pipefail
@@ -106,6 +121,9 @@ in
 
   systemd.tmpfiles.rules = [
     "d ${storeRoot} 0755 root root -"
+    "d ${storeDir} 0755 root root -"
+    "d ${dbDir} 0755 root root -"
+    "d ${rootDir} 0755 root root -"
   ];
 
   sops.secrets."nix-cache-signing-key" = {
@@ -127,6 +145,24 @@ in
         nix_db_path = dbPath;
       };
     };
+  };
+
+  systemd.services."nix-cache-init" = {
+    description = "Initialize the local Nix binary cache database";
+    unitConfig.RequiresMountsFor = [ storeRoot ];
+    path = [ config.nix.package ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = init;
+      RemainAfterExit = true;
+    };
+  };
+
+  # Harmonia is socket-activated. Pull in the initializer before its service
+  # starts so a fresh boot does not answer requests with 502.
+  systemd.services.harmonia = {
+    requires = [ "nix-cache-init.service" ];
+    after = [ "nix-cache-init.service" ];
   };
 
   systemd.services."nix-cache-populate" = {
