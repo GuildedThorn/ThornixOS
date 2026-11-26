@@ -16,10 +16,19 @@ let
   # Build the crate's matching bundled RocksDB instead; this preserves the
   # existing database format and removes the unstable cross-version ABI.
   stalwartPackage = pkgs.stalwart_0_16.overrideAttrs (old: {
-    env = builtins.removeAttrs old.env [
-      "ROCKSDB_INCLUDE_DIR"
-      "ROCKSDB_LIB_DIR"
-    ];
+    env =
+      (builtins.removeAttrs old.env [
+        "ROCKSDB_INCLUDE_DIR"
+        "ROCKSDB_LIB_DIR"
+      ])
+      // {
+        # Stalwart pins fat LTO with codegen-units=1 in its release profile.
+        # On Forge that final link takes >100 min and gets OOM-killed, which
+        # repeatedly times out production.courier. Use the ordinary release
+        # profile instead so the Hydra job can finish reliably.
+        CARGO_PROFILE_RELEASE_LTO = "false";
+        CARGO_PROFILE_RELEASE_CODEGEN_UNITS = "16";
+      };
   });
 
   launcher = pkgs.writeShellScript "courier-stalwart-launch" ''
