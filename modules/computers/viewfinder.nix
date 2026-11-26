@@ -7,6 +7,8 @@
       config.nixos.modules.thorn-interactive
       inputs.sc0710.nixosModules.default
       config.nixos.modules.hardware-sc0710-firmware
+      config.nixos.modules.hardware-sc0710-signed
+      { _module.args.sc0710Src = inputs.sc0710; }
 
       config.nixos.modules.desktop-hyprland
       config.nixos.modules.processor-amd
