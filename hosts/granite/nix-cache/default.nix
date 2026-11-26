@@ -21,9 +21,26 @@ let
   nixStore = "${config.nix.package}/bin/nix-store";
   cachix = "https://guildedthorn.cachix.org";
 
-  # Granite's /etc/nixos is a deployment directory without flake.nix, so use
-  # the exact flake source baked into this system closure instead.
+  # Granite's /etc/nixos is a deployment directory without flake.nix. The
+  # baked inputs.self.outPath is only a fallback: it is whatever revision
+  # built this granite system and goes stale as soon as production advances.
   flakeSource = inputs.self.outPath;
+
+  # Walk the current flake's complete input graph so a deployment can fetch
+  # flake sources from the LAN cache instead of waiting on Cachix/GitHub. The
+  # flake URL is passed through the environment because the revision is only
+  # known at runtime, after git ls-remote reads the production branch.
+  inputPathsExpr = pkgs.writeText "nix-cache-input-paths.nix" ''
+    let
+      flake = builtins.getFlake (builtins.getEnv "THORNIX_FLAKE");
+      walk = input:
+        [ input.outPath ]
+        ++ (builtins.concatLists (map walk (builtins.attrValues (input.inputs or {}))));
+      uniq = builtins.foldl'
+        (acc: path: if builtins.elem path acc then acc else acc ++ [ path ])
+        [ ];
+    in uniq (walk flake)
+  '';
 
   # Harmonia refuses to start until the SQLite database exists, but the first
   # populate may not happen until days after boot. Seed an empty database with
@@ -41,15 +58,54 @@ let
   populate = pkgs.writeShellScript "nix-cache-populate" ''
     set -o pipefail
 
-    flake=${lib.escapeShellArg flakeSource}
     storeRoot=${lib.escapeShellArg storeRoot}
     targetStore="local?root=$storeRoot"
     rootDir="$storeRoot/nix/var/nix/gcroots/auto"
     nix=${lib.escapeShellArg nix}
     nixStore=${lib.escapeShellArg nixStore}
     cachix=${lib.escapeShellArg cachix}
+    git=${lib.escapeShellArg "${pkgs.git}/bin/git"}
+    jq=${lib.escapeShellArg "${pkgs.jq}/bin/jq"}
+    inputPathsExpr=${lib.escapeShellArg inputPathsExpr}
 
     mkdir -p "$rootDir"
+
+    # Follow the branch Hydra promotes, not the revision baked into granite.
+    rev=$($git ls-remote https://github.com/GuildedThorn/ThornixOS.git \
+      refs/heads/production | awk '{print $1}')
+    if [ -n "$rev" ]; then
+      flake="github:GuildedThorn/ThornixOS/$rev"
+    else
+      printf 'ls-remote failed; falling back to baked flake source\n' >&2
+      flake=${lib.escapeShellArg flakeSource}
+    fi
+    export THORNIX_FLAKE="$flake"
+    printf 'nix-cache-populate: flake %s\n' "$flake"
+
+    # Eval only needs sources. Mirror them before closures so a host whose
+    # config predates the LAN substituter can still evaluate the new commit.
+    sourced=0
+    sourceCached=0
+    sourceFailed=0
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      if $nixStore --store "$targetStore" -q "$path" >/dev/null 2>&1; then
+        sourceCached=$((sourceCached + 1))
+        continue
+      fi
+      if ! $nixStore -q "$path" >/dev/null 2>&1; then
+        printf 'skip-source %s\n' "$path"
+        sourceFailed=$((sourceFailed + 1))
+        continue
+      fi
+      if $nix copy --no-check-sigs --to "$targetStore" "$path"; then
+        sourced=$((sourced + 1))
+      else
+        sourceFailed=$((sourceFailed + 1))
+      fi
+    done < <($nix eval --json --file "$inputPathsExpr" | $jq -r '.[]')
+    printf 'nix-cache-populate: %s sources copied, %s cached, %s failed\n' \
+      "$sourced" "$sourceCached" "$sourceFailed"
 
     hosts=$($nix eval --raw --no-write-lock-file "$flake#nixosConfigurations" \
       --apply 'c: builtins.concatStringsSep " " (builtins.attrNames c)')
@@ -87,7 +143,10 @@ let
         fi
       else
         printf 'pull %-16s cachix\n' "$host"
-        if $nix copy --from "$cachix" --to "$targetStore" "$out" >/dev/null; then
+        # Cachix holds the fleet-built paths; cache.nixos.org fills in any
+        # upstream derivation that a release push did not mirror.
+        if $nix copy --from "$cachix" --from https://cache.nixos.org \
+          --to "$targetStore" "$out" >/dev/null; then
           copied=$((copied + 1))
         else
           failed=$((failed + 1))
@@ -179,6 +238,8 @@ in
       config.nix.package
       pkgs.coreutils
       pkgs.gawk
+      pkgs.git
+      pkgs.jq
     ];
     serviceConfig = {
       Type = "oneshot";
@@ -188,10 +249,11 @@ in
   };
 
   systemd.timers."nix-cache-populate" = {
-    description = "Weekly refresh of the local Nix binary cache";
+    description = "Refresh the local Nix binary cache from the production tip";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "weekly";
+      # A promotion can land at any hour; keep the stale window short.
+      OnCalendar = "0/6:00";
       Persistent = true;
       RandomizedDelaySec = "30m";
     };
