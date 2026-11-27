@@ -144,10 +144,17 @@ let
       else
         printf 'pull %-16s cachix\n' "$host"
         # Cachix holds the fleet-built paths; cache.nixos.org fills in any
-        # upstream derivation that a release push did not mirror.
-        if $nix copy --from "$cachix" --from https://cache.nixos.org \
-          --to "$targetStore" "$out" >/dev/null; then
-          copied=$((copied + 1))
+        # upstream derivation that a release push did not mirror. Realize into
+        # the host store first: nix copy --from does not honor the host's
+        # trusted-public-keys when the destination is a chroot store, while
+        # nix-store -r does. The second hop is a local-to-local copy.
+        if $nixStore -r "$out" >/dev/null; then
+          if $nix copy --no-check-sigs --to "$targetStore" "$out" >/dev/null; then
+            copied=$((copied + 1))
+          else
+            failed=$((failed + 1))
+            continue
+          fi
         else
           failed=$((failed + 1))
           continue
