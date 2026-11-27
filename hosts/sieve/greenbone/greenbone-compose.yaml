@@ -2,6 +2,8 @@
 # https://greenbone.github.io/docs/latest/_static/compose.yaml
 # Upstream snapshot SHA256 (2026-08-06):
 # 5b5117a7c200491de13bc7b79c97dc858c016c51017982d8f1de7ca077c1a868
+# Application-image digests refreshed 2026-11-27 after Greenbone republished
+# the rolling stable/stable-slim/latest tags.
 #
 # Executable application images are pinned to their linux/amd64 manifest
 # digests. Feed/data images deliberately remain on Greenbone's rolling tags and
@@ -86,7 +88,7 @@ services:
       - redis_socket_vol:/run/redis/
 
   pg-gvm:
-    image: registry.community.greenbone.net/community/pg-gvm@sha256:53074d63752c4b6c920947e7cfb0d5e09accb73d4665e9f70944f4eb8481bc4c
+    image: registry.community.greenbone.net/community/pg-gvm@sha256:6684d563b55856a584e1977d55e99783bbca56992741b70d8017351f48696b15
     deploy:
       restart_policy:
         condition: any
@@ -98,7 +100,7 @@ services:
         condition: service_completed_successfully
 
   pg-gvm-migrator:
-    image: registry.community.greenbone.net/community/pg-gvm-migrator@sha256:8f0e18535a240c11dd97563fb632238949c3a8174e5f73f402b110b19c87f96a
+    image: registry.community.greenbone.net/community/pg-gvm-migrator@sha256:3bca45b45c5fc7bd5223f1e80c6fa1eb445f2a4c50d7b23796e88595c79b2e08
     deploy:
       restart_policy:
         condition: none
@@ -107,7 +109,7 @@ services:
       - psql_socket_vol:/var/run/postgresql
 
   gvmd:
-    image: registry.community.greenbone.net/community/gvmd@sha256:c693b7df1f0ab5bb914c1bf2496e9e20f6fed40997929fab32cc1e9ce355e9bc
+    image: registry.community.greenbone.net/community/gvmd@sha256:f00e82fd353e8cd1dc5230704bb53c5497b66ad9beb777db6e9918fc129f6606
     deploy:
       restart_policy:
         condition: any
@@ -136,7 +138,7 @@ services:
         condition: service_healthy
 
   gsa:
-    image: registry.community.greenbone.net/community/gsa@sha256:80b2e52f88edf998140fa14b7ee17cfbfe498bd12010f5d8dfb1eda795e341d2
+    image: registry.community.greenbone.net/community/gsa@sha256:66e0bc3ca2c49d38a800c70c3d07cf87eda68f3ae367d62d703321604926948f
     environment:
       MOUNT_PATH: "/mnt/web"
       KEEP_ALIVE: "1"
@@ -147,7 +149,7 @@ services:
       - gsa_data_vol:/mnt/web
 
   gsad:
-    image: registry.community.greenbone.net/community/gsad@sha256:27e71e848bc0a94f1df319df5f654af75d9c184c477ec386fb1906256edff8b1
+    image: registry.community.greenbone.net/community/gsad@sha256:12bfab5c8ff0a4c909d1fb0ffac6dedf68789a88a370ceed31c8330043d6cdc1
     deploy:
       restart_policy:
         condition: any
@@ -162,7 +164,7 @@ services:
         condition: service_started
 
   gvm-config:
-    image: registry.community.greenbone.net/community/gvm-config@sha256:1d3bfb92a808c167c54da69cd97cb3ba76fcb250ce19fbff0000f912726f23fe
+    image: registry.community.greenbone.net/community/gvm-config@sha256:f552513d0e4a890f1e750d089fb4edd466b004e889b8975c2e6cdb42fce8232a
     environment:
       ENABLE_NGINX_CONFIG: "true"
       ENABLE_TLS_GENERATION: "true"
@@ -173,7 +175,7 @@ services:
       - nginx_certificates_vol:/mnt/nginx/certs
 
   nginx:
-    image: registry.community.greenbone.net/community/nginx@sha256:749af0885e10921ef3173f64ed616b92c2eef09566a9864a9c1d7b8eb5cc1d5f
+    image: registry.community.greenbone.net/community/nginx@sha256:460ec3761cabddc91299b4b04696aceed386da323dc660b84653e016102d4a3a
     # The generated self-signed listener is never exposed to the network.
     # NixOS nginx reaches it over loopback and terminates trusted Anvil TLS.
     ports:
@@ -194,7 +196,7 @@ services:
         condition: service_started
 
   configure-openvas:
-    image: registry.community.greenbone.net/community/openvas-scanner@sha256:b77f650fdbd26d7561719427cd8ae82aaf2726290228b49da1365af206e98ce8
+    image: registry.community.greenbone.net/community/openvas-scanner@sha256:2c449225f0d3d10cb2b19aaf41af5a3c027add51003bb46212a2d6fa9427b4e1
     volumes:
       - openvas_data_vol:/mnt
       - openvas_log_data_vol:/var/log/openvas
@@ -210,7 +212,7 @@ services:
         chmod 666 /var/log/openvas/openvas.log
 
   openvas:
-    image: registry.community.greenbone.net/community/openvas-scanner@sha256:b77f650fdbd26d7561719427cd8ae82aaf2726290228b49da1365af206e98ce8
+    image: registry.community.greenbone.net/community/openvas-scanner@sha256:2c449225f0d3d10cb2b19aaf41af5a3c027add51003bb46212a2d6fa9427b4e1
     volumes:
       - openvas_data_vol:/etc/openvas
       - openvas_log_data_vol:/var/log/openvas
@@ -225,7 +227,7 @@ services:
         condition: service_completed_successfully
 
   openvasd:
-    image: registry.community.greenbone.net/community/openvas-scanner@sha256:b77f650fdbd26d7561719427cd8ae82aaf2726290228b49da1365af206e98ce8
+    image: registry.community.greenbone.net/community/openvas-scanner@sha256:2c449225f0d3d10cb2b19aaf41af5a3c027add51003bb46212a2d6fa9427b4e1
     deploy:
       restart_policy:
         condition: any
@@ -253,7 +255,7 @@ services:
           - openvasd
 
   ospd-openvas:
-    image: registry.community.greenbone.net/community/ospd-openvas@sha256:72abd2a379b4f33e35d70de547fb47cfc0f624ab9c724d91b33935fa82e8a161
+    image: registry.community.greenbone.net/community/ospd-openvas@sha256:088c03ce1c4ed2ae12d397722b07881a2f34fe4609a6a17c35a850dce5d46593
     deploy:
       restart_policy:
         condition: any
@@ -294,7 +296,7 @@ services:
         condition: service_healthy
 
   gvm-tools:
-    image: registry.community.greenbone.net/community/gvm-tools@sha256:8c47d3401a509e802ebfec6c30e730b59eb30a49563917d1d77ad89c07e8f3ef
+    image: registry.community.greenbone.net/community/gvm-tools@sha256:af65ffb9cdce502fa1218dc1e7f8feb2dc62c59806efe76e1ccd66fa3f8911b6
     volumes:
       - gvmd_socket_vol:/run/gvmd
       - ospd_openvas_socket_vol:/run/ospd
