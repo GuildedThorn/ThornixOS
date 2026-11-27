@@ -53,6 +53,7 @@ in
     domain = hostname;
     extraDomainNames = [
       "jellyfin.guildedthorn.arpa"
+      "musicgrabber.guildedthorn.arpa"
       "immich.guildedthorn.arpa"
       "reposilite.guildedthorn.arpa"
       "qbittorrent.guildedthorn.arpa"
